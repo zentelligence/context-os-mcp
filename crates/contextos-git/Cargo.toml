@@ -1,0 +1,27 @@
+[package]
+name = "contextos-git"
+description = "Local Git versioning adapter for ContextOS Server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+contextos-core = { path = "../contextos-core" }
+git2.workspace = true
+sha2.workspace = true
+similar.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+contextos-fs = { path = "../contextos-fs" }
+contextos-index = { path = "../contextos-index" }
+contextos-oplog = { path = "../contextos-oplog" }
+tempfile.workspace = true
+time.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,116 @@
+[workspace]
+members = [
+    "crates/contextos-core",
+    "crates/contextos-ephemeris",
+    "crates/contextos-fs",
+    "crates/contextos-git",
+    "crates/contextos-index",
+    "crates/contextos-mermaid",
+    "crates/contextos-obsidian",
+    "crates/contextos-oplog",
+    "crates/contextos-search",
+    "crates/contextos-server",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.20.1"
+edition = "2024"
+rust-version = "1.96"
+authors = ["Zentelligence Pty Ltd"]
+license = "Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+astro = "2.0.0"
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
+base64 = "0.22.1"
+camino = { version = "1.2", features = ["serde1"] }
+clap = { version = "4.6.2", features = ["derive"] }
+directories = "6.0.0"
+dunce = "1.0"
+fastembed = { version = "5.17.3", default-features = false, features = ["ort-download-binaries-rustls-tls"] }
+# Pinned exactly, matching this workspace's convention for dependencies that
+# own a persisted on-disk format (see the sqlite-vec/rusqlite note below):
+# the link-graph cache is exactly that kind of surface.
+fjall = "=3.1.8"
+git2 = { version = "0.21.0", default-features = false }
+globset = "0.4"
+# `contextos model download` only: fetches the shared local embedding model
+# directly (never through fastembed's own `hf-hub` feature, which stays off
+# for `contextos-search`'s `semantic-local` provider per
+# phase-5-decision-addendum.md A1). Default features (ureq, native-tls).
+hf-hub = "0.5"
+ignore = "0.4"
+infer = "0.22.0"
+# `contextos config` (guided setup) only: interactive terminal wizard for
+# vault/model/host-registration setup. Default features (crossterm terminal
+# backend, fuzzy select, macros) are all genuinely used by the wizard, not
+# bloat.
+inquire = "0.9.4"
+# Pinned exactly per requirements.md D-11: pre-1.0 (alpha), parity-focused
+# headless Mermaid parser. mermaid-svg is the documented fallback behind the
+# same ParsesMermaid/RendersMermaid trait boundary if this proves unworkable.
+merman-core = "=0.8.0-alpha.3"
+merman-render = "=0.8.0-alpha.3"
+mime_guess = "2.0.5"
+petgraph = { version = "0.8.3", default-features = false, features = ["stable_graph"] }
+proptest = { version = "1.11.0", default-features = false, features = ["std"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["blocking", "rustls"] }
+rmcp = { version = "=2.2.0", default-features = false, features = ["macros", "server", "transport-io", "transport-streamable-http-server"] }
+# Pinned exactly per phase-5-decision-addendum.md A5: pre-1.0, so the
+# on-disk vec0 format may break across bumps; any pin move re-validates the
+# format and rebuilds `.contextos/vectors.db` through the index-rebuild
+# path. `rusqlite`'s `bundled` feature statically links SQLite on every
+# target so no system SQLite is required.
+rusqlite = { version = "=0.40.1", default-features = false, features = ["bundled"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = { version = "1.0.149", features = ["preserve_order"] }
+sha2 = "0.11.0"
+similar = "3.1.1"
+# Pinned exactly per phase-5-decision-addendum.md A5 (pre-1.0 upstream).
+sqlite-vec = "=0.1.9"
+# `contextos config mcp` (host registration) only: cross-platform process
+# listing, used solely to detect a running Claude Desktop before editing its
+# config file. `default-features = false` drops disk/network/component/user
+# monitoring, none of which this repo needs.
+sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
+tantivy = "0.26.1"
+tempfile = "3.27.0"
+thiserror = "2.0.18"
+time = { version = "0.3.53", features = ["macros", "serde"] }
+tokio = { version = "1.53.0", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "test-util", "time"] }
+tokio-util = { version = "0.7", default-features = false }
+toml = "1.1.3"
+# `contextos config` (guided setup) only: structure- and comment-preserving
+# edits to an operator's `config.toml`, unlike `toml`'s serde round trip,
+# which would discard `docs/config.example.toml`-style hand commentary.
+toml_edit = "0.25.13"
+tower = { version = "0.5", default-features = false, features = ["util"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+trash = { version = "5.2.6", default-features = false }
+walkdir = "2.5"
+yaml_serde = "0.10.4"
+
+[profile.dev]
+# Full debug info (Cargo's default) on this dependency tree (ONNX runtime,
+# tantivy, git2, rusqlite, the full mermaid rendering stack, reqwest+rustls,
+# axum, ...) produces PDBs large enough to hit Windows MSVC's PDB
+# record-count limit (`LNK1140`/`LNK1318`) and grew `target/` to 99.9 GiB in
+# a single working session. Line tables keep panic backtraces and line
+# numbers; the dropped type/variable debug info is not something this
+# project's TDD/tracing-based workflow leans on an interactive debugger for.
+debug = "line-tables-only"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"

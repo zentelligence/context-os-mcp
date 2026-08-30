@@ -1,0 +1,31 @@
+# Third-Party Licences
+
+This file lists the licences of every third-party dependency compiled into `contextos`, generated from `Cargo.lock` by [`cargo-about`](https://github.com/EmbarkStudios/cargo-about). It does not cover this repository's own code, which is licensed under the terms in [`LICENSE`](LICENSE).
+
+Regenerate after any dependency change with:
+
+```sh
+cargo about generate about.hbs -o THIRD_PARTY_LICENSES.md --workspace
+```
+
+## Licence summary
+
+{{#each overview}}
+- {{{name}}} ({{count}} crate(s))
+{{/each}}
+
+## Licence texts
+
+{{#each licenses}}
+### {{{name}}}
+
+Used by:
+{{#each used_by}}
+- `{{crate.name}}` {{crate.version}}
+{{/each}}
+
+```
+{{{text}}}
+```
+
+{{/each}}

@@ -1,0 +1,4 @@
+# Force LF line endings for all text files, regardless of a clone's own
+# core.autocrlf setting: matches rustfmt.toml's newline_style = "Unix", so
+# rustfmt and Git no longer fight over line endings on Windows checkouts.
+* text=auto eol=lf

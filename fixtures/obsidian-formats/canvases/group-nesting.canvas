@@ -1,0 +1,33 @@
+{
+  "nodes": [
+    {
+      "id": "3000000000000001",
+      "type": "group",
+      "x": 0,
+      "y": 0,
+      "width": 800,
+      "height": 600,
+      "label": "Outer"
+    },
+    {
+      "id": "3000000000000002",
+      "type": "group",
+      "x": 40,
+      "y": 60,
+      "width": 400,
+      "height": 300,
+      "label": "Inner",
+      "backgroundStyle": "repeat"
+    },
+    {
+      "id": "3000000000000003",
+      "type": "text",
+      "x": 80,
+      "y": 100,
+      "width": 240,
+      "height": 120,
+      "text": "Nested member"
+    }
+  ],
+  "edges": []
+}

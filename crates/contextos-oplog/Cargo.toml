@@ -1,0 +1,22 @@
+[package]
+name = "contextos-oplog"
+description = "Append-only operation logging for ContextOS Server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+contextos-core = { path = "../contextos-core" }
+thiserror.workspace = true
+time.workspace = true
+
+[dev-dependencies]
+contextos-fs = { path = "../contextos-fs" }
+tempfile.workspace = true
+time.workspace = true
+
+[lints]
+workspace = true

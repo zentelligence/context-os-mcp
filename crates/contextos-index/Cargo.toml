@@ -1,0 +1,23 @@
+[package]
+name = "contextos-index"
+description = "Managed index.md reconciliation for ContextOS Server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+contextos-core = { path = "../contextos-core" }
+contextos-obsidian = { path = "../contextos-obsidian" }
+thiserror.workspace = true
+
+[dev-dependencies]
+contextos-fs = { path = "../contextos-fs" }
+proptest.workspace = true
+tempfile.workspace = true
+time.workspace = true
+
+[lints]
+workspace = true

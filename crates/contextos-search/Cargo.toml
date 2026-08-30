@@ -1,0 +1,96 @@
+[package]
+name = "contextos-search"
+description = "Text and link-graph query services for ContextOS Server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+contextos-core = { path = "../contextos-core" }
+contextos-obsidian = { path = "../contextos-obsidian" }
+fastembed = { workspace = true, optional = true }
+fjall.workspace = true
+petgraph.workspace = true
+reqwest.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sqlite-vec.workspace = true
+tantivy.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+# Prototype-only, for the `embedvec` evaluation (notes location recorded in
+# CLAUDE.local.md): a throwaway `StoresVectors` implementation lives
+# in `benches/embedvec_prototype.rs`, never in `src/`. `default-features =
+# false` + `persistence-fjall` deliberately excludes the `async` feature to
+# test whether the fully synchronous `_internal` methods (public, not
+# gated behind `async`) are usable directly without a Tokio runtime bridge.
+embedvec = { version = "=0.10.0", default-features = false, features = ["persistence-fjall"] }
+proptest.workspace = true
+tempfile.workspace = true
+
+[[bench]]
+name = "embedvec_prototype"
+harness = false
+
+[[bench]]
+name = "graph_persistence"
+harness = false
+
+[features]
+default = ["semantic-local"]
+# Local, offline ONNX embedding inference via `fastembed`'s user-defined
+# model API (an injected model directory, never `hf-hub` auto-download).
+# Default-on per phase-5-decision-addendum.md A1, so a standard build
+# always satisfies FR-54's local, no-network, no-key default provider;
+# `--no-default-features` still yields a lean build with the trait, the
+# deterministic fake, and `OpenAiCompatible`.
+#
+# `StoresVectors` and `SqliteVecStore` (`rusqlite`, `sqlite-vec`) are
+# unconditionally compiled, with or without this feature: `--no-default-
+# features` sheds only the ONNX runtime weight of the local embedding
+# provider (per A1's stated goal, "a lean hermetic build remains available
+# via `--no-default-features`"). The vector store itself is architecture.md
+# core catalogue (`StoresVectors` alongside `IndexesText`), not part of the
+# provider that A1 gates; `sqlite-vec`'s statically linked C amalgamation
+# is a small, offline, no-network dependency, unlike the ONNX runtime.
+semantic-local = ["dep:fastembed"]
+# Prototype-only: gates `benches/embedvec_prototype.rs`'s calls to
+# `EmbedVec::flush_sync()`, which exists only on Peter's local, unreleased
+# `embedvec` checkout (commit `a5af175`/`d9eb4c0`), not the published
+# `0.10.0` this crate's dev-dependency normally pins. Off by default so
+# `cargo bench --bench embedvec_prototype` compiles against the published
+# crate; combine with pointing the `embedvec` dev-dependency at a local
+# path (see the embedvec evaluation notes, location recorded in
+# CLAUDE.local.md) to reproduce the fixed-checkout benchmark numbers.
+embedvec-unreleased-flush-sync = []
+
+[lints]
+# `unsafe_code` is downgraded from the workspace's `forbid` to `deny` only
+# in this crate, so the one approved `unsafe` block in `vector_store.rs`
+# (phase-5-decision-addendum.md A3: the `sqlite3_auto_extension`
+# registration required to load the statically linked `sqlite-vec`
+# extension) can carry a narrow, documented `#[allow(unsafe_code)]`. Rust's
+# lint system cannot downgrade a `forbid` level from an inner scope, even
+# within the same crate, so this table is re-declared in full here rather
+# than inherited via `workspace = true`; every other lint matches
+# `[workspace.lints]` exactly. A second `unsafe` occurrence anywhere in this
+# crate is a defect per A3.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"

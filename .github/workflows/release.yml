@@ -1,0 +1,135 @@
+name: Release
+
+# Packaging and release, delivery-plan.md: "Release artefacts: static
+# binaries per platform, checksummed; version scheme MAJOR.MINOR.PATCH."
+# Pushing a version tag (vMAJOR.MINOR.PATCH, matching workspace.package's
+# `version`) builds the `contextos` binary natively on Linux, Windows, and
+# Apple Silicon macOS, packages each as a checksummed archive, and
+# publishes them as assets on a GitHub Release for that tag.
+#
+# No Intel macOS (x86_64-apple-darwin) leg: `ort` (via `fastembed`, used
+# for semantic search) no longer ships prebuilt ONNX Runtime binaries for
+# that target, upstream ONNX Runtime having dropped it; see
+# https://github.com/pykeio/ort/issues/556. Revisit if that changes.
+#
+# Deliberately native builds on each platform's own runner rather than
+# single-host cross-compilation: several dependencies (`git2`/libgit2-sys,
+# `rusqlite`'s bundled SQLite, `ort`'s downloaded ONNX Runtime binaries)
+# are far more reliable built for the host they actually run on than
+# cross-compiled, and GitHub-hosted runners already cover every target
+# triple below natively, so there is nothing to gain from cross-compiling
+# instead.
+#
+# `workflow_dispatch` allows a manual dry run of the build and packaging
+# matrix (e.g. from main, with no tag) without publishing a GitHub Release:
+# the `publish` job below only runs for an actual tag push.
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive: tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify tag matches workspace version
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          cargo_version="$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')"
+          if [ "${tag_version}" != "${cargo_version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match workspace version ${cargo_version} in Cargo.toml"
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+
+      - name: Build contextos (release)
+        run: cargo build --release --locked -p contextos-server --bin contextos --target ${{ matrix.target }}
+
+      - name: Package (tar.gz)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          set -euo pipefail
+          staging="contextos-${{ github.ref_name }}-${{ matrix.target }}"
+          mkdir -p "${staging}"
+          cp "target/${{ matrix.target }}/release/contextos" "${staging}/"
+          cp README.md "${staging}/"
+          tar -czf "${staging}.tar.gz" "${staging}"
+          shasum -a 256 "${staging}.tar.gz" > "${staging}.tar.gz.sha256"
+
+      - name: Package (zip)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $staging = "contextos-${{ github.ref_name }}-${{ matrix.target }}"
+          New-Item -ItemType Directory -Path $staging | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/contextos.exe" "$staging/"
+          Copy-Item README.md "$staging/"
+          Compress-Archive -Path "$staging/*" -DestinationPath "$staging.zip"
+          $hash = (Get-FileHash "$staging.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $staging.zip" | Out-File -Encoding ascii -NoNewline "$staging.zip.sha256"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: contextos-${{ matrix.target }}
+          path: |
+            contextos-*.tar.gz
+            contextos-*.tar.gz.sha256
+            contextos-*.zip
+            contextos-*.zip.sha256
+          if-no-files-found: error
+
+  publish:
+    name: publish release
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release with checksummed binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "${{ github.ref_name }}" dist/* \
+            --repo "${{ github.repository }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            --verify-tag

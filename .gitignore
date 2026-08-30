@@ -1,0 +1,6 @@
+/target/
+/.contextos/
+/.fastembed_cache/
+*.profraw
+*.profdata
+*.local.*

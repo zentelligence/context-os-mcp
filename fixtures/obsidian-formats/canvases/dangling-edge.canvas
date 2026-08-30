@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "id": "4000000000000001",
+      "type": "text",
+      "x": 0,
+      "y": 0,
+      "width": 240,
+      "height": 120,
+      "text": "Only node"
+    }
+  ],
+  "edges": [
+    {
+      "id": "4000000000000002",
+      "fromNode": "4000000000000001",
+      "toNode": "missing-node"
+    }
+  ]
+}

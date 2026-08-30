@@ -1,0 +1,6 @@
+ContextOS Server (context-os-mcp)
+Copyright 2026 Zentelligence Pty Ltd
+
+This product is licensed under the Apache License, Version 2.0. See LICENSE for the full text.
+
+This product includes third-party software governed by their own licence terms. The full text of every third-party licence, and the crates that use each one, is recorded in THIRD_PARTY_LICENSES.md. None of the third-party dependencies pulled in via Cargo.lock ship a separate NOTICE file of their own as at the date above.

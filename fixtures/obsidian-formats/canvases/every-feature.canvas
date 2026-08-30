@@ -1,0 +1,58 @@
+{
+  "nodes": [
+    {
+      "id": "1000000000000001",
+      "type": "group",
+      "x": -40,
+      "y": -40,
+      "width": 980,
+      "height": 480,
+      "label": "Every feature",
+      "background": "Attachments/background.png",
+      "backgroundStyle": "cover",
+      "color": "4"
+    },
+    {
+      "id": "1000000000000002",
+      "type": "text",
+      "x": 0,
+      "y": 0,
+      "width": 280,
+      "height": 160,
+      "text": "# Text node\n\nMarkdown content",
+      "color": "#AABBCC"
+    },
+    {
+      "id": "1000000000000003",
+      "type": "file",
+      "x": 340,
+      "y": 0,
+      "width": 260,
+      "height": 200,
+      "file": "Notes/Source.md",
+      "subpath": "#Evidence"
+    },
+    {
+      "id": "1000000000000004",
+      "type": "link",
+      "x": 660,
+      "y": 0,
+      "width": 240,
+      "height": 120,
+      "url": "https://jsoncanvas.org"
+    }
+  ],
+  "edges": [
+    {
+      "id": "2000000000000001",
+      "fromNode": "1000000000000002",
+      "fromSide": "right",
+      "fromEnd": "none",
+      "toNode": "1000000000000003",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "color": "6",
+      "label": "supports"
+    }
+  ]
+}

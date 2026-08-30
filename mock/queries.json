@@ -1,0 +1,102 @@
+[
+  {
+    "query": "telemetry dashboard",
+    "target": "projects/aurora/overview.md",
+    "note": "Aurora's overview is the only note with a Telemetry Dashboard heading; projects/aurora/risks.md mentions both words once in passing as a distractor."
+  },
+  {
+    "query": "watchdog timer",
+    "target": "projects/beacon/architecture.md",
+    "note": "The beacon architecture note headlines and repeats the watchdog timer safeguard; reference/glossary.md and projects/beacon/risks.md each mention it only once as distractors."
+  },
+  {
+    "query": "\"incident response\"",
+    "target": "reference/incident-response.md",
+    "note": "Exact phrase query; the phrase repeats in the title, a heading, and the body, distinguishing it from the hyphenated wikilink in reference/security-checklist.md."
+  },
+  {
+    "query": "title:Glossary",
+    "target": "reference/glossary.md",
+    "note": "Tantivy field-qualified query against the title field; only the glossary note is titled Glossary."
+  },
+  {
+    "query": "database migration",
+    "target": "journal/2026/2026-03-18.md",
+    "note": "The journal entry is the only note describing an actual database migration; projects/aurora/architecture.md mentions a database schema without a migration."
+  },
+  {
+    "query": "firmware rollback",
+    "target": "projects/beacon/testing.md",
+    "note": "The beacon test plan headlines and repeats the firmware rollback procedure; no other note uses the phrase."
+  },
+  {
+    "query": "single point of failure",
+    "target": "projects/aurora/risks.md",
+    "note": "The aurora risk register headlines and repeats the phrase; meetings/2026-02-10-aurora-review.md repeats it once as a deliberate distractor when reporting the fix."
+  },
+  {
+    "query": "corrosion",
+    "target": "projects/beacon/risks.md",
+    "note": "Plain single-term query; the beacon risk register is the only note describing housing corrosion."
+  },
+  {
+    "query": "sprint priorities",
+    "target": "meetings/2026-01-15-standup.md",
+    "note": "The combined standup is the only note discussing sprint priorities for both projects."
+  },
+  {
+    "query": "aurora review outcomes",
+    "target": "meetings/2026-02-10-aurora-review.md",
+    "note": "Title, heading, and body all concentrate these three terms; other Aurora-titled notes only match the single term aurora."
+  },
+  {
+    "query": "beacon review action items",
+    "target": "meetings/2026-03-05-beacon-review.md",
+    "note": "Title, heading, and body all concentrate these terms for the beacon review meeting."
+  },
+  {
+    "query": "style guide",
+    "target": "reference/style-guide.md",
+    "note": "Plain multi-word query; the writing style guide is titled and headlined with the exact phrase."
+  },
+  {
+    "query": "security checklist",
+    "target": "reference/security-checklist.md",
+    "note": "Plain multi-word query; the note is titled, headlined, and self-referential with the exact phrase."
+  },
+  {
+    "query": "milestone",
+    "target": "projects/aurora/roadmap.md",
+    "note": "Plain single-term query; the roadmap repeats milestone five times across two headings and a bullet list, far more than the single passing mention in projects/aurora/risks.md."
+  },
+  {
+    "query": "lighthouse keeper",
+    "target": "people/sam-whitfield.md",
+    "note": "Sam's profile note is the only note describing a former lighthouse keeper background."
+  },
+  {
+    "query": "event ingestion pipeline",
+    "target": "projects/aurora/architecture.md",
+    "note": "The architecture note headlines and repeats event and pipeline, which are rare elsewhere; ingestion worker is a common distractor term across several other notes."
+  },
+  {
+    "query": "coastal navigation safety",
+    "target": "projects/beacon/overview.md",
+    "note": "The beacon overview headlines this exact phrase describing the project's purpose."
+  },
+  {
+    "query": "kickoff",
+    "target": "journal/2026/2026-01-12.md",
+    "note": "Plain single-term query; this is the only note describing the joint project kickoff."
+  },
+  {
+    "query": "GPS timestamp drift",
+    "target": "journal/2026/2026-02-03.md",
+    "note": "The journal entry headlines and repeats this exact incident; meetings/2026-03-05-beacon-review.md repeats it once as a deliberate distractor when reporting the fix."
+  },
+  {
+    "query": "solar engineering background",
+    "target": "people/chloe-bennett.md",
+    "note": "Chloe's profile note is the only one describing a solar engineering background."
+  }
+]

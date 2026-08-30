@@ -1,0 +1,178 @@
+# ContextOS MCP example configuration
+#
+# This file shows every currently supported configuration field.
+# Environment overrides:
+# - CONTEXTOS_MCP_CONFIG: path to this file
+# - CONTEXTOS_MCP_TOKEN: overrides [server.http].token
+# - CONTEXTOS_MCP_LOG_LEVEL: overrides [server].log_level
+
+[server]
+# Allowed values: "stdio", "http"
+transports = ["stdio"]
+# Allowed values: "error", "warn", "info", "debug", "trace"
+log_level = "info"
+# Empty means log to stderr only.
+log_file = ""
+# Size (in KB) at or above which a text-reading tool result attaches a
+# resource_link alongside a bounded inline preview, instead of returning the
+# full content inline.
+resource_link_threshold_kb = 5
+# Registers the ephemeris_* tools (moon phase, solar events,
+# Wheel-of-the-Year, personal-year period) into the advertised MCP tool
+# catalogue. Off by default: a niche, personal-practice
+# capability kept out of a standard tool list unless explicitly opted into.
+# Every ephemeris tool handler is always compiled in regardless of this
+# setting; it controls runtime visibility only, and can be overridden per
+# run with --astro.
+astro = false
+
+[server.http]
+# Only used when "http" transport is enabled.
+bind = "127.0.0.1:7331"
+# Required when binding on a non-loopback address.
+token = ""
+max_body_kb = 2048
+
+[[vault]]
+# Absolute path to a vault root.
+path = "/absolute/path/to/your/vault"
+# Addresses this vault as name://relative-path, on every path-accepting
+# tool parameter, on the existing vault-selector parameters, and as the
+# only scheme resources/list, resources/read, and fs_attach_file use.
+# Optional: defaults to the root directory's basename. Must be a valid
+# URI scheme token (a letter, then only letters, digits, "+", "-", ".")
+# and unique across every configured vault; an invalid or colliding
+# name, explicit or defaulted, is a hard error at startup.
+name = "mine"
+# If false, mutating tools reject writes for this vault.
+managed = true
+
+# Path patterns hidden from every enumeration surface for this vault
+# (resources/list, fs_list_directory,
+# fs_directory_tree, fs_search_files). Layered on top of the built-in
+# baseline (.git/, .contextos/), never instead of it. Distinct from
+# [vault.search].exclude (search corpus) and [vault.index_md].exclude
+# (managed index.md generation). A direct, explicit-path read is never
+# restricted by this.
+hidden = [".git/", ".git/**", ".contextos/", ".contextos/**"]
+
+# Glob patterns naming which files resources/list itself enumerates for
+# this vault (an allowlist, the opposite of hidden's denylist), scoped to
+# resources/list only, not the four listing tools above. Default (unset):
+# resources/list reports nothing for this vault. Eagerly listing every
+# file has little discovery value once a vault holds thousands of them;
+# resources/read and resources/templates/list remain unrestricted
+# regardless of this setting, so a caller that already knows a path can
+# always read it directly. Every pattern here is still subject to hidden.
+# Illustrative only: pick the directories actually worth surfacing to a
+# resource-aware host for your own vault.
+resources_list_include = [
+  "memory/entities/**",
+  "memory/identity/**",
+  "memory/operating/**",
+  "registry/*",
+  "templates/**",
+]
+
+# Optional override for derived state storage.
+# - null/unset: platform app-data location (recommended)
+# - relative path: resolved from vault root
+# - absolute path: used as-is
+state_directory = "/absolute/path/to/derived-state"
+
+[vault.limits]
+max_read_mb = 5
+max_batch_files = 50
+
+[vault.index_md]
+enabled = true
+exclude = [
+  ".contextos",
+  ".git",
+  ".obsidian",
+  "memory/log",
+  "memory/sessions",
+]
+
+[vault.oplog]
+enabled = true
+path = "memory/log"
+
+[vault.git]
+enabled = true
+commit_debounce_s = 30
+author_name = "ContextOS MCP"
+author_email = "mcp@contextos.local"
+destructive_delete = false
+# Portable relative paths only.
+restore_exclude = ["memory/log", "memory/sessions"]
+
+[vault.search]
+text = true
+graph = true
+# The link graph's persistence backend. Allowed
+# values: "serde" (a single JSON file, simplest, no cross-process
+# concurrency guarantee, for a small, starter, or experimental vault),
+# "fjall" (an embedded KV store, single-process-exclusive, fastest
+# for the common case), "sqlite" (WAL mode, tolerates more than one
+# contextos process against the same vault at once, for example Claude
+# Cowork's general connector instance plus a per-task instance).
+graph_backend = "sqlite"
+# Semantic indexing is expensive and not always needed. Disable it to save time
+# and disk space if you don't need semantic search.
+semantic = true
+# Paths excluded from the search corpus (text, graph, and semantic
+# indexing). Independent of [vault.index_md].exclude, which only scopes
+# managed index.md generation.
+exclude = [
+  ".contextos",
+  ".git",
+  ".obsidian",
+  "memory/log",
+  "memory/sessions",
+]
+# Default budget, in seconds, for query_index_rebuild's semantic phase when a
+# call omits budget_seconds. A per-call budget_seconds always overrides this.
+# Some agents (Claude Cowork, for example) may impose a lower ceiling on the budget
+# may restart the MCP process if the rebuild exceeds that ceiling. 
+rebuild_budget_seconds = 25
+
+[vault.search.embedding]
+# Allowed values: "local", "openai-compatible"
+provider = "local"
+# Used by openai-compatible providers.
+model = "sentence-transformers/all-MiniLM-L6-v2"
+# Used by openai-compatible providers.
+endpoint = ""
+# Name of the environment variable containing an API key,
+# used by openai-compatible providers.
+api_key_env = ""
+# Local provider model files. Run `contextos model download` to fetch the
+# default model into this directory. It can point at the exact model
+# directory `contextos model list` prints, or, more simply, at the shared
+# cache root itself (as below): ContextOS resolves the specific model
+# inside it automatically. Sharing this same root with mempalace-rs (or
+# any other application using the same cache) reuses one on-disk copy of
+# the model instead of downloading it again.
+model_directory = "/home/you/.fastembed_cache"
+
+# Optional second vault example: openai-compatible embeddings.
+[[vault]]
+path = "/absolute/path/to/another/vault"
+name = "family"
+managed = true
+
+[vault.search]
+text = true
+graph = true
+# Example: a vault opened by more than one contextos process at once (see
+# the primary vault's graph_backend comment above).
+graph_backend = "sqlite"
+semantic = true
+
+[vault.search.embedding]
+provider = "openai-compatible"
+model = "text-embedding-3-small"
+endpoint = "https://api.openai.com/v1/embeddings"
+api_key_env = "OPENAI_API_KEY"
+# model_directory is only used by provider = "local".

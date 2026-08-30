@@ -1,0 +1,17 @@
+[package]
+name = "contextos-ephemeris"
+description = "Offline moon phase, solar Wheel-of-the-Year, and personal-year period calculations for ContextOS Server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+astro.workspace = true
+thiserror.workspace = true
+time.workspace = true
+
+[lints]
+workspace = true

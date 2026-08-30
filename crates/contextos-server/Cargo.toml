@@ -1,0 +1,73 @@
+[package]
+name = "contextos-server"
+description = "MCP transport and composition root for ContextOS Server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "contextos"
+path = "src/main.rs"
+
+[dependencies]
+axum.workspace = true
+base64.workspace = true
+clap.workspace = true
+contextos-core = { path = "../contextos-core" }
+# Phase 10 (moon phase, solar events, Wheel-of-the-Year, personal-year
+# period). Always compiled in, unlike an `optional` dependency: whether the
+# ephemeris tools are registered into the MCP tool catalogue (advertised
+# via `tools/list`, callable at all) is a runtime `[server] astro` config
+# field/`--astro` CLI flag (`D-25`), not a Cargo feature, so this crate and
+# its `astro` (D-18) dependency chain are always part of the binary.
+contextos-ephemeris = { path = "../contextos-ephemeris" }
+contextos-fs = { path = "../contextos-fs" }
+contextos-git = { path = "../contextos-git" }
+contextos-index = { path = "../contextos-index" }
+contextos-mermaid = { path = "../contextos-mermaid" }
+contextos-oplog = { path = "../contextos-oplog" }
+contextos-obsidian = { path = "../contextos-obsidian" }
+contextos-search = { path = "../contextos-search" }
+directories.workspace = true
+globset.workspace = true
+hf-hub.workspace = true
+inquire.workspace = true
+rmcp.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sysinfo.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+# `formatting`/`parsing` beyond the workspace default (`macros`, `serde`):
+# the ephemeris tools (Phase 10) report instants as genuine RFC 3339
+# strings (`time::format_description::well_known::Rfc3339`), unlike
+# existing `OffsetDateTime::to_string()`/manual `format!("{year:04}-...")`
+# call sites elsewhere, since a caller (the Operating Rhythm dispatcher
+# skill) parses these programmatically rather than displaying them.
+# `parsing` is not needed by production code (date-only tool *input*,
+# `YYYY-MM-DD`, is still hand-parsed, matching this crate's existing
+# convention), only by `ephemeris_contract.rs`'s own round-trip test,
+# which parses a produced RFC 3339 string back to confirm it is genuinely
+# valid, not merely shaped like one. Scoped to this crate, not the shared
+# workspace default, since no other crate needs it.
+time = { workspace = true, features = ["formatting", "parsing"] }
+tokio.workspace = true
+tokio-util.workspace = true
+toml.workspace = true
+toml_edit.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+dunce.workspace = true
+git2.workspace = true
+rmcp = { workspace = true, features = ["client", "transport-streamable-http-client-reqwest"] }
+tempfile.workspace = true
+tower.workspace = true
+
+[lints]
+workspace = true

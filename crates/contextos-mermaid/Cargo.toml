@@ -1,0 +1,17 @@
+[package]
+name = "contextos-mermaid"
+description = "Mermaid diagram parsing and validation for ContextOS Server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+merman-core.workspace = true
+merman-render.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

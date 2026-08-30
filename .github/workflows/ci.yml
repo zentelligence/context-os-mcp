@@ -1,0 +1,58 @@
+name: CI
+
+# Packaging and release, delivery-plan.md: "CI: fmt, clippy -D warnings,
+# audit, test matrix (Windows, macOS, Linux)." Mirrors `just ci` (justfile)
+# so a green run here is the same gate contributors run locally, just
+# across all three target operating systems instead of one.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo fmt --check
+        run: cargo fmt --all --check
+
+      # `--features semantic-local` rather than `--all-features`, matching
+      # `justfile`'s own `clippy` recipe: the workspace's only other feature
+      # is contextos-search's embedvec-unreleased-flush-sync, deliberately
+      # off by default (calls a method that only exists on an unmerged,
+      # unpublished embedvec checkout).
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets --features semantic-local -- -D warnings
+
+      - name: cargo test
+        run: cargo test --workspace --all-features
+
+  audit:
+    name: audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@cargo-audit
+
+      - run: cargo audit
