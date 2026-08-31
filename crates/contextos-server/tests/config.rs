@@ -332,6 +332,25 @@ fn configuration_requires_at_least_one_vault() {
 }
 
 #[test]
+fn configuration_requires_at_least_one_transport() -> Result<(), Box<dyn std::error::Error>> {
+    let vault = tempdir()?;
+    let source = format!(
+        r"
+        [server]
+        transports = []
+        [[vault]]
+        path = {:?}
+        ",
+        vault.path()
+    );
+
+    let result = Config::try_from(source.as_str());
+
+    assert!(matches!(result, Err(ConfigError::NoTransports)));
+    Ok(())
+}
+
+#[test]
 fn configuration_rejects_zero_limits() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let source = format!(

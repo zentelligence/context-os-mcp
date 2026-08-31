@@ -36,7 +36,7 @@ Manages the shared local embedding model cache. Vault-independent — works with
 
 ## `contextos config`
 
-With no further subcommand, runs the interactive guided-setup interview (vault selection, model download, host registration). Vault-independent: it edits `config.toml` directly and works against a not-yet-valid or not-yet-existing file.
+With no further subcommand, runs the interactive guided-setup interview (vault selection, model download, host registration). Vault-independent: it edits `config.toml` directly and works against a not-yet-valid or not-yet-existing file. When `config.toml` already has vault(s) configured, the interview loads them first instead of only offering to add more: a single existing vault is offered back for edit with its current name, path, managed flag, and semantic-search setting prefilled as defaults, and more than one existing vault instead asks what to focus on — general (server) settings, all vaults in turn, or one named vault to edit or remove — before optionally adding a new vault.
 
 ### `contextos config vault <add|remove|list>`
 

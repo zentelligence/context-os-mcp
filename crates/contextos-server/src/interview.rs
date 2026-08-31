@@ -13,9 +13,17 @@
 //! [`InterviewEnvironment`], so [`run_interview`] is exercised in tests
 //! against a scripted double with no real terminal I/O or network access.
 //!
-//! Adding vaults is not optional, so [`run_interview`] always asks for at
-//! least one before any optional step; declining "add another vault?"
-//! simply ends that loop after the first.
+//! When `config.toml` already has vault(s) configured, [`run_interview`]
+//! loads it first rather than treating every run as a fresh install: a
+//! single existing vault is offered back for edit with its current name,
+//! path, managed flag, and semantic-search state prefilled as defaults;
+//! more than one existing vault instead asks what to focus on (general
+//! server settings, all vaults in turn, or one named vault to edit or
+//! remove). Adding a vault is otherwise not optional on a fresh install
+//! (no `[[vault]]` entries yet), so [`run_interview`] always asks for at
+//! least one before any optional step in that case; once at least one vault
+//! is already configured, adding another becomes an optional follow-up
+//! question instead.
 //! Semantic search enablement and Claude Desktop registration are both
 //! genuinely optional, matched by a `confirm` gate before anything for that
 //! step runs.
@@ -23,18 +31,19 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::{Path, PathBuf};
 
-use inquire::{Confirm, Text};
+use inquire::{Confirm, Select, Text};
 use thiserror::Error;
 
 use crate::{
-    Config, ConfigError, ConfigIoError, ConfigWriterError, DetectsRunningProcesses, HostPathError,
-    HostPathResolution, HostRegistrationError, IndexCliError, IndexReport, ModelCliError,
-    RegisteredServer, is_claude_desktop_running, load_config_document, register,
-    write_config_document,
+    Config, ConfigDocument, ConfigError, ConfigIoError, ConfigWriterError, DetectsRunningProcesses,
+    HostPathError, HostPathResolution, HostRegistrationError, IndexCliError, IndexReport,
+    ModelCliError, RegisteredServer, VaultSummary, is_claude_desktop_running, load_config_document,
+    register, write_config_document,
 };
 
 /// One operator interaction the interview wizard needs: a yes/no question
-/// with a default, or a free-text answer. Abstracted so [`run_interview`]
+/// with a default, a free-text answer (optionally prefilled with a
+/// default), or a choice from a fixed list. Abstracted so [`run_interview`]
 /// is testable against a scripted double instead of a real terminal.
 pub trait Interviewer {
     /// Asks a yes/no question, returning `default` when the operator enters
@@ -53,6 +62,27 @@ pub trait Interviewer {
     /// Returns [`InterviewError::Prompt`] when the operator cancels the
     /// prompt or the underlying terminal I/O fails.
     fn ask(&mut self, prompt: &str) -> Result<String, InterviewError>;
+
+    /// Asks a free-text question prefilled with `default`, returning
+    /// `default` unchanged when the operator accepts it as-is.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InterviewError::Prompt`] when the operator cancels the
+    /// prompt or the underlying terminal I/O fails.
+    fn ask_with_default(&mut self, prompt: &str, default: &str) -> Result<String, InterviewError>;
+
+    /// Presents `options` as a fixed list and returns the index of the
+    /// operator's selection.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InterviewError::Prompt`] when the operator cancels the
+    /// prompt, the underlying terminal I/O fails, or (structurally
+    /// unreachable in the real terminal implementation, but a typed error
+    /// rather than a panic here regardless) the selection cannot be matched
+    /// back to one of `options`.
+    fn choose(&mut self, prompt: &str, options: &[&str]) -> Result<usize, InterviewError>;
 }
 
 /// The real [`Interviewer`], backed by `inquire`'s terminal prompts.
@@ -66,6 +96,26 @@ impl Interviewer for TerminalInterviewer {
 
     fn ask(&mut self, prompt: &str) -> Result<String, InterviewError> {
         Ok(Text::new(prompt).prompt()?.trim().to_owned())
+    }
+
+    fn ask_with_default(&mut self, prompt: &str, default: &str) -> Result<String, InterviewError> {
+        Ok(Text::new(prompt)
+            .with_default(default)
+            .prompt()?
+            .trim()
+            .to_owned())
+    }
+
+    fn choose(&mut self, prompt: &str, options: &[&str]) -> Result<usize, InterviewError> {
+        let selection = Select::new(prompt, options.to_vec()).prompt()?;
+        options
+            .iter()
+            .position(|option| *option == selection)
+            .ok_or_else(|| {
+                InterviewError::Prompt(inquire::InquireError::Custom(
+                    "selected option not found among the offered choices".into(),
+                ))
+            })
     }
 }
 
@@ -129,6 +179,18 @@ pub enum HostRegistrationOutcome {
 #[derive(Debug)]
 pub struct InterviewReport {
     pub added_vaults: Vec<String>,
+    /// Vaults an already-existing configuration's edit flow touched this
+    /// run (a single pre-existing vault offered back for edit, or one or
+    /// more vaults reached through the multi-vault focus menu's "all
+    /// vaults" or "a specific vault" paths). Does not include vaults added
+    /// fresh this run; see [`Self::added_vaults`] for those.
+    pub edited_vaults: Vec<String>,
+    /// Vaults removed this run through the multi-vault focus menu's "a
+    /// specific vault" path.
+    pub removed_vaults: Vec<String>,
+    /// Whether the multi-vault focus menu's "general (server) settings"
+    /// path was used this run.
+    pub server_settings_changed: bool,
     pub semantic_model_directory: Option<PathBuf>,
     pub index_summary: IndexReport,
     pub host_registration: HostRegistrationOutcome,
@@ -137,11 +199,30 @@ pub struct InterviewReport {
 impl Display for InterviewReport {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         writeln!(formatter, "ContextOS MCP guided setup")?;
-        writeln!(
-            formatter,
-            "Added vault(s): {}",
-            self.added_vaults.join(", ")
-        )?;
+        if !self.added_vaults.is_empty() {
+            writeln!(
+                formatter,
+                "Added vault(s): {}",
+                self.added_vaults.join(", ")
+            )?;
+        }
+        if !self.edited_vaults.is_empty() {
+            writeln!(
+                formatter,
+                "Edited vault(s): {}",
+                self.edited_vaults.join(", ")
+            )?;
+        }
+        if !self.removed_vaults.is_empty() {
+            writeln!(
+                formatter,
+                "Removed vault(s): {}",
+                self.removed_vaults.join(", ")
+            )?;
+        }
+        if self.server_settings_changed {
+            writeln!(formatter, "Server settings updated")?;
+        }
         match &self.semantic_model_directory {
             Some(directory) => writeln!(
                 formatter,
@@ -175,11 +256,15 @@ impl Display for InterviewReport {
     }
 }
 
-/// Runs the full `contextos config` interview: adds one or more vaults,
-/// optionally enables semantic search (downloading the embedding model or
-/// accepting an existing model directory), writes `config.toml`, rebuilds
-/// every configured vault's search index, and optionally registers this
-/// server with Claude Desktop.
+/// Runs the full `contextos config` interview. On a fresh install (no
+/// `[[vault]]` entries yet in the loaded `config.toml`), adds one or more
+/// vaults, mandatory as before. Against an already-configured file, offers
+/// the existing vault(s) back for edit first (see the module documentation)
+/// before optionally adding more. Either way, optionally enables semantic
+/// search for any vault(s) newly added this run (downloading the embedding
+/// model or accepting an existing model directory), writes `config.toml`,
+/// rebuilds every configured vault's search index, and optionally registers
+/// this server with Claude Desktop.
 ///
 /// # Errors
 ///
@@ -194,23 +279,50 @@ pub fn run_interview(
     environment: &InterviewEnvironment<'_>,
 ) -> Result<InterviewReport, InterviewError> {
     let mut document = load_config_document(&environment.config_path)?;
-    let mut added_vaults = Vec::new();
+    let existing = document.vaults();
 
-    loop {
-        let name = interviewer.ask("Vault name:")?;
-        let path = interviewer.ask("Vault path (absolute, must already exist):")?;
-        document.add_vault(&name, &parse_manual_path(&path), true)?;
-        added_vaults.push(name);
+    let mut edited_vaults = Vec::new();
+    let mut removed_vaults = Vec::new();
+    let mut server_settings_changed = false;
 
-        if !interviewer.confirm("Add another vault?", false)? {
-            break;
+    match existing.len() {
+        0 => {}
+        1 => {
+            let updated_name =
+                edit_existing_vault(interviewer, &mut document, environment, &existing[0])?;
+            edited_vaults.push(updated_name);
+        }
+        _ => {
+            focus_on_existing_configuration(
+                interviewer,
+                &mut document,
+                environment,
+                &mut edited_vaults,
+                &mut removed_vaults,
+                &mut server_settings_changed,
+            )?;
         }
     }
 
-    let semantic_model_directory = if interviewer.confirm(
-        "Enable semantic search for the vault(s) you just added?",
-        false,
-    )? {
+    let mut added_vaults = Vec::new();
+    if existing.is_empty() {
+        loop {
+            added_vaults.push(add_one_vault(interviewer, &mut document)?);
+            if !interviewer.confirm("Add another vault?", false)? {
+                break;
+            }
+        }
+    } else {
+        while interviewer.confirm("Add a new vault?", false)? {
+            added_vaults.push(add_one_vault(interviewer, &mut document)?);
+        }
+    }
+
+    let semantic_model_directory = if !added_vaults.is_empty()
+        && interviewer.confirm(
+            "Enable semantic search for the vault(s) you just added?",
+            false,
+        )? {
         let model_directory =
             if interviewer.confirm("Download the local embedding model now?", true)? {
                 (environment.download_model)(&environment.model_cache_dir)?
@@ -241,10 +353,194 @@ pub fn run_interview(
 
     Ok(InterviewReport {
         added_vaults,
+        edited_vaults,
+        removed_vaults,
+        server_settings_changed,
         semantic_model_directory,
         index_summary,
         host_registration,
     })
+}
+
+/// Asks for one vault's name and path and appends it, the shared body of
+/// both the fresh-install mandatory loop and the already-configured
+/// optional "add a new vault?" loop.
+fn add_one_vault(
+    interviewer: &mut dyn Interviewer,
+    document: &mut ConfigDocument,
+) -> Result<String, InterviewError> {
+    let name = interviewer.ask("Vault name:")?;
+    let path = interviewer.ask("Vault path (absolute, must already exist):")?;
+    document.add_vault(&name, &parse_manual_path(&path), true)?;
+    Ok(name)
+}
+
+/// Offers the existing `current` vault back for edit: its name, path,
+/// managed flag, and semantic-search state are prefilled as defaults, which
+/// the operator accepts unchanged or overrides. Returns the vault's name
+/// after any rename, for the caller's edited-vault report.
+fn edit_existing_vault(
+    interviewer: &mut dyn Interviewer,
+    document: &mut ConfigDocument,
+    environment: &InterviewEnvironment<'_>,
+    current: &VaultSummary,
+) -> Result<String, InterviewError> {
+    let name = interviewer.ask_with_default("Vault name:", &current.name)?;
+    let path = interviewer.ask_with_default(
+        "Vault path (absolute, must already exist):",
+        &current.path.display().to_string(),
+    )?;
+    let managed = interviewer.confirm(
+        &format!("Keep {name} managed (indexing, oplog, Git)?"),
+        current.managed,
+    )?;
+    document.update_vault(&current.name, &name, &parse_manual_path(&path), managed)?;
+
+    let semantic = interviewer.confirm(
+        &format!("Enable semantic search for {name}?"),
+        current.semantic,
+    )?;
+    if semantic {
+        let keep_existing = current.model_directory.is_some()
+            && interviewer.confirm(
+                &format!(
+                    "Keep the current embedding model directory ({})?",
+                    current
+                        .model_directory
+                        .as_ref()
+                        .map_or_else(|| "none".to_owned(), |path| path.display().to_string())
+                ),
+                true,
+            )?;
+        let model_directory =
+            if let (true, Some(existing)) = (keep_existing, &current.model_directory) {
+                existing.clone()
+            } else if interviewer.confirm("Download the local embedding model now?", true)? {
+                (environment.download_model)(&environment.model_cache_dir)?
+            } else {
+                parse_manual_path(
+                    &interviewer.ask("Path to an existing local embedding model directory:")?,
+                )
+            };
+        document.enable_semantic_search(&name, &model_directory)?;
+    } else if current.semantic {
+        document.disable_semantic_search(&name)?;
+    }
+
+    Ok(name)
+}
+
+/// The multi-vault case: repeatedly asks what to focus on (general server
+/// settings, all vaults in turn, or one named vault to edit or remove)
+/// until the operator declines "focus on something else?".
+fn focus_on_existing_configuration(
+    interviewer: &mut dyn Interviewer,
+    document: &mut ConfigDocument,
+    environment: &InterviewEnvironment<'_>,
+    edited_vaults: &mut Vec<String>,
+    removed_vaults: &mut Vec<String>,
+    server_settings_changed: &mut bool,
+) -> Result<(), InterviewError> {
+    let focus_options = [
+        "General (server) settings",
+        "All vaults",
+        "A specific vault",
+    ];
+    loop {
+        let focus = interviewer.choose("What would you like to focus on?", &focus_options)?;
+        match focus {
+            0 => {
+                edit_server_settings(interviewer, document)?;
+                *server_settings_changed = true;
+            }
+            1 => {
+                for vault in document.vaults() {
+                    let updated_name =
+                        edit_existing_vault(interviewer, document, environment, &vault)?;
+                    edited_vaults.push(updated_name);
+                }
+            }
+            2 => {
+                focus_on_one_vault(
+                    interviewer,
+                    document,
+                    environment,
+                    edited_vaults,
+                    removed_vaults,
+                )?;
+            }
+            _ => {
+                return Err(InterviewError::Prompt(inquire::InquireError::Custom(
+                    "focus selection out of range".into(),
+                )));
+            }
+        }
+
+        if !interviewer.confirm("Focus on something else?", false)? {
+            break;
+        }
+    }
+    Ok(())
+}
+
+/// The "a specific vault" focus: pick one configured vault by name, then
+/// edit it (prefilled defaults, as [`edit_existing_vault`]) or remove it.
+fn focus_on_one_vault(
+    interviewer: &mut dyn Interviewer,
+    document: &mut ConfigDocument,
+    environment: &InterviewEnvironment<'_>,
+    edited_vaults: &mut Vec<String>,
+    removed_vaults: &mut Vec<String>,
+) -> Result<(), InterviewError> {
+    let vaults = document.vaults();
+    let names: Vec<&str> = vaults.iter().map(|vault| vault.name.as_str()).collect();
+    let index = interviewer.choose("Which vault?", &names)?;
+    let vault = vaults.get(index).cloned().ok_or_else(|| {
+        InterviewError::Prompt(inquire::InquireError::Custom(
+            "selected vault not found among the offered choices".into(),
+        ))
+    })?;
+
+    let action = interviewer.choose(
+        &format!("What would you like to do with {}?", vault.name),
+        &["Edit", "Remove"],
+    )?;
+    if action == 1 {
+        document.remove_vault(&vault.name)?;
+        removed_vaults.push(vault.name.clone());
+    } else {
+        let updated_name = edit_existing_vault(interviewer, document, environment, &vault)?;
+        edited_vaults.push(updated_name);
+    }
+    Ok(())
+}
+
+/// The "general (server) settings" focus: prefills the current
+/// `transports`/`log_level`/`log_file` values as defaults.
+fn edit_server_settings(
+    interviewer: &mut dyn Interviewer,
+    document: &mut ConfigDocument,
+) -> Result<(), InterviewError> {
+    let current = document.server_settings();
+    let transports_raw = interviewer.ask_with_default(
+        "Transports (comma-separated: stdio, http):",
+        &current.transports.join(", "),
+    )?;
+    let transports: Vec<String> = transports_raw
+        .split(',')
+        .map(|part| part.trim().to_ascii_lowercase())
+        .filter(|part| !part.is_empty())
+        .collect();
+    let log_level = interviewer
+        .ask_with_default(
+            "Log level (error, warn, info, debug, trace):",
+            &current.log_level,
+        )?
+        .to_ascii_lowercase();
+    let log_file =
+        interviewer.ask_with_default("Log file path (blank for stderr):", &current.log_file)?;
+    document.set_server_settings(&transports, &log_level, &log_file)?;
+    Ok(())
 }
 
 /// Resolves Claude Desktop's config path (auto-discovery, falling back to a

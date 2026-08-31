@@ -4,6 +4,7 @@ use std::fs;
 use tempfile::tempdir;
 
 use super::*;
+use crate::LogLevel;
 
 /// A scripted [`Interviewer`] double: consumes fixed confirm/text answers in
 /// call order, so [`run_interview`] is exercised deterministically with no
@@ -11,6 +12,7 @@ use super::*;
 struct ScriptedInterviewer {
     confirms: VecDeque<bool>,
     texts: VecDeque<String>,
+    choices: VecDeque<usize>,
 }
 
 impl ScriptedInterviewer {
@@ -18,6 +20,17 @@ impl ScriptedInterviewer {
         Self {
             confirms: confirms.into(),
             texts: texts.into(),
+            choices: VecDeque::new(),
+        }
+    }
+
+    /// As [`Self::new`], plus a scripted queue of [`Interviewer::choose`]
+    /// selection indices, for tests exercising the multi-vault focus menu.
+    fn with_choices(confirms: Vec<bool>, texts: Vec<String>, choices: Vec<usize>) -> Self {
+        Self {
+            confirms: confirms.into(),
+            texts: texts.into(),
+            choices: choices.into(),
         }
     }
 }
@@ -31,6 +44,18 @@ impl Interviewer for ScriptedInterviewer {
 
     fn ask(&mut self, prompt: &str) -> Result<String, InterviewError> {
         self.texts
+            .pop_front()
+            .ok_or_else(|| script_exhausted(prompt))
+    }
+
+    fn ask_with_default(&mut self, prompt: &str, _default: &str) -> Result<String, InterviewError> {
+        self.texts
+            .pop_front()
+            .ok_or_else(|| script_exhausted(prompt))
+    }
+
+    fn choose(&mut self, prompt: &str, _options: &[&str]) -> Result<usize, InterviewError> {
+        self.choices
             .pop_front()
             .ok_or_else(|| script_exhausted(prompt))
     }
@@ -331,6 +356,347 @@ fn run_interview_reports_host_running_instead_of_failing_the_whole_interview()
     );
     assert!(!host_path.exists());
 
+    Ok(())
+}
+
+/// Every test past this point loads a `config.toml` that already has
+/// vault(s) configured, exercising the reload behaviour rather than the
+/// fresh-install path the tests above cover.
+fn write_existing_config(path: &std::path::Path, contents: &str) -> Result<(), std::io::Error> {
+    fs::write(path, contents)
+}
+
+fn no_network_environment<'a>(
+    config_path: PathBuf,
+    detector: &'a NeverRunning,
+    download_model: &'a dyn Fn(&Path) -> Result<PathBuf, ModelCliError>,
+    resolve_host_path: &'a dyn Fn() -> Result<HostPathResolution, HostPathError>,
+) -> InterviewEnvironment<'a> {
+    InterviewEnvironment {
+        config_path,
+        model_cache_dir: PathBuf::new(),
+        download_model,
+        resolve_host_path,
+        process_detector: detector,
+        wait_tick: &|| {},
+        server_command: "/usr/local/bin/contextos".to_owned(),
+    }
+}
+
+#[test]
+fn run_interview_prefills_a_single_existing_vault_and_accepts_every_default()
+-> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = tempdir()?;
+    let vault_dir = tempdir()?;
+    let config_path = config_dir.path().join("config.toml");
+    write_existing_config(
+        &config_path,
+        &format!(
+            "[[vault]]\npath = {:?}\nname = \"mine\"\n",
+            vault_dir.path()
+        ),
+    )?;
+
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
+        Err(ModelCliError::NoRequiredFiles)
+    };
+    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
+        Err(HostPathError::HomeDirectoryUnavailable)
+    };
+    let detector = NeverRunning;
+    let environment = no_network_environment(
+        config_path.clone(),
+        &detector,
+        &download_model,
+        &resolve_host_path,
+    );
+
+    let mut interviewer = ScriptedInterviewer::new(
+        vec![
+            true,  // "Keep mine managed ...?"
+            false, // "Enable semantic search for mine?"
+            false, // "Add a new vault?"
+            false, // "Register this server with Claude Desktop now?"
+        ],
+        vec![
+            "mine".to_owned(),                      // "Vault name:" default accepted verbatim
+            vault_dir.path().display().to_string(), // "Vault path ...:" default accepted verbatim
+        ],
+    );
+
+    let report = run_interview(&mut interviewer, &environment)?;
+
+    assert_eq!(report.edited_vaults, vec!["mine".to_owned()]);
+    assert!(report.added_vaults.is_empty());
+    let written = fs::read_to_string(&config_path)?;
+    let config = Config::try_from(written.as_str())?;
+    assert_eq!(config.vaults.len(), 1);
+    assert_eq!(config.vaults[0].path, vault_dir.path());
+    Ok(())
+}
+
+#[test]
+fn run_interview_prefills_a_single_existing_vault_and_renames_it()
+-> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = tempdir()?;
+    let vault_dir = tempdir()?;
+    let config_path = config_dir.path().join("config.toml");
+    write_existing_config(
+        &config_path,
+        &format!(
+            "[[vault]]\npath = {:?}\nname = \"mine\"\n",
+            vault_dir.path()
+        ),
+    )?;
+
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
+        Err(ModelCliError::NoRequiredFiles)
+    };
+    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
+        Err(HostPathError::HomeDirectoryUnavailable)
+    };
+    let detector = NeverRunning;
+    let environment = no_network_environment(
+        config_path.clone(),
+        &detector,
+        &download_model,
+        &resolve_host_path,
+    );
+
+    let mut interviewer = ScriptedInterviewer::new(
+        vec![
+            true,  // "Keep renamed managed ...?"
+            false, // "Enable semantic search for renamed?"
+            false, // "Add a new vault?"
+            false, // "Register this server with Claude Desktop now?"
+        ],
+        vec!["renamed".to_owned(), vault_dir.path().display().to_string()],
+    );
+
+    let report = run_interview(&mut interviewer, &environment)?;
+
+    assert_eq!(report.edited_vaults, vec!["renamed".to_owned()]);
+    let config = Config::try_from(fs::read_to_string(&config_path)?.as_str())?;
+    assert_eq!(config.vaults[0].name.as_deref(), Some("renamed"));
+    Ok(())
+}
+
+#[test]
+fn run_interview_multi_vault_focus_edits_general_server_settings()
+-> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = tempdir()?;
+    let first_dir = tempdir()?;
+    let second_dir = tempdir()?;
+    let config_path = config_dir.path().join("config.toml");
+    write_existing_config(
+        &config_path,
+        &format!(
+            "[[vault]]\npath = {:?}\nname = \"first\"\n[[vault]]\npath = {:?}\nname = \"second\"\n",
+            first_dir.path(),
+            second_dir.path()
+        ),
+    )?;
+
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
+        Err(ModelCliError::NoRequiredFiles)
+    };
+    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
+        Err(HostPathError::HomeDirectoryUnavailable)
+    };
+    let detector = NeverRunning;
+    let environment = no_network_environment(
+        config_path.clone(),
+        &detector,
+        &download_model,
+        &resolve_host_path,
+    );
+
+    let mut interviewer = ScriptedInterviewer::with_choices(
+        vec![
+            false, // "Focus on something else?"
+            false, // "Add a new vault?"
+            false, // "Register this server with Claude Desktop now?"
+        ],
+        vec![
+            "stdio, http".to_owned(), // "Transports ...:"
+            "debug".to_owned(),       // "Log level ...:"
+            String::new(),            // "Log file path ...:"
+        ],
+        vec![0], // "What would you like to focus on?" -> General (server) settings
+    );
+
+    let report = run_interview(&mut interviewer, &environment)?;
+
+    assert!(report.server_settings_changed);
+    assert!(report.edited_vaults.is_empty());
+    let config = Config::try_from(fs::read_to_string(&config_path)?.as_str())?;
+    assert_eq!(config.server.transports.len(), 2);
+    Ok(())
+}
+
+#[test]
+fn run_interview_general_server_settings_focus_lowercases_a_mixed_case_log_level()
+-> Result<(), Box<dyn std::error::Error>> {
+    // Regression: `LogLevel`'s TOML deserialisation only accepts its exact
+    // lowercase form (`config.rs`'s `#[serde(rename_all = "lowercase")]`),
+    // so an operator typing "Debug" at the log-level prompt must not abort
+    // the whole interview (and every edit already accepted this run) with
+    // an unrecognised-value error.
+    let config_dir = tempdir()?;
+    let first_dir = tempdir()?;
+    let second_dir = tempdir()?;
+    let config_path = config_dir.path().join("config.toml");
+    write_existing_config(
+        &config_path,
+        &format!(
+            "[[vault]]\npath = {:?}\nname = \"first\"\n[[vault]]\npath = {:?}\nname = \"second\"\n",
+            first_dir.path(),
+            second_dir.path()
+        ),
+    )?;
+
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
+        Err(ModelCliError::NoRequiredFiles)
+    };
+    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
+        Err(HostPathError::HomeDirectoryUnavailable)
+    };
+    let detector = NeverRunning;
+    let environment = no_network_environment(
+        config_path.clone(),
+        &detector,
+        &download_model,
+        &resolve_host_path,
+    );
+
+    let mut interviewer = ScriptedInterviewer::with_choices(
+        vec![
+            false, // "Focus on something else?"
+            false, // "Add a new vault?"
+            false, // "Register this server with Claude Desktop now?"
+        ],
+        vec![
+            "stdio".to_owned(), // "Transports ...:"
+            "Debug".to_owned(), // "Log level ...:" mixed case
+            String::new(),      // "Log file path ...:"
+        ],
+        vec![0], // "What would you like to focus on?" -> General (server) settings
+    );
+
+    let report = run_interview(&mut interviewer, &environment)?;
+
+    assert!(report.server_settings_changed);
+    let config = Config::try_from(fs::read_to_string(&config_path)?.as_str())?;
+    assert_eq!(config.server.log_level, LogLevel::Debug);
+    Ok(())
+}
+
+#[test]
+fn run_interview_multi_vault_focus_edits_all_vaults_in_turn()
+-> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = tempdir()?;
+    let first_dir = tempdir()?;
+    let second_dir = tempdir()?;
+    let config_path = config_dir.path().join("config.toml");
+    write_existing_config(
+        &config_path,
+        &format!(
+            "[[vault]]\npath = {:?}\nname = \"first\"\n[[vault]]\npath = {:?}\nname = \"second\"\n",
+            first_dir.path(),
+            second_dir.path()
+        ),
+    )?;
+
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
+        Err(ModelCliError::NoRequiredFiles)
+    };
+    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
+        Err(HostPathError::HomeDirectoryUnavailable)
+    };
+    let detector = NeverRunning;
+    let environment = no_network_environment(
+        config_path.clone(),
+        &detector,
+        &download_model,
+        &resolve_host_path,
+    );
+
+    let mut interviewer = ScriptedInterviewer::with_choices(
+        vec![
+            true, false, // vault "first": managed?, semantic?
+            true, false, // vault "second": managed?, semantic?
+            false, // "Focus on something else?"
+            false, // "Add a new vault?"
+            false, // "Register this server with Claude Desktop now?"
+        ],
+        vec![
+            "first".to_owned(),
+            first_dir.path().display().to_string(),
+            "second".to_owned(),
+            second_dir.path().display().to_string(),
+        ],
+        vec![1], // "What would you like to focus on?" -> All vaults
+    );
+
+    let report = run_interview(&mut interviewer, &environment)?;
+
+    assert_eq!(
+        report.edited_vaults,
+        vec!["first".to_owned(), "second".to_owned()]
+    );
+    Ok(())
+}
+
+#[test]
+fn run_interview_multi_vault_focus_removes_a_specific_vault()
+-> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = tempdir()?;
+    let first_dir = tempdir()?;
+    let second_dir = tempdir()?;
+    let config_path = config_dir.path().join("config.toml");
+    write_existing_config(
+        &config_path,
+        &format!(
+            "[[vault]]\npath = {:?}\nname = \"first\"\n[[vault]]\npath = {:?}\nname = \"second\"\n",
+            first_dir.path(),
+            second_dir.path()
+        ),
+    )?;
+
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
+        Err(ModelCliError::NoRequiredFiles)
+    };
+    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
+        Err(HostPathError::HomeDirectoryUnavailable)
+    };
+    let detector = NeverRunning;
+    let environment = no_network_environment(
+        config_path.clone(),
+        &detector,
+        &download_model,
+        &resolve_host_path,
+    );
+
+    let mut interviewer = ScriptedInterviewer::with_choices(
+        vec![
+            false, // "Focus on something else?"
+            false, // "Add a new vault?"
+            false, // "Register this server with Claude Desktop now?"
+        ],
+        vec![],
+        vec![
+            2, // "What would you like to focus on?" -> A specific vault
+            1, // "Which vault?" -> index 1 ("second")
+            1, // "What would you like to do with second?" -> Remove
+        ],
+    );
+
+    let report = run_interview(&mut interviewer, &environment)?;
+
+    assert_eq!(report.removed_vaults, vec!["second".to_owned()]);
+    let config = Config::try_from(fs::read_to_string(&config_path)?.as_str())?;
+    assert_eq!(config.vaults.len(), 1);
+    assert_eq!(config.vaults[0].name.as_deref(), Some("first"));
     Ok(())
 }
 

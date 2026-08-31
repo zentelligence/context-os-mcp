@@ -77,7 +77,13 @@ enum CliCommand {
     /// Edit `config.toml` directly, or with no subcommand at all, run the
     /// interactive guided-setup interview. Vault-independent: works against
     /// a not-yet-valid or not-yet-existing configuration file, so it runs
-    /// before the strict `Config` load the other subcommands require.
+    /// before the strict `Config` load the other subcommands require. When
+    /// `config.toml` already has vault(s) configured, the interview loads
+    /// them first: a single existing vault is offered back for edit with
+    /// its current settings prefilled as defaults, and more than one
+    /// existing vault instead asks what to focus on (general server
+    /// settings, all vaults, or one named vault to edit or remove) before
+    /// optionally adding more.
     Config {
         #[command(subcommand)]
         action: Option<ConfigAction>,

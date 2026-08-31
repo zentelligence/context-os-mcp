@@ -106,6 +106,9 @@ impl Config {
         if self.vaults.is_empty() {
             return Err(ConfigError::NoVaults);
         }
+        if self.server.transports.is_empty() {
+            return Err(ConfigError::NoTransports);
+        }
         for vault in &self.vaults {
             if vault.limits.max_read_mb == 0 {
                 return Err(ConfigError::InvalidLimit {
@@ -641,6 +644,8 @@ pub enum ConfigError {
     },
     #[error("at least one allowed vault directory must be configured")]
     NoVaults,
+    #[error("at least one transport (\"stdio\" or \"http\") must be configured")]
+    NoTransports,
     #[error("configuration limit must be greater than zero: {field}")]
     InvalidLimit { field: &'static str },
     #[error("configuration path must be a portable relative path: {field} = {path}")]

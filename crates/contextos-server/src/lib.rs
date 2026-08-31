@@ -25,7 +25,7 @@ pub use config::{
     SearchConfig, ServerConfig, Transport, VaultConfig,
 };
 pub use config_io::{ConfigIoError, load_config_document, write_config_document};
-pub use config_writer::{ConfigDocument, ConfigWriterError};
+pub use config_writer::{ConfigDocument, ConfigWriterError, ServerSettingsSummary, VaultSummary};
 pub use doctor::{DoctorError, DoctorReport};
 pub use host_paths::{
     HostPathError, HostPathResolution, default_claude_desktop_config_path,
