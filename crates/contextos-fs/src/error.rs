@@ -1,7 +1,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use contextos_core::PathError;
+use contextos_core::{ContentHash, PathError};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -49,7 +49,20 @@ pub enum FsError {
     #[error("file is binary or is not valid UTF-8: {path}")]
     Binary { path: PathBuf },
     #[error("file changed since the caller observed it: {path}")]
-    Conflict { path: PathBuf },
+    Conflict {
+        path: PathBuf,
+        /// The hash currently on disk, when a content hash was available at
+        /// the point of conflict (absent for a path-validation race with no
+        /// hashable target). Lets a caller retry in one step instead of a
+        /// second read that reintroduces the chance of dropping the hash
+        /// again.
+        current_hash: Option<ContentHash>,
+    },
+    #[error("expected_hash is required to overwrite an existing file: {path}")]
+    ExpectedHashRequired {
+        path: PathBuf,
+        current_hash: ContentHash,
+    },
     #[error("destination already exists: {path}")]
     DestinationExists { path: PathBuf },
     #[error("exact edit text was not found: {path}")]
@@ -230,7 +243,8 @@ impl FsError {
             | Self::NotFile { path }
             | Self::TooLarge { path, .. }
             | Self::Binary { path }
-            | Self::Conflict { path }
+            | Self::Conflict { path, .. }
+            | Self::ExpectedHashRequired { path, .. }
             | Self::DestinationExists { path }
             | Self::EditNotFound { path }
             | Self::EditAmbiguous { path }
@@ -258,6 +272,55 @@ impl FsError {
         }
     }
 
+    /// Returns the hash on disk at the point of failure, when one was
+    /// available, so a caller can retry a write-conflict rejection in one
+    /// step instead of a second read.
+    #[must_use]
+    pub fn current_hash(&self) -> Option<&ContentHash> {
+        match self {
+            Self::Conflict { current_hash, .. } => current_hash.as_ref(),
+            Self::ExpectedHashRequired { current_hash, .. } => Some(current_hash),
+            Self::OutsideRoot { .. }
+            | Self::NotDirectory { .. }
+            | Self::PathValidation { .. }
+            | Self::NotFound { .. }
+            | Self::NotFile { .. }
+            | Self::TooLarge { .. }
+            | Self::Binary { .. }
+            | Self::DestinationExists { .. }
+            | Self::EditNotFound { .. }
+            | Self::EditAmbiguous { .. }
+            | Self::BatchTooLarge { .. }
+            | Self::LimitCountMismatch { .. }
+            | Self::InvalidLimits { .. }
+            | Self::HiddenCountMismatch { .. }
+            | Self::InvalidRange { .. }
+            | Self::InvalidGlob { .. }
+            | Self::InvalidExclude { .. }
+            | Self::ReadDirectory { .. }
+            | Self::ReadDirectoryEntry { .. }
+            | Self::WalkDirectory { .. }
+            | Self::PrefixMismatch { .. }
+            | Self::ReadMetadata { .. }
+            | Self::OpenRead { .. }
+            | Self::ReadContent { .. }
+            | Self::CreateParent { .. }
+            | Self::CreateTemporary { .. }
+            | Self::WriteTemporary { .. }
+            | Self::FlushTemporary { .. }
+            | Self::AtomicWriteInterrupted { .. }
+            | Self::PersistTemporary { .. }
+            | Self::CreateDirectory { .. }
+            | Self::MovePath { .. }
+            | Self::DirectoryNotEmpty { .. }
+            | Self::TrashPath { .. }
+            | Self::DeletePath { .. }
+            | Self::OpenAppend { .. }
+            | Self::AppendContent { .. }
+            | Self::FlushAppend { .. } => None,
+        }
+    }
+
     /// Stable machine-readable code for MCP error data.
     #[must_use]
     pub const fn code(&self) -> &'static str {
@@ -266,6 +329,7 @@ impl FsError {
             Self::PathValidation { source, .. } => source.code(),
             Self::NotFound { .. } => "path/not-found",
             Self::Conflict { .. } => "io/conflict",
+            Self::ExpectedHashRequired { .. } => "io/expected-hash-required",
             Self::DestinationExists { .. } => "io/destination-exists",
             Self::EditNotFound { .. } => "edit/not-found",
             Self::EditAmbiguous { .. } => "edit/ambiguous",
@@ -310,7 +374,10 @@ impl FsError {
             Self::PathValidation { source, .. } => source.remediation(),
             Self::NotFound { .. } => "Check the path and list its parent directory.",
             Self::Conflict { .. } => {
-                "Read the current content and retry with its hash, or pass force explicitly."
+                "The file changed since it was last read. Read the current content and retry the write with its hash."
+            }
+            Self::ExpectedHashRequired { .. } => {
+                "expected_hash is required to overwrite an existing file. Read it first to obtain the current content_hash, then retry the write with that hash."
             }
             Self::DestinationExists { .. } => "Choose a destination that does not exist.",
             Self::EditNotFound { .. } => {

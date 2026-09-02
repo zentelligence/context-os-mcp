@@ -597,6 +597,7 @@ impl Filesystem {
         if refreshed != *path {
             return Err(FsError::Conflict {
                 path: standard_path.to_path_buf(),
+                current_hash: None,
             });
         }
         Ok(standard_path.to_path_buf())
@@ -613,9 +614,24 @@ fn validate_expected_hash(
     }
     match (existed, request.expected_hash.as_ref()) {
         (false, None) => Ok(()),
-        (true, Some(expected)) if &hash_file(target)? == expected => Ok(()),
-        _ => Err(FsError::Conflict {
+        (true, None) => Err(FsError::ExpectedHashRequired {
             path: target.to_path_buf(),
+            current_hash: hash_file(target)?,
+        }),
+        (true, Some(expected)) => {
+            let current = hash_file(target)?;
+            if &current == expected {
+                Ok(())
+            } else {
+                Err(FsError::Conflict {
+                    path: target.to_path_buf(),
+                    current_hash: Some(current),
+                })
+            }
+        }
+        (false, Some(_)) => Err(FsError::Conflict {
+            path: target.to_path_buf(),
+            current_hash: None,
         }),
     }
 }

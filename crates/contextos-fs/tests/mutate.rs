@@ -237,20 +237,41 @@ fn phase_2_filesystem_service_returns_secondary_warnings_after_persistence()
 }
 
 #[test]
-fn nfr_04_conflict_preserves_existing_bytes() -> Result<(), Box<dyn std::error::Error>> {
+fn nfr_04_conflict_preserves_existing_bytes_and_reports_current_hash_without_naming_force()
+-> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
-    std::fs::write(vault.path().join("note.md"), "original")?;
     let (service, roots) = fixture(vault.path().to_path_buf())?;
+    let note = path(&roots, "note.md")?;
+    let created = service.write_file(&WriteMutation {
+        path: note.clone(),
+        content: "original".to_owned(),
+        expected_hash: None,
+        force: false,
+        origin: Origin::Tool("fs_write_file".to_owned()),
+    })?;
 
     let result = service.write_file(&WriteMutation {
-        path: path(&roots, "note.md")?,
+        path: note,
         content: "replacement".to_owned(),
         expected_hash: Some(ContentHash::from([0_u8; 32])),
         force: false,
         origin: Origin::Tool("fs_write_file".to_owned()),
     });
 
-    assert!(matches!(result, Err(FsError::Conflict { .. })));
+    let Err(error) = result else {
+        return Err("mismatched expected_hash must be rejected".into());
+    };
+    assert!(
+        !error.remediation().to_lowercase().contains("force"),
+        "a genuine conflict must not advertise force as a peer option: {}",
+        error.remediation()
+    );
+    match error {
+        FsError::Conflict { current_hash, .. } => {
+            assert_eq!(current_hash, Some(created.value.content_hash));
+        }
+        other => return Err(format!("expected FsError::Conflict, got {other:?}").into()),
+    }
     assert_eq!(
         std::fs::read_to_string(vault.path().join("note.md"))?,
         "original"
@@ -380,9 +401,15 @@ fn nfr_03_process_kill_child() -> Result<(), Box<dyn std::error::Error>> {
 fn nfr_04_existing_file_requires_hash_or_explicit_force() -> Result<(), Box<dyn std::error::Error>>
 {
     let vault = tempdir()?;
-    std::fs::write(vault.path().join("note.md"), "original")?;
     let (service, roots) = fixture(vault.path().to_path_buf())?;
     let note = path(&roots, "note.md")?;
+    let created = service.write_file(&WriteMutation {
+        path: note.clone(),
+        content: "original".to_owned(),
+        expected_hash: None,
+        force: false,
+        origin: Origin::Tool("fs_write_file".to_owned()),
+    })?;
 
     let guarded = service.write_file(&WriteMutation {
         path: note.clone(),
@@ -399,7 +426,22 @@ fn nfr_04_existing_file_requires_hash_or_explicit_force() -> Result<(), Box<dyn 
         origin: Origin::Tool("fs_write_file".to_owned()),
     })?;
 
-    assert!(matches!(guarded, Err(FsError::Conflict { .. })));
+    let Err(error) = guarded else {
+        return Err("omitting expected_hash on an existing target must be rejected".into());
+    };
+    assert!(
+        !error.remediation().to_lowercase().contains("force"),
+        "the missing-hash error must not advertise force as a peer option: {}",
+        error.remediation()
+    );
+    match error {
+        FsError::ExpectedHashRequired { current_hash, .. } => {
+            assert_eq!(current_hash, created.value.content_hash);
+        }
+        other => {
+            return Err(format!("expected FsError::ExpectedHashRequired, got {other:?}").into());
+        }
+    }
     assert!(!forced.value.created);
     assert_eq!(
         std::fs::read_to_string(vault.path().join("note.md"))?,
