@@ -13,6 +13,13 @@ The record below starts at the current version - 0.20.1. From this point forward
 
 - Nothing yet.
 
+## [0.20.2] - 2026-09-03
+
+### Fixed
+
+- `contextos config` now loads an existing `config.toml` before running the guided-setup interview instead of treating every run as a fresh install: a single existing vault is offered back for edit with its current settings prefilled as defaults, and more than one vault asks what to focus on (general server settings, all vaults, or one named vault to edit or remove) before optionally adding more.
+- `Config::validate` now rejects an empty transports list, which previously validated successfully but left the server started with neither stdio nor HTTP.
+
 ## [0.20.1] - 2026-08-30
 
 ### Added

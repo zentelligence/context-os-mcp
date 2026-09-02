@@ -572,7 +572,7 @@ checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
 name = "contextos-core"
-version = "0.21.0"
+version = "0.20.2"
 dependencies = [
  "camino",
  "dunce",
@@ -586,7 +586,7 @@ dependencies = [
 
 [[package]]
 name = "contextos-ephemeris"
-version = "0.21.0"
+version = "0.20.2"
 dependencies = [
  "astro",
  "thiserror",
@@ -595,7 +595,7 @@ dependencies = [
 
 [[package]]
 name = "contextos-fs"
-version = "0.21.0"
+version = "0.20.2"
 dependencies = [
  "contextos-core",
  "dunce",
@@ -616,7 +616,7 @@ dependencies = [
 
 [[package]]
 name = "contextos-git"
-version = "0.21.0"
+version = "0.20.2"
 dependencies = [
  "contextos-core",
  "contextos-fs",
@@ -633,7 +633,7 @@ dependencies = [
 
 [[package]]
 name = "contextos-index"
-version = "0.21.0"
+version = "0.20.2"
 dependencies = [
  "contextos-core",
  "contextos-fs",
@@ -646,7 +646,7 @@ dependencies = [
 
 [[package]]
 name = "contextos-mermaid"
-version = "0.21.0"
+version = "0.20.2"
 dependencies = [
  "merman-core",
  "merman-render",
@@ -655,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "contextos-obsidian"
-version = "0.21.0"
+version = "0.20.2"
 dependencies = [
  "contextos-core",
  "serde",
@@ -667,7 +667,7 @@ dependencies = [
 
 [[package]]
 name = "contextos-oplog"
-version = "0.21.0"
+version = "0.20.2"
 dependencies = [
  "contextos-core",
  "contextos-fs",
@@ -678,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "contextos-search"
-version = "0.21.0"
+version = "0.20.2"
 dependencies = [
  "contextos-core",
  "contextos-obsidian",
@@ -701,7 +701,7 @@ dependencies = [
 
 [[package]]
 name = "contextos-server"
-version = "0.21.0"
+version = "0.20.2"
 dependencies = [
  "axum",
  "base64 0.22.1",
