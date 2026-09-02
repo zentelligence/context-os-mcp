@@ -26,19 +26,8 @@ time.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-# Prototype-only, for the `embedvec` evaluation (notes location recorded in
-# CLAUDE.local.md): a throwaway `StoresVectors` implementation lives
-# in `benches/embedvec_prototype.rs`, never in `src/`. `default-features =
-# false` + `persistence-fjall` deliberately excludes the `async` feature to
-# test whether the fully synchronous `_internal` methods (public, not
-# gated behind `async`) are usable directly without a Tokio runtime bridge.
-embedvec = { version = "=0.10.0", default-features = false, features = ["persistence-fjall"] }
 proptest.workspace = true
 tempfile.workspace = true
-
-[[bench]]
-name = "embedvec_prototype"
-harness = false
 
 [[bench]]
 name = "graph_persistence"
@@ -62,15 +51,6 @@ default = ["semantic-local"]
 # provider that A1 gates; `sqlite-vec`'s statically linked C amalgamation
 # is a small, offline, no-network dependency, unlike the ONNX runtime.
 semantic-local = ["dep:fastembed"]
-# Prototype-only: gates `benches/embedvec_prototype.rs`'s calls to
-# `EmbedVec::flush_sync()`, which exists only on Peter's local, unreleased
-# `embedvec` checkout (commit `a5af175`/`d9eb4c0`), not the published
-# `0.10.0` this crate's dev-dependency normally pins. Off by default so
-# `cargo bench --bench embedvec_prototype` compiles against the published
-# crate; combine with pointing the `embedvec` dev-dependency at a local
-# path (see the embedvec evaluation notes, location recorded in
-# CLAUDE.local.md) to reproduce the fixed-checkout benchmark numbers.
-embedvec-unreleased-flush-sync = []
 
 [lints]
 # `unsafe_code` is downgraded from the workspace's `forbid` to `deny` only

@@ -10,8 +10,8 @@ cargo about generate about.hbs -o THIRD_PARTY_LICENSES.md --workspace
 
 ## Licence summary
 
-- Apache License 2.0 (407 crate(s))
-- MIT License (148 crate(s))
+- Apache License 2.0 (398 crate(s))
+- MIT License (142 crate(s))
 - ISC License (21 crate(s))
 - Unicode License v3 (19 crate(s))
 - BSD 3-Clause "New" or "Revised" License (7 crate(s))
@@ -6379,7 +6379,6 @@ Used by:
 - `fs4` 0.13.1
 - `getopts` 0.2.24
 - `git2` 0.21.0
-- `guardian` 1.3.0
 - `hashbrown` 0.14.5
 - `hashbrown` 0.15.5
 - `hashbrown` 0.16.1
@@ -7121,7 +7120,6 @@ limitations under the License.
 
 Used by:
 - `rand_core` 0.10.1
-- `rand_core` 0.6.4
 - `rand_core` 0.9.5
 
 ```
@@ -7321,7 +7319,6 @@ Used by:
 - `getrandom` 0.2.17
 - `getrandom` 0.3.4
 - `getrandom` 0.4.3
-- `rand_chacha` 0.3.1
 
 ```
                               Apache License
@@ -8232,16 +8229,16 @@ limitations under the License.
 ### Apache License 2.0
 
 Used by:
-- `contextos-core` 0.20.1
-- `contextos-ephemeris` 0.20.1
-- `contextos-fs` 0.20.1
-- `contextos-git` 0.20.1
-- `contextos-index` 0.20.1
-- `contextos-mermaid` 0.20.1
-- `contextos-obsidian` 0.20.1
-- `contextos-oplog` 0.20.1
-- `contextos-search` 0.20.1
-- `contextos-server` 0.20.1
+- `contextos-core` 0.21.0
+- `contextos-ephemeris` 0.21.0
+- `contextos-fs` 0.21.0
+- `contextos-git` 0.21.0
+- `contextos-index` 0.21.0
+- `contextos-mermaid` 0.21.0
+- `contextos-obsidian` 0.21.0
+- `contextos-oplog` 0.21.0
+- `contextos-search` 0.21.0
+- `contextos-server` 0.21.0
 - `allocator-api2` 0.2.21
 - `android_system_properties` 0.1.5
 - `anyhow` 1.0.104
@@ -8251,7 +8248,6 @@ Used by:
 - `bon-macros` 3.9.3
 - `bon` 3.9.3
 - `byteview` 0.10.2
-- `byteview` 0.6.1
 - `dary_heap` 0.3.9
 - `datasketches` 0.2.0
 - `directories` 6.0.0
@@ -8265,7 +8261,6 @@ Used by:
 - `dyn-clone` 1.0.20
 - `enum_dispatch` 0.3.13
 - `erased-serde` 0.4.10
-- `fjall` 2.11.2
 - `fjall` 3.1.8
 - `granit-parser` 0.0.6
 - `htmlescape` 0.3.1
@@ -8277,7 +8272,6 @@ Used by:
 - `jni` 0.22.4
 - `libc` 0.2.186
 - `litrs` 1.0.0
-- `lsm-tree` 2.10.4
 - `lsm-tree` 3.1.8
 - `manatee` 0.8.0-alpha.3
 - `merman-core` 0.8.0-alpha.3
@@ -8301,7 +8295,6 @@ Used by:
 - `r-efi` 5.3.0
 - `r-efi` 6.0.0
 - `rand` 0.10.2
-- `rand` 0.8.7
 - `rand` 0.9.5
 - `rand_chacha` 0.9.0
 - `rand_xorshift` 0.4.0
@@ -8327,7 +8320,6 @@ Used by:
 - `siphasher` 1.0.3
 - `sqlite-vec` 0.1.9
 - `sse-stream` 0.2.4
-- `std-semaphore` 0.1.0
 - `syn` 2.0.119
 - `syn` 3.0.0
 - `sync_wrapper` 1.0.2
@@ -8343,7 +8335,6 @@ Used by:
 - `ureq-proto` 0.6.0
 - `utf8-zero` 0.8.1
 - `utf8parse` 0.2.2
-- `value-log` 1.9.0
 - `wasm-streams` 0.4.2
 - `wasm-streams` 0.5.0
 - `wide` 1.5.0
@@ -10678,7 +10669,6 @@ THE SOFTWARE.
 
 Used by:
 - `new_debug_unreachable` 1.0.6
-- `ordered-float` 4.6.0
 - `ordered-float` 5.3.0
 
 ```
@@ -11550,37 +11540,6 @@ SOFTWARE.
 ### MIT License
 
 Used by:
-- `path-absolutize` 3.1.1
-- `path-dedot` 3.1.1
-
-```
-MIT License
-
-Copyright (c) 2018 magiclen.org (Ron Li)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-```
-
-### MIT License
-
-Used by:
 - `dashmap` 6.2.1
 
 ```
@@ -12008,7 +11967,6 @@ SOFTWARE.
 ### MIT License
 
 Used by:
-- `double-ended-peekable` 0.1.0
 - `inquire` 0.9.4
 - `objc2-encode` 4.1.0
 - `objc2-foundation` 0.3.2
@@ -12116,36 +12074,6 @@ Used by:
 MIT License
 
 Copyright (c) 2019 Timon
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-```
-
-### MIT License
-
-Used by:
-- `embedvec` 0.10.0
-
-```
-MIT License
-
-Copyright (c) 2026 EmbedVec Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -12731,7 +12659,6 @@ SOFTWARE.
 ### MIT License
 
 Used by:
-- `lz4_flex` 0.11.6
 - `lz4_flex` 0.13.1
 
 ```
