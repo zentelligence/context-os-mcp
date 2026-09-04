@@ -1,23 +1,19 @@
-//! `NFR-05` (measured, non-gating): confirms `resources/list` and the three
+//! Measured, non-gating benchmark: confirms `resources/list` and the three
 //! filesystem listing tools (`fs_list_directory` plain and with `with_sizes`,
 //! `fs_directory_tree`, `fs_search_files`)
-//! remain viable once `hidden` filtering (`FR-84`) and the broadened
-//! resource population (`FR-80`) are in place, at 10k-file vault scale
-//! (Phase 7 Stage 6's benchmark note, mirroring Phase 4's own `NFR-05`
-//! follow-up discipline). All ten thousand files sit flat in the vault
-//! root, the worst case for every one of these five surfaces since none of
-//! them may stop short of a complete listing. Also times `doctor`'s
-//! frontmatter validity check (`FR-95`, Phase 8), the one doctor check that
-//! reads every file's content rather than calling an existing status
-//! method, per that phase's own `NFR-05` design note.
+//! remain viable once `hidden` filtering and the broadened resource
+//! population are in place, at 10k-file vault scale. All ten thousand
+//! files sit flat in the vault root, the worst case for every one of these
+//! five surfaces since none of them may stop short of a complete listing.
+//! Also times `doctor`'s frontmatter validity check, the one doctor check
+//! that reads every file's content rather than calling an existing status
+//! method.
 //!
-//! Ignored by default: this is a measured note, not a CI gate
-//! (`.claude/workflows/quality-gate.md`: `NFR-05` is recorded as a
-//! "measured benchmark (non-gating)" row in the requirement matrix, not an
-//! assertion with a pass/fail threshold). Run explicitly with:
+//! Ignored by default: this is a measured note, not a CI gate. Run
+//! explicitly with:
 //!
 //! ```sh
-//! cargo test -p contextos-mcp --test nfr_05_benchmark -- --ignored --nocapture
+//! cargo test -p contextos-mcp --test enumeration_benchmark -- --ignored --nocapture
 //! ```
 
 use std::time::Instant;
@@ -32,17 +28,17 @@ type BoxError = Box<dyn std::error::Error + Send + Sync>;
 const FILE_COUNT: usize = 10_000;
 
 #[tokio::test]
-#[ignore = "measured NFR-05 benchmark note, not a CI gate; run explicitly with --ignored --nocapture"]
-async fn nfr_05_enumeration_surfaces_remain_viable_on_a_10k_file_vault() -> Result<(), BoxError> {
+#[ignore = "measured enumeration benchmark note, not a CI gate; run explicitly with --ignored --nocapture"]
+async fn enumeration_surfaces_remain_viable_on_a_10k_file_vault() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     for index in 0..FILE_COUNT {
         std::fs::write(vault.path().join(format!("file-{index:05}.md")), "content")?;
     }
 
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
-    // `FR-107`: `resources/list` only enumerates configured include
-    // patterns now; opt in broadly so this benchmark still exercises a
-    // full 10k-file enumeration, its own actual purpose.
+    // `resources/list` only enumerates configured include patterns; opt in
+    // broadly so this benchmark still exercises a full 10k-file
+    // enumeration, its own actual purpose.
     config.vaults[0].resources_list_include = vec!["**/*".to_owned()];
     let server = ContextOsServer::try_from(config)?;
     let (server_transport, client_transport) = tokio::io::duplex(1 << 20);
@@ -73,9 +69,8 @@ async fn nfr_05_enumeration_surfaces_remain_viable_on_a_10k_file_vault() -> Resu
     let started = Instant::now();
     client
         .call_tool(
-            CallToolRequestParams::new("fs_list_directory").with_arguments(serde_json::from_value(
-                json!({"path": ".", "with_sizes": true}),
-            )?),
+            CallToolRequestParams::new("fs_list_directory")
+                .with_arguments(serde_json::from_value(json!({"path": ".", "with_sizes": true}))?),
         )
         .await?;
     let fs_list_directory_with_sizes = started.elapsed();
@@ -100,13 +95,11 @@ async fn nfr_05_enumeration_surfaces_remain_viable_on_a_10k_file_vault() -> Resu
     let fs_search_files = started.elapsed();
 
     let started = Instant::now();
-    client
-        .call_tool(CallToolRequestParams::new("doctor"))
-        .await?;
+    client.call_tool(CallToolRequestParams::new("doctor")).await?;
     let doctor = started.elapsed();
 
     println!(
-        "NFR-05 10k-file benchmark (release={}): resources/list={resources_list:?} \
+        "10k-file enumeration benchmark (release={}): resources/list={resources_list:?} \
          fs_list_directory={fs_list_directory:?} \
          fs_list_directory_with_sizes={fs_list_directory_with_sizes:?} \
          fs_directory_tree={fs_directory_tree:?} \

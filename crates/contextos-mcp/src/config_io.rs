@@ -23,9 +23,7 @@ use crate::{ConfigDocument, ConfigWriterError};
 /// not valid TOML.
 pub fn load_config_document(path: &Path) -> Result<ConfigDocument, ConfigIoError> {
     match fs::read_to_string(path) {
-        Ok(source) => {
-            ConfigDocument::parse(&source).map_err(|source| ConfigIoError::InvalidToml { source })
-        }
+        Ok(source) => ConfigDocument::parse(&source).map_err(|source| ConfigIoError::InvalidToml { source }),
         Err(source) if source.kind() == io::ErrorKind::NotFound => Ok(ConfigDocument::new()),
         Err(source) => Err(ConfigIoError::Read {
             path: path.to_path_buf(),
@@ -71,11 +69,10 @@ pub(crate) fn write_file_atomically(path: &Path, contents: &[u8]) -> Result<(), 
         source,
     })?;
 
-    let mut temporary =
-        NamedTempFile::new_in(parent).map_err(|source| ConfigIoError::CreateTemporary {
-            path: path.to_path_buf(),
-            source,
-        })?;
+    let mut temporary = NamedTempFile::new_in(parent).map_err(|source| ConfigIoError::CreateTemporary {
+        path: path.to_path_buf(),
+        source,
+    })?;
     temporary
         .write_all(contents)
         .map_err(|source| ConfigIoError::WriteTemporary {

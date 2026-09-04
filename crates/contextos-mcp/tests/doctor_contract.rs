@@ -34,35 +34,23 @@ fn structured(
 
 fn checks(
     result: &CallToolResult,
-) -> Result<
-    Vec<&serde_json::Map<String, serde_json::Value>>,
-    Box<dyn std::error::Error + Send + Sync>,
-> {
+) -> Result<Vec<&serde_json::Map<String, serde_json::Value>>, Box<dyn std::error::Error + Send + Sync>> {
     structured(result)?
         .get("checks")
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| std::io::Error::other("doctor result omitted checks").into())
-        .map(|checks| {
-            checks
-                .iter()
-                .filter_map(serde_json::Value::as_object)
-                .collect()
-        })
+        .map(|checks| checks.iter().filter_map(serde_json::Value::as_object).collect())
 }
 
 #[tokio::test]
-async fn catalogue_advertises_doctor_with_an_object_schema()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn catalogue_advertises_doctor_with_an_object_schema() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let catalogue = ContextOsServer::catalogue();
 
     let doctor = catalogue
         .get("doctor")
         .ok_or_else(|| std::io::Error::other("missing tool doctor"))?;
     assert_eq!(
-        doctor
-            .input_schema
-            .get("type")
-            .and_then(serde_json::Value::as_str),
+        doctor.input_schema.get("type").and_then(serde_json::Value::as_str),
         Some("object")
     );
     assert!(doctor.description.is_some());
@@ -84,22 +72,14 @@ async fn catalogue_advertises_doctor_with_an_object_schema()
     // populates `structured_content` with that shape too.
     assert_eq!(
         fields,
-        vec![
-            "checks",
-            "code",
-            "has_failures",
-            "message",
-            "path",
-            "remediation"
-        ]
+        vec!["checks", "code", "has_failures", "message", "path", "remediation"]
     );
 
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_90_doctor_reports_a_healthy_vault_with_no_failures()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn doctor_reports_a_healthy_vault_with_no_failures() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
     config.vaults[0].git.enabled = false;
@@ -109,10 +89,7 @@ async fn fr_90_doctor_reports_a_healthy_vault_with_no_failures()
     let result = call_tool(server, "doctor", Map::new()).await?;
 
     assert_eq!(result.is_error, Some(false));
-    assert_eq!(
-        structured(&result)?.get("has_failures"),
-        Some(&json!(false))
-    );
+    assert_eq!(structured(&result)?.get("has_failures"), Some(&json!(false)));
     let managed = checks(&result)?
         .into_iter()
         .find(|check| check.get("subject") == Some(&json!("Managed indexes")))
@@ -124,8 +101,8 @@ async fn fr_90_doctor_reports_a_healthy_vault_with_no_failures()
 }
 
 #[tokio::test]
-async fn fr_90_doctor_reports_a_missing_managed_index_as_auto_fixable()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn doctor_reports_a_missing_managed_index_as_auto_fixable() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
     config.vaults[0].git.enabled = false;
@@ -141,15 +118,12 @@ async fn fr_90_doctor_reports_a_missing_managed_index_as_auto_fixable()
         .ok_or_else(|| std::io::Error::other("no Managed indexes check reported"))?;
     assert_eq!(managed.get("status"), Some(&json!("fail")));
     assert_eq!(managed.get("auto_fixable"), Some(&json!(true)));
-    assert_eq!(
-        managed.get("remediation_tool"),
-        Some(&json!("vault_index_rebuild"))
-    );
+    assert_eq!(managed.get("remediation_tool"), Some(&json!("vault_index_rebuild")));
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_95_doctor_reports_invalid_frontmatter_as_never_auto_fixable()
+async fn doctor_reports_invalid_frontmatter_as_never_auto_fixable()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(

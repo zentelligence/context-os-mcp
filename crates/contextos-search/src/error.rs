@@ -10,24 +10,15 @@ pub enum SearchError {
         source: tantivy::TantivyError,
     },
     #[error("index directory {path} could not be prepared: {source}")]
-    IndexDirectory {
-        path: String,
-        source: std::io::Error,
-    },
+    IndexDirectory { path: String, source: std::io::Error },
     #[error("query '{query}' is invalid: {reason}")]
     InvalidQuery { query: String, reason: String },
     #[error("document {path} could not be read for indexing: {source}")]
-    DocumentRead {
-        path: String,
-        source: std::io::Error,
-    },
+    DocumentRead { path: String, source: std::io::Error },
     #[error("frontmatter filter '{field}' must be a string, number, or boolean")]
     InvalidFieldFilter { field: String },
     #[error("link graph cache {path} could not be persisted: {source}")]
-    GraphStorage {
-        path: String,
-        source: std::io::Error,
-    },
+    GraphStorage { path: String, source: std::io::Error },
     #[error("link graph store {path} is locked by another process")]
     GraphLocked { path: String },
     #[error("graph depth {depth} is outside the supported range 1 to 4")]
@@ -42,9 +33,7 @@ pub enum SearchError {
     SemanticUnavailable,
     #[error("the local embedding model at {directory} is unavailable: {reason}")]
     EmbeddingModelUnavailable { directory: String, reason: String },
-    #[error(
-        "the local embedding provider is not compiled into this build (the `semantic-local` feature is off)"
-    )]
+    #[error("the local embedding provider is not compiled into this build (the `semantic-local` feature is off)")]
     LocalEmbeddingDisabled,
     #[error("environment variable {variable}, named by this vault's api_key_env, is not set")]
     EmbeddingApiKeyMissing { variable: String },
@@ -57,10 +46,7 @@ pub enum SearchError {
     #[error("embedding request to {endpoint} timed out after {timeout_ms} ms")]
     EmbeddingTimeout { endpoint: String, timeout_ms: u64 },
     #[error("embedding response from {endpoint} exceeded the {limit_bytes}-byte limit")]
-    EmbeddingResponseTooLarge {
-        endpoint: String,
-        limit_bytes: usize,
-    },
+    EmbeddingResponseTooLarge { endpoint: String, limit_bytes: usize },
     #[error("embedding request to {endpoint} failed with status {status}: {body_excerpt}")]
     EmbeddingProviderStatus {
         endpoint: String,
@@ -73,9 +59,7 @@ pub enum SearchError {
     EmbeddingShapeMismatch { reason: String },
     #[error("vector store dimension must be a positive integer, received {dimension}")]
     VectorDimensionInvalid { dimension: usize },
-    #[error(
-        "vector for {path}#{ordinal} has {actual} components, but this store is configured for {expected}"
-    )]
+    #[error("vector for {path}#{ordinal} has {actual} components, but this store is configured for {expected}")]
     VectorDimensionMismatch {
         path: String,
         ordinal: usize,
@@ -110,24 +94,18 @@ impl SearchError {
             | Self::DocumentRead { .. }
             | Self::GraphStorage { .. } => "index/storage",
             Self::GraphLocked { .. } => "index/locked",
-            Self::InvalidQuery { .. }
-            | Self::InvalidFieldFilter { .. }
-            | Self::InvalidDepth { .. } => "index/invalid-query",
+            Self::InvalidQuery { .. } | Self::InvalidFieldFilter { .. } | Self::InvalidDepth { .. } => {
+                "index/invalid-query"
+            }
             Self::UnknownNote { .. } => "path/not-found",
-            Self::TextDisabled | Self::GraphDisabled | Self::SemanticUnavailable => {
-                "index/disabled"
-            }
-            Self::EmbeddingModelUnavailable { .. } | Self::LocalEmbeddingDisabled => {
-                "embedding/local-unavailable"
-            }
+            Self::TextDisabled | Self::GraphDisabled | Self::SemanticUnavailable => "index/disabled",
+            Self::EmbeddingModelUnavailable { .. } | Self::LocalEmbeddingDisabled => "embedding/local-unavailable",
             Self::EmbeddingApiKeyMissing { .. }
             | Self::EmbeddingConfig { .. }
             | Self::EmbeddingInsecureEndpoint { .. } => "embedding/config",
             Self::EmbeddingTimeout { .. } => "embedding/timeout",
             Self::EmbeddingResponseTooLarge { .. } => "embedding/response-too-large",
-            Self::EmbeddingProviderStatus { .. } | Self::EmbeddingShapeMismatch { .. } => {
-                "embedding/provider-error"
-            }
+            Self::EmbeddingProviderStatus { .. } | Self::EmbeddingShapeMismatch { .. } => "embedding/provider-error",
             Self::EmbeddingTransport { .. } => "embedding/network",
             Self::VectorDimensionInvalid { .. }
             | Self::VectorDimensionMismatch { .. }
@@ -144,24 +122,16 @@ impl SearchError {
             Self::IndexStorage { .. }
             | Self::IndexDirectory { .. }
             | Self::DocumentRead { .. }
-            | Self::GraphStorage { .. } => {
-                "Run query_index_rebuild to regenerate the derived index state."
-            }
+            | Self::GraphStorage { .. } => "Run query_index_rebuild to regenerate the derived index state.",
             Self::GraphLocked { .. } => {
                 "Another process already has this vault's link graph open. Close it, or wait for \
                  it to exit, then retry; the link graph is disabled for this vault meanwhile and \
                  other capabilities are unaffected."
             }
-            Self::InvalidQuery { .. } => {
-                "Correct the query; plain terms and tantivy query syntax are accepted."
-            }
-            Self::InvalidFieldFilter { .. } => {
-                "Provide a scalar value for each frontmatter field filter."
-            }
+            Self::InvalidQuery { .. } => "Correct the query; plain terms and tantivy query syntax are accepted.",
+            Self::InvalidFieldFilter { .. } => "Provide a scalar value for each frontmatter field filter.",
             Self::InvalidDepth { .. } => "Use a depth between 1 and 4.",
-            Self::UnknownNote { .. } => {
-                "Check the note path against the vault; use the forward-slash relative path."
-            }
+            Self::UnknownNote { .. } => "Check the note path against the vault; use the forward-slash relative path.",
             Self::TextDisabled => {
                 "Enable `[vault.search] text = true` for this managed vault, and rebuild the text index."
             }
@@ -195,9 +165,7 @@ impl SearchError {
             Self::EmbeddingProviderStatus { .. } => {
                 "Check the embedding provider's endpoint, model name, and credentials."
             }
-            Self::EmbeddingTransport { .. } => {
-                "Check network reachability to the configured embedding endpoint."
-            }
+            Self::EmbeddingTransport { .. } => "Check network reachability to the configured embedding endpoint.",
             Self::EmbeddingShapeMismatch { .. } => {
                 "The embedding provider returned a response that does not match the request; check the provider's API compatibility."
             }

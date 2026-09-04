@@ -1,8 +1,7 @@
 use contextos_mermaid::{MermanParser, RendersMermaid};
 
 #[test]
-fn fr_71_render_produces_svg_for_a_well_formed_flowchart() -> Result<(), Box<dyn std::error::Error>>
-{
+fn render_produces_svg_for_a_well_formed_flowchart() -> Result<(), Box<dyn std::error::Error>> {
     let parser = MermanParser::new();
     let svg = parser
         .render("flowchart TD\n  A[Start] --> B[End]\n")
@@ -16,7 +15,7 @@ fn fr_71_render_produces_svg_for_a_well_formed_flowchart() -> Result<(), Box<dyn
 }
 
 #[test]
-fn fr_71_render_returns_diagnostics_instead_of_an_svg_for_invalid_source() {
+fn render_returns_diagnostics_instead_of_an_svg_for_invalid_source() {
     let parser = MermanParser::new();
     let result = parser.render("flowchart TD\n  A[Start] -->\n");
 
@@ -30,8 +29,7 @@ fn fr_71_render_returns_diagnostics_instead_of_an_svg_for_invalid_source() {
 }
 
 #[test]
-fn fr_71_render_ignores_a_diagram_directive_that_tries_to_re_enable_html_labels()
--> Result<(), Box<dyn std::error::Error>> {
+fn render_ignores_a_diagram_directive_that_tries_to_re_enable_html_labels() -> Result<(), Box<dyn std::error::Error>> {
     let parser = MermanParser::new();
     let source = "%%{init: {\"flowchart\": {\"htmlLabels\": true}}}%%\nflowchart TD\n  A[Start] --> B[End]\n";
 
@@ -45,7 +43,7 @@ fn fr_71_render_ignores_a_diagram_directive_that_tries_to_re_enable_html_labels(
 }
 
 #[test]
-fn fr_71_render_rejects_oversized_source_before_parsing_or_layout() {
+fn render_rejects_oversized_source_before_parsing_or_layout() {
     let parser = MermanParser::new();
     let oversized = "x".repeat(2 * 1024 * 1024 + 1);
 
@@ -61,7 +59,7 @@ fn fr_71_render_rejects_oversized_source_before_parsing_or_layout() {
 }
 
 #[test]
-fn fr_71_render_is_deterministic_across_repeated_calls() -> Result<(), Box<dyn std::error::Error>> {
+fn render_is_deterministic_across_repeated_calls() -> Result<(), Box<dyn std::error::Error>> {
     let parser = MermanParser::new();
     let source = "flowchart TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[End]\n  B -->|No| A\n";
 

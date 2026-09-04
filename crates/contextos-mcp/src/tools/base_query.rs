@@ -12,9 +12,8 @@ use std::sync::Arc;
 use contextos_core::{VaultPath, VaultPathInput, VaultRootId, VaultSet};
 use contextos_fs::{FileInfoRequest, Filesystem, ReadTextRequest, SearchFilesRequest};
 use contextos_obsidian::{
-    FileMetadata, FrontmatterDocument, LinkCollection, QueryDefinition, QueryFormat, RowContext,
-    ScanRootHint, SortKey, compare_values, evaluate_filters, render, resolve_property, resolve_row,
-    scan_root_hint,
+    FileMetadata, FrontmatterDocument, LinkCollection, QueryDefinition, QueryFormat, RowContext, ScanRootHint, SortKey,
+    compare_values, evaluate_filters, render, resolve_property, resolve_row, scan_root_hint,
 };
 use contextos_search::{SearchError, VaultSearchService};
 use serde_json::{Map, Value};
@@ -220,11 +219,7 @@ pub(crate) fn run(
 /// root path, then re-resolve" approach `links_read` already uses
 /// (`tools/obsidian.rs::read_links`) to obtain an unambiguous whole-vault
 /// `VaultPath` from a root id alone.
-fn join_relative(
-    roots: &VaultSet,
-    root_id: VaultRootId,
-    suffix: &str,
-) -> Result<VaultPath, ToolError> {
+fn join_relative(roots: &VaultSet, root_id: VaultRootId, suffix: &str) -> Result<VaultPath, ToolError> {
     let root = roots
         .iter()
         .nth(usize::try_from(root_id)?)
@@ -405,11 +400,7 @@ fn sort_rows(sort: &[SortKey], rows: &mut [MatchedRow]) -> Result<(), ToolError>
             match (value_a, value_b) {
                 (Ok(value_a), Ok(value_b)) => {
                     let ordering = compare_values(value_a.as_ref(), value_b.as_ref());
-                    if key.descending {
-                        ordering.reverse()
-                    } else {
-                        ordering
-                    }
+                    if key.descending { ordering.reverse() } else { ordering }
                 }
                 (Err(error), _) | (_, Err(error)) => {
                     failure = Some(error);

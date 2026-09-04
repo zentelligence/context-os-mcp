@@ -7,11 +7,10 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use contextos_mcp::{
-    Config, ConfigEnvironment, ConfigLoadInput, ContextOsServer, DeregisterOutcome, DoctorReport,
-    HostPathResolution, IndexReport, InterviewEnvironment, LogLevel, ModelReport, RegisteredServer,
-    RegistrationStatus, SystemProcessDetector, TerminalInterviewer, Transport,
-    default_claude_desktop_config_path, default_model_cache_dir, deregister,
-    download_default_model, load_config_document, register, run_interview, status as host_status,
+    Config, ConfigEnvironment, ConfigLoadInput, ContextOsServer, DeregisterOutcome, DoctorReport, HostPathResolution,
+    IndexReport, InterviewEnvironment, LogLevel, ModelReport, RegisteredServer, RegistrationStatus,
+    SystemProcessDetector, TerminalInterviewer, Transport, default_claude_desktop_config_path, default_model_cache_dir,
+    deregister, download_default_model, load_config_document, register, run_interview, status as host_status,
     write_config_document,
 };
 use directories::BaseDirs;
@@ -21,7 +20,11 @@ use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Parser)]
-#[command(name = "contextos", version, about = "ContextOS MCP server")]
+#[command(
+    name = "contextos",
+    version = concat!("v", env!("CARGO_PKG_VERSION")),
+    about = "ContextOS MCP server"
+)]
 struct Cli {
     /// Load configuration from this TOML file.
     #[arg(long, global = true)]
@@ -213,11 +216,7 @@ fn record_startup_diagnostic() {
         return;
     };
     let path = dir.join("contextos-startup-debug.log");
-    let Ok(mut file) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-    else {
+    let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) else {
         return;
     };
     let now = std::time::SystemTime::now()
@@ -314,13 +313,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     if matches!(command, Some(CliCommand::Index)) {
         let report = tokio::task::spawn_blocking(move || IndexReport::try_from(&config)).await??;
         let failed = report.has_failures();
-        std::io::stdout()
-            .lock()
-            .write_all(report.to_string().as_bytes())?;
+        std::io::stdout().lock().write_all(report.to_string().as_bytes())?;
         if failed {
-            return Err(
-                std::io::Error::other("index rebuild found checks requiring action").into(),
-            );
+            return Err(std::io::Error::other("index rebuild found checks requiring action").into());
         }
         return Ok(());
     }
@@ -385,26 +380,17 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 /// the exact same resolution path as the `doctor_resolve` MCP tool
 /// (`contextos_mcp::resolve_for_cli`) so CLI and MCP stay behaviourally
 /// identical for the auto-fixable set.
-async fn run_doctor_command(
-    config: Config,
-    resolve: bool,
-    dry_run: bool,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+async fn run_doctor_command(config: Config, resolve: bool, dry_run: bool) -> Result<(), Box<dyn Error + Send + Sync>> {
     if resolve {
         let config_for_resolve = config.clone();
-        let outcomes =
-            tokio::task::spawn_blocking(move || -> Result<_, Box<dyn Error + Send + Sync>> {
-                let server = ContextOsServer::try_from(config_for_resolve)?;
-                Ok(contextos_mcp::resolve_for_cli(&server, dry_run)?)
-            })
-            .await??;
+        let outcomes = tokio::task::spawn_blocking(move || -> Result<_, Box<dyn Error + Send + Sync>> {
+            let server = ContextOsServer::try_from(config_for_resolve)?;
+            Ok(contextos_mcp::resolve_for_cli(&server, dry_run)?)
+        })
+        .await??;
         let mut stdout = std::io::stdout().lock();
         for outcome in &outcomes {
-            let verb = if outcome.resolved {
-                "Resolved"
-            } else {
-                "Would resolve"
-            };
+            let verb = if outcome.resolved { "Resolved" } else { "Would resolve" };
             writeln!(
                 stdout,
                 "{verb}: {} ({}): {}",
@@ -421,9 +407,7 @@ async fn run_doctor_command(
     }
     let report = tokio::task::spawn_blocking(move || DoctorReport::try_from(&config)).await??;
     let failed = report.has_failures();
-    std::io::stdout()
-        .lock()
-        .write_all(report.to_string().as_bytes())?;
+    std::io::stdout().lock().write_all(report.to_string().as_bytes())?;
     if failed {
         return Err(std::io::Error::other("doctor found checks requiring action").into());
     }
@@ -442,9 +426,7 @@ async fn run_model_command(action: ModelAction) -> Result<(), Box<dyn Error + Se
         }
     })
     .await??;
-    std::io::stdout()
-        .lock()
-        .write_all(report.to_string().as_bytes())?;
+    std::io::stdout().lock().write_all(report.to_string().as_bytes())?;
     Ok(())
 }
 
@@ -466,10 +448,7 @@ async fn dispatch_config_command(
 /// independent in the same sense `Model` is: it works against a not-yet-
 /// valid or not-yet-existing configuration file, so it never goes through
 /// `Config::try_from(ConfigLoadInput)`'s strict load.
-async fn run_config_command(
-    action: ConfigAction,
-    config_path: PathBuf,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+async fn run_config_command(action: ConfigAction, config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
     match action {
         ConfigAction::Vault { action } => run_config_vault_command(action, config_path).await,
         ConfigAction::Mcp { action } => run_config_mcp_command(action, config_path).await,
@@ -509,9 +488,7 @@ async fn run_config_interview(config_path: PathBuf) -> Result<(), Box<dyn Error 
         Ok(run_interview(&mut interviewer, &environment)?)
     })
     .await??;
-    std::io::stdout()
-        .lock()
-        .write_all(report.to_string().as_bytes())?;
+    std::io::stdout().lock().write_all(report.to_string().as_bytes())?;
     Ok(())
 }
 
@@ -573,10 +550,7 @@ async fn run_config_mcp_command(
             };
             let detector = SystemProcessDetector;
             let host_path_for_task = host_path.clone();
-            tokio::task::spawn_blocking(move || {
-                register(&host_path_for_task, &entry, &detector, force)
-            })
-            .await??;
+            tokio::task::spawn_blocking(move || register(&host_path_for_task, &entry, &detector, force)).await??;
             if force {
                 tracing::warn!(
                     host_path = %host_path.display(),
@@ -593,10 +567,8 @@ async fn run_config_mcp_command(
             let host_path = resolve_host_config_path(host, config_path)?;
             let detector = SystemProcessDetector;
             let host_path_for_task = host_path.clone();
-            let outcome = tokio::task::spawn_blocking(move || {
-                deregister(&host_path_for_task, &detector, force)
-            })
-            .await??;
+            let outcome =
+                tokio::task::spawn_blocking(move || deregister(&host_path_for_task, &detector, force)).await??;
             if force {
                 tracing::warn!(
                     host_path = %host_path.display(),
@@ -605,26 +577,17 @@ async fn run_config_mcp_command(
             }
             match outcome {
                 DeregisterOutcome::Removed => {
-                    writeln!(
-                        stdout,
-                        "Deregistered contextos from {}.",
-                        host_path.display()
-                    )?;
+                    writeln!(stdout, "Deregistered contextos from {}.", host_path.display())?;
                 }
                 DeregisterOutcome::NotRegistered => {
-                    writeln!(
-                        stdout,
-                        "contextos was not registered with {}.",
-                        host_path.display()
-                    )?;
+                    writeln!(stdout, "contextos was not registered with {}.", host_path.display())?;
                 }
             }
         }
         ConfigMcpAction::Status { host, config_path } => {
             let host_path = resolve_host_config_path(host, config_path)?;
             let host_path_for_task = host_path.clone();
-            let status =
-                tokio::task::spawn_blocking(move || host_status(&host_path_for_task)).await??;
+            let status = tokio::task::spawn_blocking(move || host_status(&host_path_for_task)).await??;
             match status {
                 RegistrationStatus::Registered(entry) => {
                     writeln!(
@@ -636,11 +599,7 @@ async fn run_config_mcp_command(
                     )?;
                 }
                 RegistrationStatus::NotRegistered => {
-                    writeln!(
-                        stdout,
-                        "contextos is not registered with {}.",
-                        host_path.display()
-                    )?;
+                    writeln!(stdout, "contextos is not registered with {}.", host_path.display())?;
                 }
             }
         }
@@ -665,25 +624,12 @@ async fn run_config_vault_command(
             } else {
                 writeln!(stdout, "Vaults configured in {}:", config_path.display())?;
                 for vault in vaults {
-                    let managed = if vault.managed {
-                        "managed"
-                    } else {
-                        "unmanaged"
-                    };
-                    writeln!(
-                        stdout,
-                        "  {} -> {} ({managed})",
-                        vault.name,
-                        vault.path.display()
-                    )?;
+                    let managed = if vault.managed { "managed" } else { "unmanaged" };
+                    writeln!(stdout, "  {} -> {} ({managed})", vault.name, vault.path.display())?;
                 }
             }
         }
-        ConfigVaultAction::Add {
-            name,
-            path,
-            unmanaged,
-        } => {
+        ConfigVaultAction::Add { name, path, unmanaged } => {
             let write_path = config_path.clone();
             let (display_name, display_path) = (name.clone(), path.clone());
             tokio::task::spawn_blocking(move || -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -710,11 +656,7 @@ async fn run_config_vault_command(
                 Ok(())
             })
             .await??;
-            writeln!(
-                stdout,
-                "Removed vault {display_name:?} from {}.",
-                config_path.display()
-            )?;
+            writeln!(stdout, "Removed vault {display_name:?} from {}.", config_path.display())?;
         }
     }
     Ok(())
@@ -725,9 +667,7 @@ async fn run_config_vault_command(
 /// `CONTEXTOS_MCP_CONFIG`, then the default path) but standalone: this
 /// subcommand edits the file directly and must run before
 /// `Config::try_from` would reject a not-yet-valid or not-yet-existing one.
-fn resolve_config_toml_path(
-    cli_config_path: Option<PathBuf>,
-) -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
+fn resolve_config_toml_path(cli_config_path: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
     cli_config_path
         .or_else(|| env::var_os("CONTEXTOS_MCP_CONFIG").map(PathBuf::from))
         .or_else(default_config_path)
@@ -805,9 +745,7 @@ mod tests {
 
     use contextos_mcp::{ConfigEnvironment, ConfigLoadInput, Transport};
 
-    use super::{
-        Config, LogLevel, apply_http_override, default_config_path, is_secret_env_var_name,
-    };
+    use super::{Config, LogLevel, apply_http_override, default_config_path, is_secret_env_var_name};
 
     #[test]
     fn secret_env_var_names_are_detected_case_insensitively() {
@@ -826,10 +764,7 @@ mod tests {
     #[test]
     fn ordinary_env_var_names_are_not_flagged_as_secret() {
         for name in ["PATH", "HOME", "CONTEXTOS_MCP_CONFIG", "RUST_LOG"] {
-            assert!(
-                !is_secret_env_var_name(name),
-                "expected {name:?} not to match"
-            );
+            assert!(!is_secret_env_var_name(name), "expected {name:?} not to match");
         }
     }
 

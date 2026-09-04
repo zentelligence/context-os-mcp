@@ -6,13 +6,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use contextos_core::{
-    Clock, ContentHash, DeleteMode, DeleteMutation, OpKind, OperationEvent, OperationWarning,
-    Origin, RestoreMutation, VaultPath, VaultPathInput, VaultRoot, VaultSet, VersionsVault,
-    WriteMutation, WritesVault,
+    Clock, ContentHash, DeleteMode, DeleteMutation, OpKind, OperationEvent, OperationWarning, Origin, RestoreMutation,
+    VaultPath, VaultPathInput, VaultRoot, VaultSet, VersionsVault, WriteMutation, WritesVault,
 };
 use git2::{
-    DiffFormat, DiffOptions, IndexAddOption, IndexEntry, Repository, RepositoryInitOptions,
-    Signature, Sort, Status, StatusOptions, Time,
+    DiffFormat, DiffOptions, IndexAddOption, IndexEntry, Repository, RepositoryInitOptions, Signature, Sort, Status,
+    StatusOptions, Time,
 };
 use sha2::{Digest, Sha256};
 use similar::TextDiff;
@@ -169,9 +168,7 @@ where
             .to_owned();
         let mut options = StatusOptions::new();
         options.include_untracked(true).recurse_untracked_dirs(true);
-        let statuses = repository
-            .statuses(Some(&mut options))
-            .map_err(GitError::Repository)?;
+        let statuses = repository.statuses(Some(&mut options)).map_err(GitError::Repository)?;
         let mut staged = Vec::new();
         let mut unstaged = Vec::new();
         let mut untracked = Vec::new();
@@ -190,19 +187,12 @@ where
             if status.contains(Status::WT_NEW) {
                 untracked.push(path.clone());
             }
-            if status.intersects(
-                Status::WT_MODIFIED
-                    | Status::WT_DELETED
-                    | Status::WT_RENAMED
-                    | Status::WT_TYPECHANGE,
-            ) {
+            if status.intersects(Status::WT_MODIFIED | Status::WT_DELETED | Status::WT_RENAMED | Status::WT_TYPECHANGE)
+            {
                 unstaged.push(path);
             }
         }
-        let pending = self
-            .pending
-            .lock()
-            .map_err(|_| GitError::PendingStateUnavailable)?;
+        let pending = self.pending.lock().map_err(|_| GitError::PendingStateUnavailable)?;
         let pending_paths = pending
             .paths
             .iter()
@@ -327,16 +317,14 @@ where
         truncated |= bytes.len() > request.max_bytes;
         let content = if truncated && request.max_bytes >= DIFF_TRUNCATION_NOTICE.len() {
             let content_limit = request.max_bytes - DIFF_TRUNCATION_NOTICE.len();
-            let mut content =
-                String::from_utf8_lossy(&bytes[..bytes.len().min(content_limit)]).into_owned();
+            let mut content = String::from_utf8_lossy(&bytes[..bytes.len().min(content_limit)]).into_owned();
             while content.len() > content_limit {
                 content.pop();
             }
             content.push_str(DIFF_TRUNCATION_NOTICE);
             content
         } else {
-            let mut content =
-                String::from_utf8_lossy(&bytes[..bytes.len().min(request.max_bytes)]).into_owned();
+            let mut content = String::from_utf8_lossy(&bytes[..bytes.len().min(request.max_bytes)]).into_owned();
             while content.len() > request.max_bytes {
                 content.pop();
             }
@@ -373,9 +361,7 @@ where
             if absolute.exists() {
                 Self::stage_present_path(&mut index, path, &absolute)?;
             } else {
-                index
-                    .remove_all([path], None)
-                    .map_err(GitError::Repository)?;
+                index.remove_all([path], None).map_err(GitError::Repository)?;
             }
         }
         index.write().map_err(GitError::Repository)?;
@@ -391,10 +377,7 @@ where
             .filter_map(|delta| delta.new_file().path().or_else(|| delta.old_file().path()))
             .map(Path::to_path_buf)
             .collect::<BTreeSet<_>>();
-        let paths = recorded
-            .intersection(&staged)
-            .cloned()
-            .collect::<BTreeSet<_>>();
+        let paths = recorded.intersection(&staged).cloned().collect::<BTreeSet<_>>();
         let stale = recorded.difference(&paths).cloned().collect::<Vec<_>>();
         self.clear_pending_paths(&stale)?;
         if paths.is_empty() {
@@ -430,10 +413,7 @@ where
     ///
     /// Returns an error when pending state is unavailable.
     pub fn pending_commit_count(&self) -> Result<usize, GitError> {
-        let pending = self
-            .pending
-            .lock()
-            .map_err(|_| GitError::PendingStateUnavailable)?;
+        let pending = self.pending.lock().map_err(|_| GitError::PendingStateUnavailable)?;
         Ok(usize::from(!pending.paths.is_empty()))
     }
 
@@ -443,10 +423,7 @@ where
     ///
     /// Returns a typed pending-state or commit error.
     pub fn commit_if_generation(&self, generation: u64) -> Result<GitCommitResult, GitError> {
-        let mut pending = self
-            .pending
-            .lock()
-            .map_err(|_| GitError::PendingStateUnavailable)?;
+        let mut pending = self.pending.lock().map_err(|_| GitError::PendingStateUnavailable)?;
         if pending.generation != generation {
             return Ok(GitCommitResult {
                 commit_id: None,
@@ -479,18 +456,14 @@ where
                 .and_then(|head| head.target())
                 .map(|id| id.to_string());
             if commit_id.is_none() {
-                repository
-                    .set_head("refs/heads/main")
-                    .map_err(GitError::Repository)?;
+                repository.set_head("refs/heads/main").map_err(GitError::Repository)?;
                 let mut index = repository.index().map_err(GitError::Repository)?;
                 index
                     .add_all(["*"], IndexAddOption::DEFAULT, None)
                     .map_err(GitError::Repository)?;
                 index.write().map_err(GitError::Repository)?;
                 let tree_id = index.write_tree().map_err(GitError::Repository)?;
-                let tree = repository
-                    .find_tree(tree_id)
-                    .map_err(GitError::Repository)?;
+                let tree = repository.find_tree(tree_id).map_err(GitError::Repository)?;
                 let signature = self.signature()?;
                 let id = repository
                     .commit(
@@ -504,10 +477,7 @@ where
                     .map_err(GitError::Repository)?;
                 let recorded = self.recorded_pending_paths()?;
                 self.clear_pending_paths(&recorded.into_iter().collect::<Vec<_>>())?;
-                *self
-                    .pending
-                    .lock()
-                    .map_err(|_| GitError::PendingStateUnavailable)? = PendingBatch::default();
+                *self.pending.lock().map_err(|_| GitError::PendingStateUnavailable)? = PendingBatch::default();
                 return Ok(GitInitResult {
                     initialised: true,
                     commit_id: Some(id.to_string()),
@@ -522,17 +492,14 @@ where
         let _ignore_event = self.maintain_ignore_policy(writer)?;
         let mut options = RepositoryInitOptions::new();
         options.initial_head("main");
-        let repository =
-            Repository::init_opts(self.root.path(), &options).map_err(GitError::Repository)?;
+        let repository = Repository::init_opts(self.root.path(), &options).map_err(GitError::Repository)?;
         let mut index = repository.index().map_err(GitError::Repository)?;
         index
             .add_all(["*"], IndexAddOption::DEFAULT, None)
             .map_err(GitError::Repository)?;
         index.write().map_err(GitError::Repository)?;
         let tree_id = index.write_tree().map_err(GitError::Repository)?;
-        let tree = repository
-            .find_tree(tree_id)
-            .map_err(GitError::Repository)?;
+        let tree = repository.find_tree(tree_id).map_err(GitError::Repository)?;
         let signature = self.signature()?;
         let commit_id = repository
             .commit(
@@ -558,18 +525,11 @@ where
     /// Returns a typed Git error when the owned staged snapshot cannot be
     /// materialised or committed.
     pub fn commit(&self, message: Option<&str>) -> Result<GitCommitResult, GitError> {
-        let mut pending = self
-            .pending
-            .lock()
-            .map_err(|_| GitError::PendingStateUnavailable)?;
+        let mut pending = self.pending.lock().map_err(|_| GitError::PendingStateUnavailable)?;
         self.commit_pending(&mut pending, message)
     }
 
-    fn commit_pending(
-        &self,
-        pending: &mut PendingBatch,
-        message: Option<&str>,
-    ) -> Result<GitCommitResult, GitError> {
+    fn commit_pending(&self, pending: &mut PendingBatch, message: Option<&str>) -> Result<GitCommitResult, GitError> {
         if pending.paths.is_empty() {
             return Ok(GitCommitResult {
                 commit_id: None,
@@ -586,38 +546,23 @@ where
         let parent_tree = parent.tree().map_err(GitError::Repository)?;
         let staged = repository.index().map_err(GitError::Repository)?;
         let mut owned_index = git2::Index::new().map_err(GitError::Repository)?;
-        owned_index
-            .read_tree(&parent_tree)
-            .map_err(GitError::Repository)?;
+        owned_index.read_tree(&parent_tree).map_err(GitError::Repository)?;
 
         for path in &pending.paths {
-            owned_index
-                .remove_all([path], None)
-                .map_err(GitError::Repository)?;
+            owned_index.remove_all([path], None).map_err(GitError::Repository)?;
             for entry in staged.iter().filter(|entry| entry_is_within(entry, path)) {
                 owned_index.add(&entry).map_err(GitError::Repository)?;
             }
         }
 
-        let tree_id = owned_index
-            .write_tree_to(&repository)
-            .map_err(GitError::Repository)?;
-        let tree = repository
-            .find_tree(tree_id)
-            .map_err(GitError::Repository)?;
+        let tree_id = owned_index.write_tree_to(&repository).map_err(GitError::Repository)?;
+        let tree = repository.find_tree(tree_id).map_err(GitError::Repository)?;
         let commit_message = message
             .filter(|candidate| !candidate.trim().is_empty())
             .map_or_else(|| generated_commit_message(&pending.events), str::to_owned);
         let signature = self.signature()?;
         let commit_id = repository
-            .commit(
-                Some("HEAD"),
-                &signature,
-                &signature,
-                &commit_message,
-                &tree,
-                &[&parent],
-            )
+            .commit(Some("HEAD"), &signature, &signature, &commit_message, &tree, &[&parent])
             .map_err(GitError::Repository)?;
         let committed_paths = pending.paths.iter().cloned().collect::<Vec<_>>();
         if let Err(error) = self.clear_pending_paths(&committed_paths) {
@@ -689,12 +634,9 @@ where
             return Err(GitError::DestructiveRestoreDisabled.into());
         }
         for path in &delete_paths {
-            let relative = path
-                .relative()
-                .to_str()
-                .ok_or_else(|| GitError::NonUtf8Path {
-                    path: path.relative().to_path_buf(),
-                })?;
+            let relative = path.relative().to_str().ok_or_else(|| GitError::NonUtf8Path {
+                path: path.relative().to_path_buf(),
+            })?;
             diff.push_str("delete ");
             diff.push_str(relative);
             diff.push('\n');
@@ -749,9 +691,9 @@ where
 
     fn vault_path_for_relative(&self, relative: &Path) -> Result<VaultPath, GitError> {
         let absolute = self.root.path().join(relative);
-        let raw = absolute.to_str().ok_or_else(|| GitError::NonUtf8Path {
-            path: absolute.clone(),
-        })?;
+        let raw = absolute
+            .to_str()
+            .ok_or_else(|| GitError::NonUtf8Path { path: absolute.clone() })?;
         VaultPath::try_from(VaultPathInput {
             roots: &self.roots,
             raw,
@@ -759,15 +701,8 @@ where
         .map_err(GitError::Path)
     }
 
-    fn owned_deletions(
-        &self,
-        selected: &Path,
-        historical: &BTreeSet<PathBuf>,
-    ) -> Result<Vec<VaultPath>, GitError> {
-        let pending = self
-            .pending
-            .lock()
-            .map_err(|_| GitError::PendingStateUnavailable)?;
+    fn owned_deletions(&self, selected: &Path, historical: &BTreeSet<PathBuf>) -> Result<Vec<VaultPath>, GitError> {
+        let pending = self.pending.lock().map_err(|_| GitError::PendingStateUnavailable)?;
         let mut relative_paths = BTreeSet::new();
         for path in &pending.paths {
             if self.is_restore_protected(path) {
@@ -809,22 +744,16 @@ where
     }
 
     fn stage_event(&self, event: &OperationEvent) -> Result<(), GitError> {
-        let mut pending = self
-            .pending
-            .lock()
-            .map_err(|_| GitError::PendingStateUnavailable)?;
+        let mut pending = self.pending.lock().map_err(|_| GitError::PendingStateUnavailable)?;
         let repository = open_repository(self.root.path())?;
         let mut index = repository.index().map_err(GitError::Repository)?;
 
         for path in &event.paths {
             let relative = self.relative_path(path)?;
             self.record_pending_path(relative)?;
-            let remove = event.kind == OpKind::Delete
-                || (event.kind == OpKind::Move && !<&Path>::from(path).exists());
+            let remove = event.kind == OpKind::Delete || (event.kind == OpKind::Move && !<&Path>::from(path).exists());
             if remove {
-                index
-                    .remove_all([relative], None)
-                    .map_err(GitError::Repository)?;
+                index.remove_all([relative], None).map_err(GitError::Repository)?;
             } else {
                 Self::stage_present_path(&mut index, relative, <&Path>::from(path))?;
             }
@@ -859,8 +788,7 @@ where
                 .write(true)
                 .open(&temporary)
                 .map_err(GitError::PendingMetadata)?;
-            file.write_all(text.as_bytes())
-                .map_err(GitError::PendingMetadata)?;
+            file.write_all(text.as_bytes()).map_err(GitError::PendingMetadata)?;
             file.sync_all().map_err(GitError::PendingMetadata)?;
             std::fs::rename(&temporary, &marker).map_err(GitError::PendingMetadata)
         })();
@@ -923,16 +851,10 @@ where
     }
 
     fn pending_directory(&self) -> Result<PathBuf, GitError> {
-        Ok(open_repository(self.root.path())?
-            .path()
-            .join(PENDING_DIRECTORY))
+        Ok(open_repository(self.root.path())?.path().join(PENDING_DIRECTORY))
     }
 
-    fn stage_present_path(
-        index: &mut git2::Index,
-        relative: &Path,
-        absolute: &Path,
-    ) -> Result<(), GitError> {
+    fn stage_present_path(index: &mut git2::Index, relative: &Path, absolute: &Path) -> Result<(), GitError> {
         if absolute.is_dir() {
             index
                 .add_all([relative], IndexAddOption::DEFAULT, None)
@@ -950,10 +872,7 @@ where
         Ok(path.relative())
     }
 
-    fn maintain_ignore_policy<W>(
-        &self,
-        writer: &W,
-    ) -> Result<Option<OperationEvent>, GitWriteError<W::Error>>
+    fn maintain_ignore_policy<W>(&self, writer: &W) -> Result<Option<OperationEvent>, GitWriteError<W::Error>>
     where
         W: WritesVault,
         W::Error: std::error::Error + 'static,
@@ -964,20 +883,15 @@ where
                 let mut hasher = Sha256::new();
                 hasher.update(&bytes);
                 let hash = ContentHash::from(<[u8; 32]>::from(hasher.finalize()));
-                let content =
-                    String::from_utf8(bytes).map_err(|source| GitError::NonUtf8Ignore {
-                        path: target.clone(),
-                        source,
-                    })?;
+                let content = String::from_utf8(bytes).map_err(|source| GitError::NonUtf8Ignore {
+                    path: target.clone(),
+                    source,
+                })?;
                 (content, Some(hash))
             }
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => (String::new(), None),
             Err(source) => {
-                return Err(GitError::ReadIgnore {
-                    path: target,
-                    source,
-                }
-                .into());
+                return Err(GitError::ReadIgnore { path: target, source }.into());
             }
         };
         let mut changed = false;
@@ -995,9 +909,9 @@ where
             return Ok(None);
         }
 
-        let raw = target.to_str().ok_or_else(|| GitError::NonUtf8Path {
-            path: target.clone(),
-        })?;
+        let raw = target
+            .to_str()
+            .ok_or_else(|| GitError::NonUtf8Path { path: target.clone() })?;
         let path = VaultPath::try_from(VaultPathInput {
             roots: &self.roots,
             raw,
@@ -1017,10 +931,7 @@ where
 
     fn signature(&self) -> Result<Signature<'static>, GitError> {
         let now = self.clock.now();
-        let time = Time::new(
-            now.unix_timestamp(),
-            i32::from(now.offset().whole_minutes()),
-        );
+        let time = Time::new(now.unix_timestamp(), i32::from(now.offset().whole_minutes()));
         Signature::new(&self.author_name, &self.author_email, &time).map_err(GitError::Repository)
     }
 }
@@ -1054,9 +965,7 @@ fn historical_files(
             );
         }
         Some(git2::ObjectType::Tree) => {
-            let subtree = repository
-                .find_tree(entry.id())
-                .map_err(GitError::Repository)?;
+            let subtree = repository.find_tree(entry.id()).map_err(GitError::Repository)?;
             collect_historical_files(repository, &subtree, selected, &mut files)?;
         }
         _ => return Err(GitError::UnsupportedRestoreObject),
@@ -1077,15 +986,10 @@ fn collect_historical_files(
         let path = base.join(name);
         match entry.kind() {
             Some(git2::ObjectType::Blob) => {
-                files.insert(
-                    path.clone(),
-                    historical_blob(repository, entry.id(), &path)?,
-                );
+                files.insert(path.clone(), historical_blob(repository, entry.id(), &path)?);
             }
             Some(git2::ObjectType::Tree) => {
-                let subtree = repository
-                    .find_tree(entry.id())
-                    .map_err(GitError::Repository)?;
+                let subtree = repository.find_tree(entry.id()).map_err(GitError::Repository)?;
                 collect_historical_files(repository, &subtree, &path, files)?;
             }
             _ => return Err(GitError::UnsupportedRestoreObject),
@@ -1094,11 +998,7 @@ fn collect_historical_files(
     Ok(())
 }
 
-fn historical_blob(
-    repository: &Repository,
-    id: git2::Oid,
-    path: &Path,
-) -> Result<String, GitError> {
+fn historical_blob(repository: &Repository, id: git2::Oid, path: &Path) -> Result<String, GitError> {
     let blob = repository.find_blob(id).map_err(GitError::Repository)?;
     Ok(std::str::from_utf8(blob.content())
         .map_err(|source| GitError::NonUtf8Restore {
@@ -1159,17 +1059,12 @@ fn entry_is_within(entry: &IndexEntry, path: &Path) -> bool {
         return false;
     };
     let normalised = path.replace('\\', "/");
-    entry.path == normalised.as_bytes()
-        || entry.path.starts_with(format!("{normalised}/").as_bytes())
+    entry.path == normalised.as_bytes() || entry.path.starts_with(format!("{normalised}/").as_bytes())
 }
 
 fn generated_commit_message(events: &[OperationEvent]) -> String {
     let count = events.len();
-    let noun = if count == 1 {
-        "operation"
-    } else {
-        "operations"
-    };
+    let noun = if count == 1 { "operation" } else { "operations" };
     let mut message = format!("mcp: {count} {noun}");
     if !events.is_empty() {
         message.push_str("\n\n");
@@ -1286,9 +1181,7 @@ impl GitError {
             | Self::PendingStateUnavailable
             | Self::PendingMetadata(_)
             | Self::InvalidPendingMetadata => "git/stage",
-            Self::NonUtf8StatusPath | Self::InvalidDiffLimit | Self::InvalidLogLimit => {
-                "git/inspect"
-            }
+            Self::NonUtf8StatusPath | Self::InvalidDiffLimit | Self::InvalidLogLimit => "git/inspect",
             Self::NonUtf8Restore { .. }
             | Self::NonUtf8Current { .. }
             | Self::ReadRestoreTarget { .. }

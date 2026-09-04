@@ -75,10 +75,7 @@ impl QueryDefinition {
     /// document does not contain, or [`BaseQueryError::NoColumns`] when
     /// neither the resolved view's `order` nor the document's top-level
     /// `properties` yield a display column set.
-    pub fn from_document(
-        document: &BaseDocument,
-        view: Option<&str>,
-    ) -> Result<Self, BaseQueryError> {
+    pub fn from_document(document: &BaseDocument, view: Option<&str>) -> Result<Self, BaseQueryError> {
         let definition = document.definition();
         let views = definition
             .get("views")
@@ -89,15 +86,11 @@ impl QueryDefinition {
             Some(name) => views
                 .iter()
                 .find(|candidate| candidate.get("name").and_then(Value::as_str) == Some(name))
-                .ok_or_else(|| BaseQueryError::ViewNotFound {
-                    name: name.to_owned(),
-                })?,
-            None => views
-                .first()
-                .ok_or_else(|| BaseQueryError::MalformedDefinition {
-                    path: "views".to_owned(),
-                    violation: "base has no views to query".to_owned(),
-                })?,
+                .ok_or_else(|| BaseQueryError::ViewNotFound { name: name.to_owned() })?,
+            None => views.first().ok_or_else(|| BaseQueryError::MalformedDefinition {
+                path: "views".to_owned(),
+                violation: "base has no views to query".to_owned(),
+            })?,
         };
         let selected_name = selected
             .get("name")
@@ -120,9 +113,7 @@ impl QueryDefinition {
             order
         };
         if columns.is_empty() {
-            return Err(BaseQueryError::NoColumns {
-                view: selected_name,
-            });
+            return Err(BaseQueryError::NoColumns { view: selected_name });
         }
         Ok(Self {
             filters,
@@ -180,12 +171,10 @@ fn string_array(value: Option<&Value>, path: &str) -> Result<Vec<String>, BaseQu
     let Some(value) = value else {
         return Ok(Vec::new());
     };
-    let items = value
-        .as_array()
-        .ok_or_else(|| BaseQueryError::MalformedDefinition {
-            path: path.to_owned(),
-            violation: "must be an array of strings".to_owned(),
-        })?;
+    let items = value.as_array().ok_or_else(|| BaseQueryError::MalformedDefinition {
+        path: path.to_owned(),
+        violation: "must be an array of strings".to_owned(),
+    })?;
     items
         .iter()
         .map(|item| {
@@ -210,30 +199,27 @@ fn parse_sort(value: Option<&Value>) -> Result<Vec<SortKey>, BaseQueryError> {
     let Some(value) = value else {
         return Ok(Vec::new());
     };
-    let entries = value
-        .as_array()
-        .ok_or_else(|| BaseQueryError::MalformedDefinition {
-            path: "sort".to_owned(),
-            violation: "must be an array".to_owned(),
-        })?;
+    let entries = value.as_array().ok_or_else(|| BaseQueryError::MalformedDefinition {
+        path: "sort".to_owned(),
+        violation: "must be an array".to_owned(),
+    })?;
     entries
         .iter()
         .enumerate()
         .map(|(index, entry)| {
             let path = format!("sort[{index}]");
-            let entry = entry
-                .as_object()
-                .ok_or_else(|| BaseQueryError::MalformedDefinition {
-                    path: path.clone(),
-                    violation: "sort entry must be an object".to_owned(),
-                })?;
-            let property = entry
-                .get("property")
-                .and_then(Value::as_str)
-                .ok_or_else(|| BaseQueryError::MalformedDefinition {
-                    path: format!("{path}.property"),
-                    violation: "sort property must be a string".to_owned(),
-                })?;
+            let entry = entry.as_object().ok_or_else(|| BaseQueryError::MalformedDefinition {
+                path: path.clone(),
+                violation: "sort entry must be an object".to_owned(),
+            })?;
+            let property =
+                entry
+                    .get("property")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| BaseQueryError::MalformedDefinition {
+                        path: format!("{path}.property"),
+                        violation: "sort property must be a string".to_owned(),
+                    })?;
             validate_property_name(property, &format!("{path}.property"))?;
             let descending = match entry.get("direction").and_then(Value::as_str) {
                 Some("DESC") => true,
@@ -296,9 +282,7 @@ pub fn scan_root_hint(filters: Option<&Value>) -> Option<ScanRootHint<'_>> {
     let object = filters.as_object()?;
     let (_, operands) = object.iter().next()?;
     let operands = operands.as_array()?;
-    operands
-        .iter()
-        .find_map(|operand| scan_root_hint(Some(operand)))
+    operands.iter().find_map(|operand| scan_root_hint(Some(operand)))
 }
 
 /// Only an equality leaf on `file.path` or `file.folder` is eligible:
@@ -333,10 +317,7 @@ fn leaf_scan_hint(expr: &str) -> Option<ScanRootHint<'_>> {
 /// for any `formula.*` reference, and [`BaseQueryError::UnsupportedFileProperty`]
 /// for any `file.*` accessor outside Obsidian's own documented set (every
 /// one of which `base_query` now supports).
-pub fn evaluate_filters(
-    filters: Option<&Value>,
-    row: &RowContext<'_>,
-) -> Result<bool, BaseQueryError> {
+pub fn evaluate_filters(filters: Option<&Value>, row: &RowContext<'_>) -> Result<bool, BaseQueryError> {
     let Some(filters) = filters else {
         return Ok(true);
     };
@@ -347,26 +328,21 @@ fn evaluate_node(node: &Value, row: &RowContext<'_>, path: &str) -> Result<bool,
     if let Some(expr) = node.as_str() {
         return evaluate_expression(expr, row, path);
     }
-    let object = node
-        .as_object()
+    let object = node.as_object().ok_or_else(|| BaseQueryError::MalformedDefinition {
+        path: path.to_owned(),
+        violation: "filter node must be a string or an and/or/not object".to_owned(),
+    })?;
+    let (operator, operands) = object
+        .iter()
+        .next()
         .ok_or_else(|| BaseQueryError::MalformedDefinition {
             path: path.to_owned(),
-            violation: "filter node must be a string or an and/or/not object".to_owned(),
+            violation: "filter object must contain and, or, or not".to_owned(),
         })?;
-    let (operator, operands) =
-        object
-            .iter()
-            .next()
-            .ok_or_else(|| BaseQueryError::MalformedDefinition {
-                path: path.to_owned(),
-                violation: "filter object must contain and, or, or not".to_owned(),
-            })?;
-    let operands = operands
-        .as_array()
-        .ok_or_else(|| BaseQueryError::MalformedDefinition {
-            path: format!("{path}.{operator}"),
-            violation: "filter operands must be an array".to_owned(),
-        })?;
+    let operands = operands.as_array().ok_or_else(|| BaseQueryError::MalformedDefinition {
+        path: format!("{path}.{operator}"),
+        violation: "filter operands must be an array".to_owned(),
+    })?;
     match operator.as_str() {
         "and" => {
             let mut result = true;
@@ -414,11 +390,7 @@ fn evaluate_node(node: &Value, row: &RowContext<'_>, path: &str) -> Result<bool,
 /// Returns [`BaseQueryError::UnsupportedFilterExpression`] for unbalanced
 /// parentheses, or when any leaf substring falls outside the documented
 /// grammar (see [`evaluate_leaf`]).
-fn evaluate_expression(
-    expr: &str,
-    row: &RowContext<'_>,
-    path: &str,
-) -> Result<bool, BaseQueryError> {
+fn evaluate_expression(expr: &str, row: &RowContext<'_>, path: &str) -> Result<bool, BaseQueryError> {
     let mut cursor = ExpressionCursor { text: expr, pos: 0 };
     let result = parse_or(&mut cursor, row, path)?;
     cursor.skip_whitespace();
@@ -454,11 +426,7 @@ impl<'a> ExpressionCursor<'a> {
     }
 }
 
-fn parse_or(
-    cursor: &mut ExpressionCursor<'_>,
-    row: &RowContext<'_>,
-    path: &str,
-) -> Result<bool, BaseQueryError> {
+fn parse_or(cursor: &mut ExpressionCursor<'_>, row: &RowContext<'_>, path: &str) -> Result<bool, BaseQueryError> {
     let mut result = parse_and(cursor, row, path)?;
     loop {
         cursor.skip_whitespace();
@@ -471,11 +439,7 @@ fn parse_or(
     }
 }
 
-fn parse_and(
-    cursor: &mut ExpressionCursor<'_>,
-    row: &RowContext<'_>,
-    path: &str,
-) -> Result<bool, BaseQueryError> {
+fn parse_and(cursor: &mut ExpressionCursor<'_>, row: &RowContext<'_>, path: &str) -> Result<bool, BaseQueryError> {
     let mut result = parse_not(cursor, row, path)?;
     loop {
         cursor.skip_whitespace();
@@ -488,11 +452,7 @@ fn parse_and(
     }
 }
 
-fn parse_not(
-    cursor: &mut ExpressionCursor<'_>,
-    row: &RowContext<'_>,
-    path: &str,
-) -> Result<bool, BaseQueryError> {
+fn parse_not(cursor: &mut ExpressionCursor<'_>, row: &RowContext<'_>, path: &str) -> Result<bool, BaseQueryError> {
     cursor.skip_whitespace();
     // `!=` belongs to a comparison leaf, not a NOT prefix: only a bare `!`
     // not immediately followed by `=` is the unary operator.
@@ -503,11 +463,7 @@ fn parse_not(
     parse_primary(cursor, row, path)
 }
 
-fn parse_primary(
-    cursor: &mut ExpressionCursor<'_>,
-    row: &RowContext<'_>,
-    path: &str,
-) -> Result<bool, BaseQueryError> {
+fn parse_primary(cursor: &mut ExpressionCursor<'_>, row: &RowContext<'_>, path: &str) -> Result<bool, BaseQueryError> {
     cursor.skip_whitespace();
     if cursor.rest().starts_with('(') {
         cursor.pos += 1;
@@ -672,11 +628,7 @@ fn parse_literal(text: &str, path: &str) -> Result<Value, BaseQueryError> {
 /// `base_query`'s sort-key resolution (`contextos-mcp`), which needs
 /// the same "formula and unrecognised file properties are errors, missing
 /// frontmatter is `None`" semantics filter evaluation already applies.
-pub fn resolve_property(
-    property: &str,
-    row: &RowContext<'_>,
-    path: &str,
-) -> Result<Option<Value>, BaseQueryError> {
+pub fn resolve_property(property: &str, row: &RowContext<'_>, path: &str) -> Result<Option<Value>, BaseQueryError> {
     validate_property_name(property, path)?;
     if let Some(file_property) = property.strip_prefix("file.") {
         let value = match file_property {
@@ -745,11 +697,7 @@ pub enum ColumnValue {
 /// Returns [`BaseQueryError::UnsupportedFileProperty`] for a `file.*`
 /// accessor outside Obsidian's own documented set. A `formula.*` column
 /// always succeeds, resolving to [`ColumnValue::UnevaluatedFormula`].
-pub fn resolve_column(
-    column: &str,
-    row: &RowContext<'_>,
-    path: &str,
-) -> Result<ColumnValue, BaseQueryError> {
+pub fn resolve_column(column: &str, row: &RowContext<'_>, path: &str) -> Result<ColumnValue, BaseQueryError> {
     if let Some(name) = column.strip_prefix("formula.") {
         return Ok(ColumnValue::UnevaluatedFormula(name.to_owned()));
     }
@@ -762,10 +710,7 @@ pub fn resolve_column(
 /// # Errors
 ///
 /// See [`resolve_column`].
-pub fn resolve_row(
-    columns: &[String],
-    row: &RowContext<'_>,
-) -> Result<Vec<ColumnValue>, BaseQueryError> {
+pub fn resolve_row(columns: &[String], row: &RowContext<'_>) -> Result<Vec<ColumnValue>, BaseQueryError> {
     columns
         .iter()
         .enumerate()
@@ -814,20 +759,14 @@ fn scalar_text(value: &Value) -> String {
 
 fn render_table(columns: &[String], rows: &[Vec<ColumnValue>]) -> String {
     let mut out = String::new();
-    write_table_row(
-        &mut out,
-        columns.iter().map(|column| escape_table_cell(column)),
-    );
+    write_table_row(&mut out, columns.iter().map(|column| escape_table_cell(column)));
     out.push('|');
     for _ in columns {
         out.push_str(" --- |");
     }
     out.push('\n');
     for row in rows {
-        write_table_row(
-            &mut out,
-            row.iter().map(|value| escape_table_cell(&cell_text(value))),
-        );
+        write_table_row(&mut out, row.iter().map(|value| escape_table_cell(&cell_text(value))));
     }
     out
 }
@@ -843,9 +782,7 @@ fn write_table_row(out: &mut String, cells: impl Iterator<Item = String>) {
 }
 
 fn escape_table_cell(text: &str) -> String {
-    text.replace('\\', "\\\\")
-        .replace('|', "\\|")
-        .replace('\n', " ")
+    text.replace('\\', "\\\\").replace('|', "\\|").replace('\n', " ")
 }
 
 fn render_json(columns: &[String], rows: &[Vec<ColumnValue>]) -> String {
@@ -855,9 +792,7 @@ fn render_json(columns: &[String], rows: &[Vec<ColumnValue>]) -> String {
             let mut object = Map::new();
             for (column, value) in columns.iter().zip(row.iter()) {
                 let json_value = match value {
-                    ColumnValue::UnevaluatedFormula(name) => {
-                        Value::String(format!("formula.{name} (not evaluated)"))
-                    }
+                    ColumnValue::UnevaluatedFormula(name) => Value::String(format!("formula.{name} (not evaluated)")),
                     ColumnValue::Value(value) => value.clone(),
                 };
                 object.insert(column.clone(), json_value);
@@ -950,9 +885,7 @@ pub enum BaseQueryError {
     MalformedDefinition { path: String, violation: String },
     #[error("Base query filter at {path} is not supported: {expression}")]
     UnsupportedFilterExpression { path: String, expression: String },
-    #[error(
-        "Base query filter at {path} references formula.{name}, which base_query never evaluates"
-    )]
+    #[error("Base query filter at {path} references formula.{name}, which base_query never evaluates")]
     FormulaReference { path: String, name: String },
     #[error("Base query filter at {path} references unsupported file property file.{property}")]
     UnsupportedFileProperty { path: String, property: String },
@@ -976,9 +909,7 @@ impl BaseQueryError {
     #[must_use]
     pub const fn remediation(&self) -> &'static str {
         match self {
-            Self::ViewNotFound { .. } => {
-                "Pass an existing view name, or omit view to use the first view."
-            }
+            Self::ViewNotFound { .. } => "Pass an existing view name, or omit view to use the first view.",
             Self::NoColumns { .. } => {
                 "Add an order list to the view or definition, or properties to the base, before querying it."
             }
@@ -999,9 +930,8 @@ impl BaseQueryError {
 #[cfg(test)]
 mod tests {
     use super::{
-        BaseQueryError, ColumnValue, FileMetadata, QueryDefinition, QueryFormat, RowContext,
-        ScanRootHint, compare_values, evaluate_filters, render, resolve_column, resolve_property,
-        resolve_row, scan_root_hint,
+        BaseQueryError, ColumnValue, FileMetadata, QueryDefinition, QueryFormat, RowContext, ScanRootHint,
+        compare_values, evaluate_filters, render, resolve_column, resolve_property, resolve_row, scan_root_hint,
     };
     use crate::BaseDocument;
     use serde_json::{Map, Value, json};
@@ -1034,38 +964,22 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_equality_and_inequality_match_frontmatter_values()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn equality_and_inequality_match_frontmatter_values() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({ "status": "active" }));
         let row = active_row(&frontmatter, &[]);
-        assert!(evaluate_filters(
-            Some(&json!("status == \"active\"")),
-            &row
-        )?);
-        assert!(!evaluate_filters(
-            Some(&json!("status != \"active\"")),
-            &row
-        )?);
-        assert!(!evaluate_filters(
-            Some(&json!("status == \"archived\"")),
-            &row
-        )?);
+        assert!(evaluate_filters(Some(&json!("status == \"active\"")), &row)?);
+        assert!(!evaluate_filters(Some(&json!("status != \"active\"")), &row)?);
+        assert!(!evaluate_filters(Some(&json!("status == \"archived\"")), &row)?);
         Ok(())
     }
 
     #[test]
-    fn fr_47_a_note_dot_prefix_resolves_the_same_frontmatter_key_as_the_bare_name()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn a_note_dot_prefix_resolves_the_same_frontmatter_key_as_the_bare_name() -> Result<(), Box<dyn std::error::Error>>
+    {
         let frontmatter = frontmatter(json!({ "state": "done" }));
         let row = active_row(&frontmatter, &[]);
-        assert!(evaluate_filters(
-            Some(&json!("note.state == \"done\"")),
-            &row
-        )?);
-        assert!(!evaluate_filters(
-            Some(&json!("note.state == \"backlog\"")),
-            &row
-        )?);
+        assert!(evaluate_filters(Some(&json!("note.state == \"done\"")), &row)?);
+        assert!(!evaluate_filters(Some(&json!("note.state == \"backlog\"")), &row)?);
         assert_eq!(
             resolve_property("note.state", &row, "columns[0]")?,
             resolve_property("state", &row, "columns[0]")?,
@@ -1074,7 +988,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_missing_property_compares_as_null() -> Result<(), Box<dyn std::error::Error>> {
+    fn missing_property_compares_as_null() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let row = active_row(&frontmatter, &[]);
         assert!(evaluate_filters(Some(&json!("status == null")), &row)?);
@@ -1083,60 +997,37 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_contains_matches_a_string_substring_only() -> Result<(), Box<dyn std::error::Error>> {
+    fn contains_matches_a_string_substring_only() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({ "summary": "quarterly review notes" }));
         let row = active_row(&frontmatter, &[]);
-        assert!(evaluate_filters(
-            Some(&json!("summary.contains(\"review\")")),
-            &row
-        )?);
-        assert!(!evaluate_filters(
-            Some(&json!("summary.contains(\"absent\")")),
-            &row
-        )?);
+        assert!(evaluate_filters(Some(&json!("summary.contains(\"review\")")), &row)?);
+        assert!(!evaluate_filters(Some(&json!("summary.contains(\"absent\")")), &row)?);
         Ok(())
     }
 
     #[test]
-    fn fr_47_has_tag_checks_the_resolved_tag_set() -> Result<(), Box<dyn std::error::Error>> {
+    fn has_tag_checks_the_resolved_tag_set() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let tags = vec!["project/alpha".to_owned()];
         let row = active_row(&frontmatter, &tags);
-        assert!(evaluate_filters(
-            Some(&json!("file.hasTag(\"project/alpha\")")),
-            &row
-        )?);
-        assert!(!evaluate_filters(
-            Some(&json!("file.hasTag(\"archived\")")),
-            &row
-        )?);
+        assert!(evaluate_filters(Some(&json!("file.hasTag(\"project/alpha\")")), &row)?);
+        assert!(!evaluate_filters(Some(&json!("file.hasTag(\"archived\")")), &row)?);
         Ok(())
     }
 
     #[test]
-    fn fr_47_file_ext_name_basename_and_path_are_readable_leaf_properties()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn file_ext_name_basename_and_path_are_readable_leaf_properties() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let row = active_row(&frontmatter, &[]);
         assert!(evaluate_filters(Some(&json!("file.ext == \"md\"")), &row)?);
-        assert!(evaluate_filters(
-            Some(&json!("file.name == \"alpha.md\"")),
-            &row
-        )?);
-        assert!(evaluate_filters(
-            Some(&json!("file.basename == \"alpha\"")),
-            &row
-        )?);
-        assert!(evaluate_filters(
-            Some(&json!("file.path == \"notes/alpha.md\"")),
-            &row
-        )?);
+        assert!(evaluate_filters(Some(&json!("file.name == \"alpha.md\"")), &row)?);
+        assert!(evaluate_filters(Some(&json!("file.basename == \"alpha\"")), &row)?);
+        assert!(evaluate_filters(Some(&json!("file.path == \"notes/alpha.md\"")), &row)?);
         Ok(())
     }
 
     #[test]
-    fn fr_47_file_size_ctime_and_mtime_are_readable_equality_properties()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn file_size_ctime_and_mtime_are_readable_equality_properties() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let row = active_row(&frontmatter, &[]);
         assert!(evaluate_filters(Some(&json!("file.size == 42")), &row)?);
@@ -1159,15 +1050,12 @@ mod tests {
             },
             ..row
         };
-        assert!(evaluate_filters(
-            Some(&json!("file.ctime == null")),
-            &no_timestamps
-        )?);
+        assert!(evaluate_filters(Some(&json!("file.ctime == null")), &no_timestamps)?);
         Ok(())
     }
 
     #[test]
-    fn fr_47_file_tags_links_embeds_and_backlinks_are_list_properties_with_membership_contains()
+    fn file_tags_links_embeds_and_backlinks_are_list_properties_with_membership_contains()
     -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let tags = vec!["project/alpha".to_owned()];
@@ -1206,8 +1094,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_file_properties_exposes_the_whole_frontmatter_map_for_display()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn file_properties_exposes_the_whole_frontmatter_map_for_display() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({ "status": "active" }));
         let row = active_row(&frontmatter, &[]);
         let resolved = super::resolve_property("file.properties", &row, "columns[0]")?;
@@ -1216,8 +1103,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_file_folder_is_a_readable_leaf_property_derived_from_path()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn file_folder_is_a_readable_leaf_property_derived_from_path() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let nested = RowContext {
             frontmatter: &frontmatter,
@@ -1240,10 +1126,7 @@ mod tests {
             Some(&json!("file.folder == \"memory/tasks\"")),
             &nested
         )?);
-        assert!(!evaluate_filters(
-            Some(&json!("file.folder == \"memory\"")),
-            &nested
-        )?);
+        assert!(!evaluate_filters(Some(&json!("file.folder == \"memory\"")), &nested)?);
 
         let root = RowContext {
             frontmatter: &frontmatter,
@@ -1262,10 +1145,7 @@ mod tests {
             embeds: &[],
             backlinks: &[],
         };
-        assert!(evaluate_filters(
-            Some(&json!("file.folder == \"\"")),
-            &root
-        )?);
+        assert!(evaluate_filters(Some(&json!("file.folder == \"\"")), &root)?);
         assert!(!evaluate_filters(
             Some(&json!("file.folder == \"memory/tasks\"")),
             &root
@@ -1274,8 +1154,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_and_or_not_combine_per_the_obsidian_bases_tree_shape()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn and_or_not_combine_per_the_obsidian_bases_tree_shape() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({ "status": "active" }));
         let tags = vec!["review".to_owned()];
         let row = active_row(&frontmatter, &tags);
@@ -1298,23 +1177,19 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_string_level_and_or_not_operators_combine_leaves_with_js_precedence()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn string_level_and_or_not_operators_combine_leaves_with_js_precedence() -> Result<(), Box<dyn std::error::Error>> {
         // The real-world shape memory/tasks.base's "Decision pending
         // review" view uses: a single string leaf combining two
         // comparisons with `&&`, previously rejected outright as an
         // unsupported filter expression.
-        let decision_frontmatter =
-            frontmatter(json!({ "register": "decision", "completed": null }));
+        let decision_frontmatter = frontmatter(json!({ "register": "decision", "completed": null }));
         let decision_row = active_row(&decision_frontmatter, &[]);
         assert!(evaluate_filters(
             Some(&json!("register == \"decision\" && completed == null")),
             &decision_row
         )?);
         assert!(!evaluate_filters(
-            Some(&json!(
-                "register == \"decision\" && completed == \"2024-01-01\""
-            )),
+            Some(&json!("register == \"decision\" && completed == \"2024-01-01\"")),
             &decision_row
         )?);
 
@@ -1351,22 +1226,18 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_unbalanced_parentheses_in_a_string_expression_are_rejected()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn unbalanced_parentheses_in_a_string_expression_are_rejected() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let row = active_row(&frontmatter, &[]);
         let Err(error) = evaluate_filters(Some(&json!("(status == \"active\"")), &row) else {
             return Err("expected an unclosed group to be rejected".into());
         };
-        assert!(matches!(
-            &error,
-            BaseQueryError::UnsupportedFilterExpression { .. }
-        ));
+        assert!(matches!(&error, BaseQueryError::UnsupportedFilterExpression { .. }));
         Ok(())
     }
 
     #[test]
-    fn fr_47_none_filters_matches_every_row() -> Result<(), Box<dyn std::error::Error>> {
+    fn none_filters_matches_every_row() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let row = active_row(&frontmatter, &[]);
         assert!(evaluate_filters(None, &row)?);
@@ -1374,38 +1245,32 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_a_formula_reference_fails_closed_rather_than_being_ignored()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn a_formula_reference_fails_closed_rather_than_being_ignored() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let row = active_row(&frontmatter, &[]);
-        let Err(error) = evaluate_filters(Some(&json!("formula.display_status != \"\"")), &row)
-        else {
+        let Err(error) = evaluate_filters(Some(&json!("formula.display_status != \"\"")), &row) else {
             return Err("expected formula.display_status to be rejected".into());
         };
-        assert!(
-            matches!(&error, BaseQueryError::FormulaReference { name, .. } if name == "display_status")
-        );
+        assert!(matches!(&error, BaseQueryError::FormulaReference { name, .. } if name == "display_status"));
         assert_eq!(error.code(), "query/base-query-formula-reference");
         Ok(())
     }
 
     #[test]
-    fn fr_47_an_unsupported_file_property_is_a_named_error_not_a_silent_frontmatter_lookup()
+    fn an_unsupported_file_property_is_a_named_error_not_a_silent_frontmatter_lookup()
     -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let row = active_row(&frontmatter, &[]);
         let Err(error) = evaluate_filters(Some(&json!("file.frobnicate == \"x\"")), &row) else {
             return Err("expected file.frobnicate to be rejected".into());
         };
-        assert!(
-            matches!(&error, BaseQueryError::UnsupportedFileProperty { property, .. } if property == "frobnicate")
-        );
+        assert!(matches!(&error, BaseQueryError::UnsupportedFileProperty { property, .. } if property == "frobnicate"));
         assert_eq!(error.code(), "query/base-query-unsupported-file-property");
         Ok(())
     }
 
     #[test]
-    fn fr_47_an_expression_outside_the_documented_grammar_is_rejected_naming_the_expression()
+    fn an_expression_outside_the_documented_grammar_is_rejected_naming_the_expression()
     -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({ "price": 12 }));
         let row = active_row(&frontmatter, &[]);
@@ -1420,7 +1285,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_scan_root_hint_finds_a_file_path_equality_leaf_anywhere_in_the_tree() {
+    fn scan_root_hint_finds_a_file_path_equality_leaf_anywhere_in_the_tree() {
         let filters = json!({
             "and": ["file.path == \"notes/alpha.md\"", "status == \"active\""]
         });
@@ -1435,13 +1300,13 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_scan_root_hint_ignores_contains_since_a_substring_can_match_outside_the_directory() {
+    fn scan_root_hint_ignores_contains_since_a_substring_can_match_outside_the_directory() {
         let filters = json!("file.path.contains(\"archive\")");
         assert_eq!(scan_root_hint(Some(&filters)), None);
     }
 
     #[test]
-    fn fr_47_scan_root_hint_finds_a_file_folder_equality_leaf_and_uses_the_value_directly() {
+    fn scan_root_hint_finds_a_file_folder_equality_leaf_and_uses_the_value_directly() {
         let filters = json!("file.folder == \"memory/tasks\"");
         assert_eq!(
             scan_root_hint(Some(&filters)),
@@ -1453,8 +1318,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_query_definition_resolves_the_named_view_or_defaults_to_the_first()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn query_definition_resolves_the_named_view_or_defaults_to_the_first() -> Result<(), Box<dyn std::error::Error>> {
         let source = "views:\n  - type: table\n    name: First\n    order: [file.name]\n  - type: table\n    name: Second\n    order: [status]\n";
         let document = BaseDocument::try_from(source)?;
 
@@ -1473,8 +1337,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_query_definition_rejects_a_view_with_neither_order_nor_properties()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn query_definition_rejects_a_view_with_neither_order_nor_properties() -> Result<(), Box<dyn std::error::Error>> {
         let source = "views:\n  - type: table\n    name: Bare\n";
         let document = BaseDocument::try_from(source)?;
 
@@ -1487,7 +1350,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_query_definition_from_inline_reads_the_flat_shape_without_a_views_wrapper()
+    fn query_definition_from_inline_reads_the_flat_shape_without_a_views_wrapper()
     -> Result<(), Box<dyn std::error::Error>> {
         let definition = frontmatter(json!({
             "filters": "status == \"active\"",
@@ -1506,11 +1369,8 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_compare_values_orders_missing_then_by_type_then_by_value() {
-        assert_eq!(
-            compare_values(None, Some(&json!("a"))),
-            std::cmp::Ordering::Less
-        );
+    fn compare_values_orders_missing_then_by_type_then_by_value() {
+        assert_eq!(compare_values(None, Some(&json!("a"))), std::cmp::Ordering::Less);
         assert_eq!(
             compare_values(Some(&json!(1)), Some(&json!("a"))),
             std::cmp::Ordering::Less
@@ -1526,21 +1386,16 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_a_formula_display_column_is_an_unevaluated_marker_not_an_error()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn a_formula_display_column_is_an_unevaluated_marker_not_an_error() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let row = active_row(&frontmatter, &[]);
         let value = resolve_column("formula.display_status", &row, "columns[0]")?;
-        assert_eq!(
-            value,
-            ColumnValue::UnevaluatedFormula("display_status".to_owned())
-        );
+        assert_eq!(value, ColumnValue::UnevaluatedFormula("display_status".to_owned()));
         Ok(())
     }
 
     #[test]
-    fn fr_47_resolve_row_resolves_frontmatter_file_and_formula_columns_in_order()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn resolve_row_resolves_frontmatter_file_and_formula_columns_in_order() -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({ "status": "active" }));
         let row = active_row(&frontmatter, &[]);
         let columns = [
@@ -1561,7 +1416,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_render_table_escapes_pipes_and_marks_unevaluated_formulas() {
+    fn render_table_escapes_pipes_and_marks_unevaluated_formulas() {
         let columns = ["file.name".to_owned(), "formula.display_status".to_owned()];
         let rows = vec![vec![
             ColumnValue::Value(json!("a | b")),
@@ -1575,8 +1430,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_render_json_produces_one_object_per_row_keyed_by_column()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn render_json_produces_one_object_per_row_keyed_by_column() -> Result<(), Box<dyn std::error::Error>> {
         let columns = ["status".to_owned()];
         let rows = vec![vec![ColumnValue::Value(json!("active"))]];
         let content = render(&columns, &rows, QueryFormat::Json);
@@ -1586,7 +1440,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_47_render_csv_quotes_fields_containing_commas_or_quotes() {
+    fn render_csv_quotes_fields_containing_commas_or_quotes() {
         let columns = ["title".to_owned()];
         let rows = vec![vec![ColumnValue::Value(json!("hello, \"world\""))]];
         let csv = render(&columns, &rows, QueryFormat::Csv);

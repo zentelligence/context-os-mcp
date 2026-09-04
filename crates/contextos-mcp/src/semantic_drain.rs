@@ -69,11 +69,7 @@ pub(crate) fn spawn(
         .collect()
 }
 
-async fn drain_loop(
-    service: Arc<VaultSearchService>,
-    budget: Duration,
-    shutdown: CancellationToken,
-) {
+async fn drain_loop(service: Arc<VaultSearchService>, budget: Duration, shutdown: CancellationToken) {
     let budget = time::Duration::seconds(i64::try_from(budget.as_secs()).unwrap_or(i64::MAX));
     loop {
         let pass_service = Arc::clone(&service);
@@ -97,11 +93,7 @@ async fn drain_loop(
                 0
             }
         };
-        let wait = if remaining > 0 {
-            Duration::ZERO
-        } else {
-            IDLE_INTERVAL
-        };
+        let wait = if remaining > 0 { Duration::ZERO } else { IDLE_INTERVAL };
         tokio::select! {
             () = shutdown.cancelled() => return,
             () = tokio::time::sleep(wait) => {}
@@ -120,8 +112,8 @@ fn warn_drain_failed(error: &SearchError) {
 #[cfg(test)]
 mod tests {
     use contextos_core::{
-        OpKind, OperationEvent, Origin, UpdatesSearch, VaultPath, VaultPathInput, VaultRoot,
-        VaultRootId, VaultRootInput, VaultSet,
+        OpKind, OperationEvent, Origin, UpdatesSearch, VaultPath, VaultPathInput, VaultRoot, VaultRootId,
+        VaultRootInput, VaultSet,
     };
     use contextos_search::{FakeEmbedder, GraphBackend, SemanticConfig, VaultSearchConfig};
     use time::OffsetDateTime;
@@ -132,9 +124,7 @@ mod tests {
         Ok(tempfile::Builder::new().prefix("vault").tempdir()?)
     }
 
-    fn semantic_service_at(
-        vault: &tempfile::TempDir,
-    ) -> Result<Arc<VaultSearchService>, Box<dyn std::error::Error>> {
+    fn semantic_service_at(vault: &tempfile::TempDir) -> Result<Arc<VaultSearchService>, Box<dyn std::error::Error>> {
         Ok(Arc::new(VaultSearchService::try_from(VaultSearchConfig {
             root_id: VaultRootId::try_from(0_usize)?,
             root: vault.path().to_path_buf(),
@@ -181,8 +171,7 @@ mod tests {
     /// is spawned for it, so an operator never sees a drain loop churning
     /// on a vault that has nothing to drain.
     #[tokio::test]
-    async fn a_vault_with_semantic_disabled_gets_no_drain_task()
-    -> Result<(), Box<dyn std::error::Error>> {
+    async fn a_vault_with_semantic_disabled_gets_no_drain_task() -> Result<(), Box<dyn std::error::Error>> {
         let vault = vault_dir()?;
         let service = Arc::new(VaultSearchService::try_from(VaultSearchConfig {
             root_id: VaultRootId::try_from(0_usize)?,
@@ -209,8 +198,8 @@ mod tests {
     /// `query_index_rebuild`/`contextos index`, still ends up embedded
     /// once the background task gets a chance to run.
     #[tokio::test(start_paused = true)]
-    async fn an_enqueued_path_is_embedded_without_any_explicit_rebuild_call()
-    -> Result<(), Box<dyn std::error::Error>> {
+    async fn an_enqueued_path_is_embedded_without_any_explicit_rebuild_call() -> Result<(), Box<dyn std::error::Error>>
+    {
         let vault = vault_dir()?;
         let service = semantic_service_at(&vault)?;
         enqueue_a_note(&vault, &service, "note.md")?;
@@ -239,8 +228,8 @@ mod tests {
     /// tools entirely) must never be discovered or embedded by this
     /// background task, no matter how many idle cycles pass.
     #[tokio::test(start_paused = true)]
-    async fn a_file_present_in_the_vault_but_never_enqueued_is_never_embedded()
-    -> Result<(), Box<dyn std::error::Error>> {
+    async fn a_file_present_in_the_vault_but_never_enqueued_is_never_embedded() -> Result<(), Box<dyn std::error::Error>>
+    {
         let vault = vault_dir()?;
         let service = semantic_service_at(&vault)?;
         std::fs::write(
@@ -294,8 +283,7 @@ mod tests {
     /// awaits these handles, so a task that never returns would hang the
     /// whole server's graceful shutdown.
     #[tokio::test(start_paused = true)]
-    async fn cancelling_shutdown_stops_the_task_promptly() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn cancelling_shutdown_stops_the_task_promptly() -> Result<(), Box<dyn std::error::Error>> {
         let vault = vault_dir()?;
         let service = semantic_service_at(&vault)?;
 

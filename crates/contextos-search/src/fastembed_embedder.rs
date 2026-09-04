@@ -16,9 +16,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use fastembed::{
-    InitOptionsUserDefined, Pooling, TextEmbedding, TokenizerFiles, UserDefinedEmbeddingModel,
-};
+use fastembed::{InitOptionsUserDefined, Pooling, TextEmbedding, TokenizerFiles, UserDefinedEmbeddingModel};
 
 use crate::{Chunk, EmbedsText, SearchError};
 
@@ -92,14 +90,10 @@ impl TryFrom<PathBuf> for FastembedLocal {
             tokenizer_config_file: read_required(&model_directory, TOKENIZER_CONFIG_FILE)?,
         };
 
-        let user_defined_model =
-            UserDefinedEmbeddingModel::new(onnx_file, tokenizer_files).with_pooling(Pooling::Mean);
+        let user_defined_model = UserDefinedEmbeddingModel::new(onnx_file, tokenizer_files).with_pooling(Pooling::Mean);
 
-        let mut model = TextEmbedding::try_new_from_user_defined(
-            user_defined_model,
-            InitOptionsUserDefined::default(),
-        )
-        .map_err(|source| model_error(&directory, &source))?;
+        let mut model = TextEmbedding::try_new_from_user_defined(user_defined_model, InitOptionsUserDefined::default())
+            .map_err(|source| model_error(&directory, &source))?;
 
         let probe = model
             .embed(vec![DIMENSION_PROBE_TEXT], None)
@@ -124,10 +118,7 @@ impl EmbedsText for FastembedLocal {
             return Ok(Vec::new());
         }
         let texts: Vec<&str> = chunks.iter().map(Chunk::text).collect();
-        let mut model = self
-            .model
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut model = self.model.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         model
             .embed(texts, None)
             .map_err(|source| model_error(&self.directory, &source))

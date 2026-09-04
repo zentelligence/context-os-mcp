@@ -7,19 +7,17 @@ mod read;
 
 pub use contextos_core::ContentHash;
 pub use discover::{
-    AllowedDirectory, DirectoryEntry, DirectoryListing, DirectoryTreeRequest, EntryKind, FileInfo,
-    FileInfoRequest, ListDirectoryRequest, ListDirectoryWithSizesRequest, SearchFilesRequest,
-    SortBy, TreeNode, default_hidden_patterns,
+    AllowedDirectory, DirectoryEntry, DirectoryListing, DirectoryTreeRequest, EntryKind, FileInfo, FileInfoRequest,
+    ListDirectoryRequest, ListDirectoryWithSizesRequest, SearchFilesRequest, SortBy, TreeNode, default_hidden_patterns,
 };
 pub use error::{FsError, FsErrorInfo};
 pub use mutate::{
-    EditFileRequest, EditFileResult, FilesystemService, FilesystemServiceConfig,
-    RoutedFilesystemServiceConfig, TextEdit,
+    EditFileRequest, EditFileResult, FilesystemService, FilesystemServiceConfig, RoutedFilesystemServiceConfig,
+    TextEdit,
 };
 pub use read::{
-    Attachment, AttachmentRequest, Filesystem, FilesystemConfig, FsLimits, GuardsAtomicWrites,
-    LineRange, ReadLimit, ReadManyRequest, ReadManyResult, ReadTextRequest, ReadTextResult,
-    mime_type_for_extension,
+    Attachment, AttachmentRequest, Filesystem, FilesystemConfig, FsLimits, GuardsAtomicWrites, LineRange, ReadLimit,
+    ReadManyRequest, ReadManyResult, ReadTextRequest, ReadTextResult, mime_type_for_extension,
 };
 
 impl contextos_core::ReadsVault for Filesystem {
@@ -46,10 +44,7 @@ impl contextos_core::ReadsVault for Filesystem {
 impl contextos_core::ListsVault for Filesystem {
     type Error = FsError;
 
-    fn list(
-        &self,
-        path: &contextos_core::VaultPath,
-    ) -> Result<Vec<contextos_core::VaultEntry>, Self::Error> {
+    fn list(&self, path: &contextos_core::VaultPath) -> Result<Vec<contextos_core::VaultEntry>, Self::Error> {
         Ok(self
             .list_directory(&ListDirectoryRequest { path: path.clone() })?
             .entries

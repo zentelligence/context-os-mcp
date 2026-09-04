@@ -51,7 +51,7 @@ fn write_notes(vault: &std::path::Path) -> Result<(), Box<dyn std::error::Error 
 }
 
 #[tokio::test]
-async fn fr_47_base_query_resolves_a_named_view_sorts_limits_and_renders_every_format()
+async fn base_query_resolves_a_named_view_sorts_limits_and_renders_every_format()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     write_notes(vault.path())?;
@@ -116,16 +116,10 @@ async fn fr_47_base_query_resolves_a_named_view_sorts_limits_and_renders_every_f
     let tagged_json = call_tool(
         server.clone(),
         "base_query",
-        serde_json::from_value(
-            json!({"path": "catalogue.base", "view": "Tagged", "format": "json"}),
-        )?,
+        serde_json::from_value(json!({"path": "catalogue.base", "view": "Tagged", "format": "json"}))?,
     )
     .await?;
-    assert_eq!(
-        tagged_json.is_error,
-        Some(false),
-        "tagged_json: {tagged_json:?}"
-    );
+    assert_eq!(tagged_json.is_error, Some(false), "tagged_json: {tagged_json:?}");
     let tagged_json = structured(&tagged_json)?;
     assert_eq!(tagged_json.get("matched"), Some(&json!(1)));
     let content = tagged_json
@@ -138,16 +132,10 @@ async fn fr_47_base_query_resolves_a_named_view_sorts_limits_and_renders_every_f
     let tagged_csv = call_tool(
         server.clone(),
         "base_query",
-        serde_json::from_value(
-            json!({"path": "catalogue.base", "view": "Tagged", "format": "csv"}),
-        )?,
+        serde_json::from_value(json!({"path": "catalogue.base", "view": "Tagged", "format": "csv"}))?,
     )
     .await?;
-    assert_eq!(
-        tagged_csv.is_error,
-        Some(false),
-        "tagged_csv: {tagged_csv:?}"
-    );
+    assert_eq!(tagged_csv.is_error, Some(false), "tagged_csv: {tagged_csv:?}");
     assert_eq!(
         structured(&tagged_csv)?.get("content"),
         Some(&json!("file.name\nalpha.md\n"))
@@ -155,14 +143,9 @@ async fn fr_47_base_query_resolves_a_named_view_sorts_limits_and_renders_every_f
     Ok(())
 }
 
-fn write_folder_notes(
-    vault: &std::path::Path,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn write_folder_notes(vault: &std::path::Path) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     std::fs::create_dir_all(vault.join("memory/tasks/deep"))?;
-    std::fs::write(
-        vault.join("root.md"),
-        "---\nstatus: active\n---\nRoot body.\n",
-    )?;
+    std::fs::write(vault.join("root.md"), "---\nstatus: active\n---\nRoot body.\n")?;
     std::fs::write(
         vault.join("memory/tasks/foo.md"),
         "---\nstatus: active\n---\nFoo body.\n",
@@ -175,7 +158,7 @@ fn write_folder_notes(
 }
 
 #[tokio::test]
-async fn fr_47_base_query_filters_on_a_note_dot_prefixed_property_the_same_as_the_bare_name()
+async fn base_query_filters_on_a_note_dot_prefixed_property_the_same_as_the_bare_name()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     write_notes(vault.path())?;
@@ -201,16 +184,13 @@ async fn fr_47_base_query_filters_on_a_note_dot_prefixed_property_the_same_as_th
     assert_eq!(body.get("matched"), Some(&json!(2)));
     assert_eq!(
         body.get("content"),
-        Some(&json!(
-            "| file.name |\n| --- |\n| alpha.md |\n| gamma.md |\n"
-        ))
+        Some(&json!("| file.name |\n| --- |\n| alpha.md |\n| gamma.md |\n"))
     );
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_47_base_query_evaluates_a_string_level_and_combinator()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn base_query_evaluates_a_string_level_and_combinator() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
 
@@ -258,7 +238,7 @@ async fn fr_47_base_query_evaluates_a_string_level_and_combinator()
 }
 
 #[tokio::test]
-async fn fr_47_base_query_filters_and_narrows_scan_by_file_folder_without_matching_subfolders()
+async fn base_query_filters_and_narrows_scan_by_file_folder_without_matching_subfolders()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     write_folder_notes(vault.path())?;
@@ -310,7 +290,7 @@ async fn fr_47_base_query_filters_and_narrows_scan_by_file_folder_without_matchi
 }
 
 #[tokio::test]
-async fn fr_47_base_query_exposes_basename_size_timestamps_tags_links_and_embeds()
+async fn base_query_exposes_basename_size_timestamps_tags_links_and_embeds()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -349,26 +329,17 @@ async fn fr_47_base_query_exposes_basename_size_timestamps_tags_links_and_embeds
     assert_eq!(row.get("file.name"), Some(&json!("a.md")));
     assert_eq!(row.get("file.basename"), Some(&json!("a")));
     assert_eq!(row.get("file.size"), Some(&json!(content.len())));
-    assert!(
-        row.get("file.ctime")
-            .is_some_and(serde_json::Value::is_string)
-    );
-    assert!(
-        row.get("file.mtime")
-            .is_some_and(serde_json::Value::is_string)
-    );
+    assert!(row.get("file.ctime").is_some_and(serde_json::Value::is_string));
+    assert!(row.get("file.mtime").is_some_and(serde_json::Value::is_string));
     assert_eq!(row.get("file.tags"), Some(&json!(["project/alpha"])));
     assert_eq!(row.get("file.links"), Some(&json!(["b"])));
     assert_eq!(row.get("file.embeds"), Some(&json!(["diagram.png"])));
-    assert_eq!(
-        row.get("file.properties"),
-        Some(&json!({"tags": ["project/alpha"]}))
-    );
+    assert_eq!(row.get("file.properties"), Some(&json!({"tags": ["project/alpha"]})));
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_47_base_query_reports_a_frontmatter_parse_failure_as_a_diagnostic_not_a_silent_null()
+async fn base_query_reports_a_frontmatter_parse_failure_as_a_diagnostic_not_a_silent_null()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -416,10 +387,7 @@ async fn fr_47_base_query_reports_a_frontmatter_parse_failure_as_a_diagnostic_no
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| std::io::Error::other("base_query omitted diagnostics"))?;
     assert_eq!(diagnostics.len(), 1);
-    assert_eq!(
-        diagnostics[0].get("code"),
-        Some(&json!("format/frontmatter"))
-    );
+    assert_eq!(diagnostics[0].get("code"), Some(&json!("format/frontmatter")));
     assert_eq!(diagnostics[0].get("path"), Some(&json!("bad.md")));
 
     // The same degraded-to-null frontmatter means a filter on that
@@ -453,7 +421,7 @@ async fn fr_47_base_query_reports_a_frontmatter_parse_failure_as_a_diagnostic_no
 }
 
 #[tokio::test]
-async fn fr_47_base_query_fails_closed_on_file_backlinks_when_search_is_disabled()
+async fn base_query_fails_closed_on_file_backlinks_when_search_is_disabled()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
@@ -480,21 +448,18 @@ async fn fr_47_base_query_fails_closed_on_file_backlinks_when_search_is_disabled
     )
     .await?;
     assert_eq!(result.is_error, Some(true), "{result:?}");
-    assert_eq!(
-        structured(&result)?.get("code"),
-        Some(&json!("index/disabled"))
-    );
+    assert_eq!(structured(&result)?.get("code"), Some(&json!("index/disabled")));
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_47_base_query_resolves_file_backlinks_through_the_link_graph()
+async fn base_query_resolves_file_backlinks_through_the_link_graph()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
 
     // b.md is written before a.md so a.md's wikilink resolves to the real
-    // note rather than creating a phantom node (same ordering FR-52's own
+    // note rather than creating a phantom node (same ordering the
     // query_graph contract test uses).
     call_tool(
         server.clone(),
@@ -528,9 +493,9 @@ async fn fr_47_base_query_resolves_file_backlinks_through_the_link_graph()
         .ok_or_else(|| std::io::Error::other("base_query omitted content"))?;
     let rows: serde_json::Value = serde_json::from_str(text)?;
     // "index.md" is also a genuine backlink: fs_write_file's managed
-    // directory-listing block (FR-20) links every file in a directory from
-    // that directory's index.md, so the vault root's index.md really does
-    // link to b.md, sorted alongside the deliberate a.md -> b.md wikilink.
+    // directory-listing block links every file in a directory from that
+    // directory's index.md, so the vault root's index.md really does link
+    // to b.md, sorted alongside the deliberate a.md -> b.md wikilink.
     assert_eq!(
         rows,
         json!([{"file.name": "b.md", "file.backlinks": ["a.md", "index.md"]}])
@@ -539,7 +504,7 @@ async fn fr_47_base_query_resolves_file_backlinks_through_the_link_graph()
 }
 
 #[tokio::test]
-async fn fr_47_base_query_fails_closed_on_formula_filters_and_unsupported_expressions()
+async fn base_query_fails_closed_on_formula_filters_and_unsupported_expressions()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     write_notes(vault.path())?;
@@ -576,7 +541,7 @@ async fn fr_47_base_query_fails_closed_on_formula_filters_and_unsupported_expres
 }
 
 #[tokio::test]
-async fn fr_47_base_query_reports_an_unknown_view_and_a_columnless_view_by_distinct_codes()
+async fn base_query_reports_an_unknown_view_and_a_columnless_view_by_distinct_codes()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     write_notes(vault.path())?;
@@ -620,7 +585,7 @@ async fn fr_47_base_query_reports_an_unknown_view_and_a_columnless_view_by_disti
 }
 
 #[tokio::test]
-async fn fr_47_base_query_requires_exactly_one_of_path_or_definition_and_confines_paths_to_the_vault()
+async fn base_query_requires_exactly_one_of_path_or_definition_and_confines_paths_to_the_vault()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     write_notes(vault.path())?;
@@ -636,17 +601,11 @@ async fn fr_47_base_query_requires_exactly_one_of_path_or_definition_and_confine
     )
     .await?;
     assert_eq!(both.is_error, Some(true), "{both:?}");
-    assert_eq!(
-        structured(&both)?.get("code"),
-        Some(&json!("io/invalid-argument"))
-    );
+    assert_eq!(structured(&both)?.get("code"), Some(&json!("io/invalid-argument")));
 
     let neither = call_tool(server.clone(), "base_query", Map::new()).await?;
     assert_eq!(neither.is_error, Some(true), "{neither:?}");
-    assert_eq!(
-        structured(&neither)?.get("code"),
-        Some(&json!("io/invalid-argument"))
-    );
+    assert_eq!(structured(&neither)?.get("code"), Some(&json!("io/invalid-argument")));
 
     let outside = tempdir()?;
     std::fs::write(
@@ -660,9 +619,6 @@ async fn fr_47_base_query_requires_exactly_one_of_path_or_definition_and_confine
     )
     .await?;
     assert_eq!(escaped.is_error, Some(true), "{escaped:?}");
-    assert_eq!(
-        structured(&escaped)?.get("code"),
-        Some(&json!("path/outside-root"))
-    );
+    assert_eq!(structured(&escaped)?.get("code"), Some(&json!("path/outside-root")));
     Ok(())
 }

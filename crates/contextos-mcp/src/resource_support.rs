@@ -87,9 +87,7 @@ impl ResourceError {
 pub(crate) fn resource_uri(name: &str, relative: &std::path::Path) -> String {
     format!(
         "{name}://{}",
-        relative
-            .to_string_lossy()
-            .replace(std::path::MAIN_SEPARATOR, "/")
+        relative.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/")
     )
 }
 
@@ -106,15 +104,10 @@ pub(crate) fn resource_uri_template(name: &str) -> String {
 
 /// Builds a `{name}://{relative-path}` URI for an already-validated
 /// `VaultPath`, looking up its owning root's name in `roots`.
-pub(crate) fn resource_uri_for(
-    path: &VaultPath,
-    roots: &VaultSet,
-) -> Result<String, ResourceError> {
-    let root = roots
-        .root(path.root_id())
-        .ok_or_else(|| ResourceError::InvalidPath {
-            path: <&std::path::Path>::from(path).to_path_buf(),
-        })?;
+pub(crate) fn resource_uri_for(path: &VaultPath, roots: &VaultSet) -> Result<String, ResourceError> {
+    let root = roots.root(path.root_id()).ok_or_else(|| ResourceError::InvalidPath {
+        path: <&std::path::Path>::from(path).to_path_buf(),
+    })?;
     Ok(resource_uri(root.name(), path.relative()))
 }
 
@@ -124,10 +117,7 @@ pub(crate) fn resource_uri_for(
 /// `path`-parameter tool input: a resource URI and a hand-typed
 /// tool path address a file the same way, so parsing them is the same
 /// operation, not two.
-pub(crate) fn path_for_resource_uri(
-    uri: &str,
-    roots: &VaultSet,
-) -> Result<VaultPath, ResourceError> {
+pub(crate) fn path_for_resource_uri(uri: &str, roots: &VaultSet) -> Result<VaultPath, ResourceError> {
     Ok(VaultPath::try_from(VaultPathInput { roots, raw: uri })?)
 }
 
@@ -165,8 +155,7 @@ pub(crate) fn bounded_preview(content: &str, max_bytes: usize) -> (String, bool)
 /// so this replicates it explicitly. Falls back to an empty schema in
 /// the defensive-only case `schema_for_output` itself fails: an
 /// `output_schema` attribute expression must not panic.
-pub(crate) fn output_schema_for<T: schemars::JsonSchema + std::any::Any>()
--> std::sync::Arc<rmcp::model::JsonObject> {
+pub(crate) fn output_schema_for<T: schemars::JsonSchema + std::any::Any>() -> std::sync::Arc<rmcp::model::JsonObject> {
     rmcp::handler::server::tool::schema_for_output::<T>().unwrap_or_default()
 }
 
@@ -206,10 +195,7 @@ pub(crate) fn fallible_output_schema_for<T: schemars::JsonSchema + std::any::Any
     let mut properties = rmcp::model::JsonObject::new();
     let mut defs = rmcp::model::JsonObject::new();
     for schema in [&success, &failure] {
-        if let Some(schema_properties) = schema
-            .get("properties")
-            .and_then(serde_json::Value::as_object)
-        {
+        if let Some(schema_properties) = schema.get("properties").and_then(serde_json::Value::as_object) {
             properties.extend(schema_properties.clone());
         }
         if let Some(schema_defs) = schema.get("$defs").and_then(serde_json::Value::as_object) {
@@ -225,10 +211,7 @@ pub(crate) fn fallible_output_schema_for<T: schemars::JsonSchema + std::any::Any
         merged.insert("$defs".to_owned(), serde_json::Value::Object(defs));
     }
     merged.insert("type".to_owned(), serde_json::json!("object"));
-    merged.insert(
-        "properties".to_owned(),
-        serde_json::Value::Object(properties),
-    );
+    merged.insert("properties".to_owned(), serde_json::Value::Object(properties));
     std::sync::Arc::new(merged)
 }
 
@@ -268,9 +251,7 @@ pub(crate) fn optional_path_schema(generator: &mut schemars::SchemaGenerator) ->
 /// "Option::is_none")]` on the field itself, so a `None` value omits the
 /// key entirely rather than serialising a `null` the narrowed schema would
 /// then reject.
-pub(crate) fn optional_string_schema(
-    generator: &mut schemars::SchemaGenerator,
-) -> schemars::Schema {
+pub(crate) fn optional_string_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
     generator.subschema_for::<String>()
 }
 
@@ -343,10 +324,7 @@ fn collapse_null_only_union(map: &mut serde_json::Map<String, serde_json::Value>
         let Some(serde_json::Value::Array(branches)) = map.get(keyword) else {
             continue;
         };
-        let non_null: Vec<&serde_json::Value> = branches
-            .iter()
-            .filter(|branch| !is_null_schema(branch))
-            .collect();
+        let non_null: Vec<&serde_json::Value> = branches.iter().filter(|branch| !is_null_schema(branch)).collect();
         if non_null.len() == 1 && non_null.len() < branches.len() {
             let replacement = non_null[0].clone();
             map.remove(keyword);
@@ -426,8 +404,7 @@ pub(crate) fn inline_local_refs(schema: &mut serde_json::Value) {
     let serde_json::Value::Object(root) = schema else {
         return;
     };
-    let mut definitions: std::collections::HashMap<RefTarget, serde_json::Value> =
-        std::collections::HashMap::new();
+    let mut definitions: std::collections::HashMap<RefTarget, serde_json::Value> = std::collections::HashMap::new();
     if let Some(serde_json::Value::Object(defs)) = root.get("$defs") {
         for (name, definition) in defs {
             definitions.insert(RefTarget::Def(name.clone()), definition.clone());
@@ -435,10 +412,7 @@ pub(crate) fn inline_local_refs(schema: &mut serde_json::Value) {
     }
     let mut root_shape = root.clone();
     root_shape.remove("$defs");
-    definitions.insert(
-        RefTarget::Root,
-        serde_json::Value::Object(root_shape.clone()),
-    );
+    definitions.insert(RefTarget::Root, serde_json::Value::Object(root_shape.clone()));
 
     let mut expanded = serde_json::Value::Object(root_shape);
     let mut expanding = vec![RefTarget::Root];

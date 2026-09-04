@@ -157,11 +157,7 @@ async fn golden_file_determinism_suite() -> Result<(), BoxError> {
         "canvas-fixture.canvas",
         "{\"nodes\":[{\"id\":\"n1\",\"type\":\"text\",\"x\":0,\"y\":0,\"width\":160,\"height\":60,\"text\":\"Node\"}],\"edges\":[]}\n",
     )?;
-    write(
-        vault_dir.path(),
-        "mermaid-fixture.mermaid",
-        "graph TD\n  A --> B\n",
-    )?;
+    write(vault_dir.path(), "mermaid-fixture.mermaid", "graph TD\n  A --> B\n")?;
 
     let router = router_over(vault_dir.path(), config_dir.path()).await?;
 
@@ -172,34 +168,10 @@ async fn golden_file_determinism_suite() -> Result<(), BoxError> {
         "html",
     )
     .await?;
-    render_twice_and_check_golden(
-        &router,
-        &format!("/{VAULT_NAME}/embed-fixture.md"),
-        "embed",
-        "html",
-    )
-    .await?;
-    render_twice_and_check_golden(
-        &router,
-        &format!("/{VAULT_NAME}/fence-fixture.md"),
-        "fence",
-        "html",
-    )
-    .await?;
-    render_twice_and_check_golden(
-        &router,
-        &format!("/{VAULT_NAME}/callout-fixture.md"),
-        "callout",
-        "html",
-    )
-    .await?;
-    render_twice_and_check_golden(
-        &router,
-        &format!("/{VAULT_NAME}/base-fixture.base"),
-        "base",
-        "html",
-    )
-    .await?;
+    render_twice_and_check_golden(&router, &format!("/{VAULT_NAME}/embed-fixture.md"), "embed", "html").await?;
+    render_twice_and_check_golden(&router, &format!("/{VAULT_NAME}/fence-fixture.md"), "fence", "html").await?;
+    render_twice_and_check_golden(&router, &format!("/{VAULT_NAME}/callout-fixture.md"), "callout", "html").await?;
+    render_twice_and_check_golden(&router, &format!("/{VAULT_NAME}/base-fixture.base"), "base", "html").await?;
     render_twice_and_check_golden(
         &router,
         &format!("/{VAULT_NAME}/canvas-fixture.canvas"),

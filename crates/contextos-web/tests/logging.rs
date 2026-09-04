@@ -1,5 +1,5 @@
-//! FR-212 / NFR-W04: a proxy call logs method/server/tool/duration/outcome
-//! at `INFO`, with no argument or result content present in the log line.
+//! A proxy call logs method/server/tool/duration/outcome at `INFO`, with no
+//! argument or result content present in the log line.
 
 mod support;
 
@@ -92,21 +92,12 @@ async fn a_proxy_call_logs_fields_but_never_argument_or_result_content() -> Resu
         log.contains("tool=\"fs_read_text_file\""),
         "log missing tool field: {log:?}"
     );
-    assert!(
-        log.contains("duration_ms="),
-        "log missing duration_ms field: {log:?}"
-    );
-    assert!(
-        log.contains("outcome="),
-        "log missing outcome field: {log:?}"
-    );
+    assert!(log.contains("duration_ms="), "log missing duration_ms field: {log:?}");
+    assert!(log.contains("outcome="), "log missing outcome field: {log:?}");
     assert!(
         !log.contains("TOP-SECRET-CONTENT-Q7F3"),
         "log leaked result content: {log:?}"
     );
-    assert!(
-        !log.contains(argument_path),
-        "log leaked argument content: {log:?}"
-    );
+    assert!(!log.contains(argument_path), "log leaked argument content: {log:?}");
     Ok(())
 }

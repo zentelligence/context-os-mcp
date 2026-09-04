@@ -41,11 +41,7 @@ pub enum FsError {
     #[error("path is not a regular file: {path}")]
     NotFile { path: PathBuf },
     #[error("file is {size} bytes, above the unlimited-read maximum of {maximum} bytes: {path}")]
-    TooLarge {
-        path: PathBuf,
-        size: u64,
-        maximum: u64,
-    },
+    TooLarge { path: PathBuf, size: u64, maximum: u64 },
     #[error("file is binary or is not valid UTF-8: {path}")]
     Binary { path: PathBuf },
     #[error("file changed since the caller observed it: {path}")]
@@ -59,10 +55,7 @@ pub enum FsError {
         current_hash: Option<ContentHash>,
     },
     #[error("expected_hash is required to overwrite an existing file: {path}")]
-    ExpectedHashRequired {
-        path: PathBuf,
-        current_hash: ContentHash,
-    },
+    ExpectedHashRequired { path: PathBuf, current_hash: ContentHash },
     #[error("destination already exists: {path}")]
     DestinationExists { path: PathBuf },
     #[error("exact edit text was not found: {path}")]
@@ -72,19 +65,11 @@ pub enum FsError {
     #[error("batch contains {count} paths, above the configured maximum of {maximum}")]
     BatchTooLarge { count: usize, maximum: usize },
     #[error("filesystem configuration has {limit_count} limit sets for {root_count} vault roots")]
-    LimitCountMismatch {
-        root_count: usize,
-        limit_count: usize,
-    },
+    LimitCountMismatch { root_count: usize, limit_count: usize },
     #[error("filesystem limits for vault root {root_index} must be greater than zero")]
     InvalidLimits { root_index: usize },
-    #[error(
-        "filesystem configuration has {hidden_count} hidden-pattern sets for {root_count} vault roots"
-    )]
-    HiddenCountMismatch {
-        root_count: usize,
-        hidden_count: usize,
-    },
+    #[error("filesystem configuration has {hidden_count} hidden-pattern sets for {root_count} vault roots")]
+    HiddenCountMismatch { root_count: usize, hidden_count: usize },
     #[error("line range must be 1-based, inclusive, and ordered: {from}..={to}")]
     InvalidRange { from: usize, to: usize },
     #[error("glob pattern is invalid: {pattern}")]
@@ -341,9 +326,9 @@ impl FsError {
             Self::AtomicWriteInterrupted { .. } => "io/atomic-write-interrupted",
             Self::DirectoryNotEmpty { .. } => "io/directory-not-empty",
             Self::TrashPath { .. } | Self::DeletePath { .. } => "io/delete",
-            Self::LimitCountMismatch { .. }
-            | Self::InvalidLimits { .. }
-            | Self::HiddenCountMismatch { .. } => "server/configuration",
+            Self::LimitCountMismatch { .. } | Self::InvalidLimits { .. } | Self::HiddenCountMismatch { .. } => {
+                "server/configuration"
+            }
             Self::NotFile { .. }
             | Self::NotDirectory { .. }
             | Self::ReadDirectory { .. }
@@ -380,35 +365,23 @@ impl FsError {
                 "expected_hash is required to overwrite an existing file. Read it first to obtain the current content_hash, then retry the write with that hash."
             }
             Self::DestinationExists { .. } => "Choose a destination that does not exist.",
-            Self::EditNotFound { .. } => {
-                "Read the current file and supply text that exists exactly once."
-            }
-            Self::EditAmbiguous { .. } => {
-                "Include more surrounding text so the edit target is unique."
-            }
-            Self::LimitCountMismatch { .. }
-            | Self::InvalidLimits { .. }
-            | Self::HiddenCountMismatch { .. } => {
+            Self::EditNotFound { .. } => "Read the current file and supply text that exists exactly once.",
+            Self::EditAmbiguous { .. } => "Include more surrounding text so the edit target is unique.",
+            Self::LimitCountMismatch { .. } | Self::InvalidLimits { .. } | Self::HiddenCountMismatch { .. } => {
                 "Correct the configured limits and hidden patterns for every vault root and restart the server."
             }
             Self::NotFile { .. } => "Pass the path of a regular file.",
             Self::TooLarge { .. } => "Pass head, tail, or an explicit line range.",
             Self::Binary { .. } => "Use fs_attach_file for binary content.",
             Self::BatchTooLarge { .. } => "Split the request into smaller batches.",
-            Self::InvalidRange { .. } => {
-                "Use positive 1-based line numbers with from_line no greater than to_line."
-            }
-            Self::InvalidGlob { .. } | Self::InvalidExclude { .. } => {
-                "Use a valid gitignore-style glob pattern."
-            }
+            Self::InvalidRange { .. } => "Use positive 1-based line numbers with from_line no greater than to_line.",
+            Self::InvalidGlob { .. } | Self::InvalidExclude { .. } => "Use a valid gitignore-style glob pattern.",
             Self::NotDirectory { .. } => "Pass the path of a directory.",
             Self::DirectoryNotEmpty { .. } => "Delete the directory contents first.",
             Self::ReadDirectory { .. }
             | Self::ReadDirectoryEntry { .. }
             | Self::WalkDirectory { .. }
-            | Self::PrefixMismatch { .. } => {
-                "Check that the directory is readable and retry the operation."
-            }
+            | Self::PrefixMismatch { .. } => "Check that the directory is readable and retry the operation.",
             Self::ReadMetadata { .. } | Self::OpenRead { .. } | Self::ReadContent { .. } => {
                 "Check that the file is readable and retry the operation."
             }
@@ -424,9 +397,7 @@ impl FsError {
             | Self::DeletePath { .. }
             | Self::OpenAppend { .. }
             | Self::AppendContent { .. }
-            | Self::FlushAppend { .. } => {
-                "Check vault permissions and available storage, then retry the operation."
-            }
+            | Self::FlushAppend { .. } => "Check vault permissions and available storage, then retry the operation.",
         }
     }
 }

@@ -1,4 +1,4 @@
-//! FR-54, D-05: `OpenAiCompatible` against a local, in-process HTTP stub.
+//! `OpenAiCompatible` against a local, in-process HTTP stub.
 //!
 //! No test here touches a real network endpoint: `support::http_stub` is a
 //! hand-rolled loopback server, and the "missing env var" test never starts
@@ -18,9 +18,7 @@ mod support;
 use std::process::Command;
 use std::time::Duration;
 
-use contextos_search::{
-    Chunk, ChunkSource, EmbedsText, OpenAiCompatible, OpenAiCompatibleConfig, chunk_document,
-};
+use contextos_search::{Chunk, ChunkSource, EmbedsText, OpenAiCompatible, OpenAiCompatibleConfig, chunk_document};
 use serde_json::Value;
 use support::http_stub::{HttpStub, StubResponse};
 use support::vault_note;
@@ -31,21 +29,14 @@ fn chunks_for(
     content: &str,
 ) -> Result<Vec<Chunk>, Box<dyn std::error::Error>> {
     let (_roots, path) = vault_note(vault, relative, content)?;
-    Ok(chunk_document(ChunkSource {
-        path: &path,
-        content,
-    }))
+    Ok(chunk_document(ChunkSource { path: &path, content }))
 }
 
 /// Re-runs `child_test_name` as a child process of this same test binary,
 /// with `variable` set to `value` for that child only, and asserts it
 /// passed. The child test itself no-ops when `variable` is absent, so it
 /// also runs harmlessly under a normal `cargo test` invocation.
-fn run_with_env_child(
-    child_test_name: &str,
-    variable: &str,
-    value: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn run_with_env_child(child_test_name: &str, variable: &str, value: &str) -> Result<(), Box<dyn std::error::Error>> {
     let status = Command::new(std::env::current_exe()?)
         .args(["--exact", child_test_name])
         .env(variable, value)
@@ -57,8 +48,7 @@ fn run_with_env_child(
 }
 
 #[test]
-fn fr_54_missing_api_key_env_is_rejected_with_no_request_sent()
--> Result<(), Box<dyn std::error::Error>> {
+fn missing_api_key_env_is_rejected_with_no_request_sent() -> Result<(), Box<dyn std::error::Error>> {
     let variable = "CONTEXTOS_TEST_MISSING_KEY_FR54";
     assert!(
         std::env::var_os(variable).is_none(),
@@ -79,8 +69,7 @@ fn fr_54_missing_api_key_env_is_rejected_with_no_request_sent()
 }
 
 #[test]
-fn fr_54_plain_http_to_a_non_loopback_endpoint_is_rejected_with_no_request_sent()
--> Result<(), Box<dyn std::error::Error>> {
+fn plain_http_to_a_non_loopback_endpoint_is_rejected_with_no_request_sent() -> Result<(), Box<dyn std::error::Error>> {
     let variable = "CONTEXTOS_TEST_KEY_FR54_INSECURE";
     assert!(
         std::env::var_os(variable).is_none(),
@@ -94,10 +83,7 @@ fn fr_54_plain_http_to_a_non_loopback_endpoint_is_rejected_with_no_request_sent(
     });
 
     let Err(error) = result else {
-        return Err(
-            "expected construction to fail for a plain http:// endpoint that is not loopback"
-                .into(),
-        );
+        return Err("expected construction to fail for a plain http:// endpoint that is not loopback".into());
     };
     assert_eq!(error.code(), "embedding/config");
     // The api_key_env variable is unset in this process, so if endpoint
@@ -109,7 +95,7 @@ fn fr_54_plain_http_to_a_non_loopback_endpoint_is_rejected_with_no_request_sent(
 }
 
 #[test]
-fn fr_54_https_endpoint_is_accepted() -> Result<(), Box<dyn std::error::Error>> {
+fn https_endpoint_is_accepted() -> Result<(), Box<dyn std::error::Error>> {
     let variable = "CONTEXTOS_TEST_KEY_FR54_HTTPS_MISSING";
     assert!(
         std::env::var_os(variable).is_none(),
@@ -133,18 +119,16 @@ fn fr_54_https_endpoint_is_accepted() -> Result<(), Box<dyn std::error::Error>> 
 }
 
 #[test]
-fn fr_54_batched_request_shape_and_response_are_round_tripped()
--> Result<(), Box<dyn std::error::Error>> {
+fn batched_request_shape_and_response_are_round_tripped() -> Result<(), Box<dyn std::error::Error>> {
     run_with_env_child(
-        "fr_54_batched_request_shape_and_response_are_round_tripped_child",
+        "batched_request_shape_and_response_are_round_tripped_child",
         "CONTEXTOS_TEST_KEY_FR54_BATCH",
         "sk-test-secret-value",
     )
 }
 
 #[test]
-fn fr_54_batched_request_shape_and_response_are_round_tripped_child()
--> Result<(), Box<dyn std::error::Error>> {
+fn batched_request_shape_and_response_are_round_tripped_child() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::var_os("CONTEXTOS_TEST_KEY_FR54_BATCH").is_none() {
         return Ok(());
     }
@@ -189,15 +173,10 @@ fn fr_54_batched_request_shape_and_response_are_round_tripped_child()
 
     assert_eq!(captured.method, "POST");
     assert_eq!(captured.path, "/v1/embeddings");
-    assert_eq!(
-        captured.authorization.as_deref(),
-        Some("Bearer sk-test-secret-value")
-    );
+    assert_eq!(captured.authorization.as_deref(), Some("Bearer sk-test-secret-value"));
     let sent: Value = serde_json::from_slice(&captured.body)?;
     assert_eq!(sent["model"], "test-model");
-    let sent_inputs = sent["input"]
-        .as_array()
-        .ok_or("expected input to be a JSON array")?;
+    let sent_inputs = sent["input"].as_array().ok_or("expected input to be a JSON array")?;
     assert_eq!(sent_inputs.len(), chunks.len());
     for (sent_input, chunk) in sent_inputs.iter().zip(chunks.iter()) {
         assert_eq!(sent_input.as_str(), Some(chunk.text()));
@@ -206,16 +185,16 @@ fn fr_54_batched_request_shape_and_response_are_round_tripped_child()
 }
 
 #[test]
-fn fr_54_empty_input_sends_no_request() -> Result<(), Box<dyn std::error::Error>> {
+fn empty_input_sends_no_request() -> Result<(), Box<dyn std::error::Error>> {
     run_with_env_child(
-        "fr_54_empty_input_sends_no_request_child",
+        "empty_input_sends_no_request_child",
         "CONTEXTOS_TEST_KEY_FR54_EMPTY",
         "sk-unused",
     )
 }
 
 #[test]
-fn fr_54_empty_input_sends_no_request_child() -> Result<(), Box<dyn std::error::Error>> {
+fn empty_input_sends_no_request_child() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::var_os("CONTEXTOS_TEST_KEY_FR54_EMPTY").is_none() {
         return Ok(());
     }
@@ -233,16 +212,16 @@ fn fr_54_empty_input_sends_no_request_child() -> Result<(), Box<dyn std::error::
 }
 
 #[test]
-fn fr_54_timeout_is_reported_as_a_typed_error() -> Result<(), Box<dyn std::error::Error>> {
+fn timeout_is_reported_as_a_typed_error() -> Result<(), Box<dyn std::error::Error>> {
     run_with_env_child(
-        "fr_54_timeout_is_reported_as_a_typed_error_child",
+        "timeout_is_reported_as_a_typed_error_child",
         "CONTEXTOS_TEST_KEY_FR54_TIMEOUT",
         "sk-unused",
     )
 }
 
 #[test]
-fn fr_54_timeout_is_reported_as_a_typed_error_child() -> Result<(), Box<dyn std::error::Error>> {
+fn timeout_is_reported_as_a_typed_error_child() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::var_os("CONTEXTOS_TEST_KEY_FR54_TIMEOUT").is_none() {
         return Ok(());
     }
@@ -276,16 +255,16 @@ fn fr_54_timeout_is_reported_as_a_typed_error_child() -> Result<(), Box<dyn std:
 }
 
 #[test]
-fn fr_54_oversized_response_body_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+fn oversized_response_body_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
     run_with_env_child(
-        "fr_54_oversized_response_body_is_rejected_child",
+        "oversized_response_body_is_rejected_child",
         "CONTEXTOS_TEST_KEY_FR54_OVERSIZE",
         "sk-unused",
     )
 }
 
 #[test]
-fn fr_54_oversized_response_body_is_rejected_child() -> Result<(), Box<dyn std::error::Error>> {
+fn oversized_response_body_is_rejected_child() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::var_os("CONTEXTOS_TEST_KEY_FR54_OVERSIZE").is_none() {
         return Ok(());
     }
@@ -319,17 +298,16 @@ fn fr_54_oversized_response_body_is_rejected_child() -> Result<(), Box<dyn std::
 }
 
 #[test]
-fn fr_54_non_2xx_status_is_mapped_to_a_typed_error() -> Result<(), Box<dyn std::error::Error>> {
+fn non_2xx_status_is_mapped_to_a_typed_error() -> Result<(), Box<dyn std::error::Error>> {
     run_with_env_child(
-        "fr_54_non_2xx_status_is_mapped_to_a_typed_error_child",
+        "non_2xx_status_is_mapped_to_a_typed_error_child",
         "CONTEXTOS_TEST_KEY_FR54_STATUS",
         "sk-unused",
     )
 }
 
 #[test]
-fn fr_54_non_2xx_status_is_mapped_to_a_typed_error_child() -> Result<(), Box<dyn std::error::Error>>
-{
+fn non_2xx_status_is_mapped_to_a_typed_error_child() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::var_os("CONTEXTOS_TEST_KEY_FR54_STATUS").is_none() {
         return Ok(());
     }
@@ -360,18 +338,16 @@ fn fr_54_non_2xx_status_is_mapped_to_a_typed_error_child() -> Result<(), Box<dyn
 }
 
 #[test]
-fn fr_54_api_key_never_appears_in_debug_or_error_output() -> Result<(), Box<dyn std::error::Error>>
-{
+fn api_key_never_appears_in_debug_or_error_output() -> Result<(), Box<dyn std::error::Error>> {
     run_with_env_child(
-        "fr_54_api_key_never_appears_in_debug_or_error_output_child",
+        "api_key_never_appears_in_debug_or_error_output_child",
         "CONTEXTOS_TEST_KEY_FR54_REDACT",
         "sk-super-secret-do-not-leak",
     )
 }
 
 #[test]
-fn fr_54_api_key_never_appears_in_debug_or_error_output_child()
--> Result<(), Box<dyn std::error::Error>> {
+fn api_key_never_appears_in_debug_or_error_output_child() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::var_os("CONTEXTOS_TEST_KEY_FR54_REDACT").is_none() {
         return Ok(());
     }

@@ -12,10 +12,10 @@ use rmcp::model::{CallToolRequestParams, CallToolResult};
 use serde_json::{Map, json};
 
 /// `ContextOsServer::catalogue()` is the build-complete set: every tool
-/// this binary ships, including the `ephemeris_*` tools (`FR-101` to
-/// `FR-105`), regardless of any instance's `[server] astro` setting
-/// (`D-25`). It is not what any one running server actually advertises;
-/// see [`effective_catalogue_omits_ephemeris_tools_unless_astro_is_enabled`]
+/// this binary ships, including the `ephemeris_*` tools, regardless of
+/// any instance's `[server] astro` setting. It is not what any one
+/// running server actually advertises; see
+/// [`effective_catalogue_omits_ephemeris_tools_unless_astro_is_enabled`]
 /// for that.
 #[test]
 fn catalogue_exposes_every_built_in_tool_this_binary_ships() {
@@ -76,8 +76,7 @@ fn catalogue_exposes_every_built_in_tool_this_binary_ships() {
 /// omits an `output_schema` entirely instead of advertising one that
 /// carries a `$ref`.
 #[test]
-fn no_tool_schema_anywhere_uses_forbidden_composition_or_array_form_type()
--> Result<(), Box<dyn std::error::Error>> {
+fn no_tool_schema_anywhere_uses_forbidden_composition_or_array_form_type() -> Result<(), Box<dyn std::error::Error>> {
     let mut problems = Vec::new();
     for tool in ContextOsServer::catalogue().list_all() {
         scan_schema(&tool.name, "input", &tool.input_schema, &mut problems);
@@ -92,12 +91,7 @@ fn no_tool_schema_anywhere_uses_forbidden_composition_or_array_form_type()
     }
 }
 
-fn scan_schema(
-    tool: &str,
-    which: &str,
-    schema: &Map<String, serde_json::Value>,
-    problems: &mut Vec<String>,
-) {
+fn scan_schema(tool: &str, which: &str, schema: &Map<String, serde_json::Value>, problems: &mut Vec<String>) {
     let mut path = Vec::new();
     scan_value(
         tool,
@@ -108,13 +102,7 @@ fn scan_schema(
     );
 }
 
-fn scan_value(
-    tool: &str,
-    which: &str,
-    value: &serde_json::Value,
-    path: &mut Vec<String>,
-    problems: &mut Vec<String>,
-) {
+fn scan_value(tool: &str, which: &str, value: &serde_json::Value, path: &mut Vec<String>, problems: &mut Vec<String>) {
     match value {
         serde_json::Value::Object(map) => {
             for keyword in ["oneOf", "anyOf", "allOf"] {
@@ -172,10 +160,10 @@ fn scan_value(
     }
 }
 
-/// `D-25`: `effective_catalogue()`, what a running instance actually
-/// advertises and can dispatch, omits the `ephemeris_*` tools unless that
-/// instance's `[server] astro` is set; the runtime toggle, not a Cargo
-/// feature, is what decides visibility.
+/// `effective_catalogue()`, what a running instance actually advertises
+/// and can dispatch, omits the `ephemeris_*` tools unless that instance's
+/// `[server] astro` is set; the runtime toggle, not a Cargo feature, is
+/// what decides visibility.
 #[test]
 fn effective_catalogue_omits_ephemeris_tools_unless_astro_is_enabled()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -189,9 +177,7 @@ fn effective_catalogue_omits_ephemeris_tools_unless_astro_is_enabled()
         .map(|tool| tool.name.into_owned())
         .collect();
     assert!(
-        !disabled_names
-            .iter()
-            .any(|name| name.starts_with("ephemeris_")),
+        !disabled_names.iter().any(|name| name.starts_with("ephemeris_")),
         "no ephemeris_* tool should be advertised with astro at its default, got {disabled_names:?}"
     );
 
@@ -265,8 +251,7 @@ fn core_catalogue_tool_names() -> Vec<&'static str> {
 }
 
 #[tokio::test]
-async fn fr_13_attach_file_embeds_text_and_base64_binary_resources()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn attach_file_embeds_text_and_base64_binary_resources() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(vault.path().join("plain.txt"), "hello")?;
     std::fs::write(vault.path().join("image.png"), [0_u8, 1, 2, 3])?;
@@ -313,10 +298,9 @@ async fn fr_13_attach_file_embeds_text_and_base64_binary_resources()
         .first()
         .and_then(rmcp::model::ContentBlock::as_resource)
         .ok_or_else(|| std::io::Error::other("binary attachment was not an embedded resource"))?;
-    // `{name}://` (`FR-99`), never `file://` (superseded, `D-17`); the vault
-    // here uses its default name-from-basename rather than an explicit one,
-    // so the scheme is asserted generically rather than against a literal
-    // name.
+    // `{name}://`, never `file://` (superseded); the vault here uses its
+    // default name-from-basename rather than an explicit one, so the
+    // scheme is asserted generically rather than against a literal name.
     assert!(matches!(
         &text_resource.resource,
         rmcp::model::ResourceContents::TextResourceContents { text, uri, .. }
@@ -335,9 +319,7 @@ async fn fr_13_attach_file_embeds_text_and_base64_binary_resources()
 fn every_delivered_tool_has_an_object_schema_and_description() {
     for tool in ContextOsServer::catalogue().list_all() {
         assert_eq!(
-            tool.input_schema
-                .get("type")
-                .and_then(|value| value.as_str()),
+            tool.input_schema.get("type").and_then(|value| value.as_str()),
             Some("object")
         );
         assert!(tool.description.is_some());
@@ -346,23 +328,19 @@ fn every_delivered_tool_has_an_object_schema_and_description() {
 
 /// Regression for a Cowork failure observed against `fs_search_files`:
 /// with no field-level schema description, a caller guessed `"vault://"`
-/// for a top-level `path` property, which `FR-97`'s named-prefix form
-/// accepts syntactically but rejects at resolution time
+/// for a top-level `path` property, which the named-prefix addressing
+/// scheme accepts syntactically but rejects at resolution time
 /// (`path/empty-named-prefix`) because it omits the `.` that selects the
 /// vault root. Every top-level `path`/`vault` input property across the
 /// whole catalogue must carry a non-empty description that actually
 /// explains the `{name}://{relative-path}` addressing scheme, so a caller
-/// without prior knowledge of `FR-97`/`FR-98` sees the correct form (and
-/// the `{name}://.` whole-vault case) before ever calling the tool.
+/// with no prior knowledge of that scheme sees the correct form (and the
+/// `{name}://.` whole-vault case) before ever calling the tool.
 #[test]
 fn every_path_or_vault_input_property_documents_the_vault_addressing_scheme() {
     let mut problems = Vec::new();
     for tool in ContextOsServer::catalogue().list_all() {
-        let Some(properties) = tool
-            .input_schema
-            .get("properties")
-            .and_then(|value| value.as_object())
-        else {
+        let Some(properties) = tool.input_schema.get("properties").and_then(|value| value.as_object()) else {
             continue;
         };
         for property_name in ["path", "vault"] {

@@ -22,9 +22,9 @@ Prior existence of an error, deviation, or violation is no excuse for perpetuati
 
 1. Read this file and [`.claude/rules/00-index.md`](.claude/rules/00-index.md).
 2. Inspect the working tree and preserve unrelated or user-authored changes.
-3. Identify the applicable requirement IDs (`FR-*`, `NFR-*`, and `D-*`) and delivery phase.
+3. Identify the governing requirement and delivery phase from the authoritative specification, so the change is grounded in what the product must do.
 4. Read only the `.claude` rules relevant to the task.
-5. Define the smallest observable behaviour that can be driven by a failing    test.
+5. Define the smallest observable behaviour that can be driven by a failing test.
 
 ## Non-negotiable engineering rules
 
@@ -45,6 +45,7 @@ Prior existence of an error, deviation, or violation is no excuse for perpetuati
 - Do not hard-wrap Markdown prose: one line per paragraph, soft-wrapped by the reader's editor. Wrap only where it adds real value (tables, code samples, or content that must align in a fixed-width view); where a hard limit is genuinely needed, use 120 characters.
 - Keep changes scoped. Do not commit, push, rewrite history, or alter releases unless the user explicitly asks.
 - Never add attribution to commit messages.
+- Use zero-context sub-agents, forked contexts waste tokens.
 
 ## Test standards
 
@@ -58,7 +59,7 @@ Tests are part of the design, not a closing activity.
 - Tests must be deterministic. Inject clocks, hashes, commit timers, and external providers. Never depend on network access, wall-clock sleeps, the operator's home directory, or test order.
 - Do not weaken, delete, ignore, or over-broaden a test merely to make it pass.
 
-Name or annotate tests with requirement IDs when the mapping is not obvious. Maintain the requirement-to-test matrix as the implementation grows.
+Name tests for the behaviour they prove, not for an internal tracking identifier: a reader outside this project must be able to understand what a test guards from its name and body alone. Comments follow the same rule — explain the WHY in terms anyone reading the code can verify against the code itself, never by pointing at a requirement, decision, or task identifier that exists only in a private planning document.
 
 ## Rust quality gate
 

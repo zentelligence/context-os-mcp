@@ -76,17 +76,12 @@ pub fn resolve_macos_config_path(home_dir: &Path) -> HostPathResolution {
 /// exists but cannot be enumerated (a permissions failure, for example);
 /// a missing `packages_dir` itself is a normal [`HostPathResolution::NotFound`],
 /// not an error.
-pub fn resolve_windows_config_path(
-    packages_dir: &Path,
-) -> Result<HostPathResolution, HostPathError> {
+pub fn resolve_windows_config_path(packages_dir: &Path) -> Result<HostPathResolution, HostPathError> {
     let entries = match fs::read_dir(packages_dir) {
         Ok(entries) => entries,
         Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
             return Ok(HostPathResolution::NotFound {
-                reason: format!(
-                    "no Windows Packages directory found at {}",
-                    packages_dir.display()
-                ),
+                reason: format!("no Windows Packages directory found at {}", packages_dir.display()),
             });
         }
         Err(source) => {
@@ -216,10 +211,7 @@ pub fn default_claude_desktop_config_path() -> Result<HostPathResolution, HostPa
     if cfg!(target_os = "macos") {
         Ok(resolve_macos_config_path(base_dirs.home_dir()))
     } else if cfg!(target_os = "windows") {
-        resolve_windows_config_paths(
-            &base_dirs.data_local_dir().join("Packages"),
-            base_dirs.config_dir(),
-        )
+        resolve_windows_config_paths(&base_dirs.data_local_dir().join("Packages"), base_dirs.config_dir())
     } else {
         Ok(resolve_linux_config_path())
     }

@@ -5,8 +5,7 @@ use tempfile::tempdir;
 use super::*;
 
 #[test]
-fn add_vault_to_an_empty_document_produces_a_valid_config() -> Result<(), Box<dyn std::error::Error>>
-{
+fn add_vault_to_an_empty_document_produces_a_valid_config() -> Result<(), Box<dyn std::error::Error>> {
     let vault_dir = tempdir()?;
     let mut document = ConfigDocument::new();
 
@@ -20,8 +19,7 @@ fn add_vault_to_an_empty_document_produces_a_valid_config() -> Result<(), Box<dy
 }
 
 #[test]
-fn add_vault_preserves_hand_written_comments_in_an_existing_document()
--> Result<(), Box<dyn std::error::Error>> {
+fn add_vault_preserves_hand_written_comments_in_an_existing_document() -> Result<(), Box<dyn std::error::Error>> {
     let first_dir = tempdir()?;
     let second_dir = tempdir()?;
     let source = format!(
@@ -40,8 +38,7 @@ fn add_vault_preserves_hand_written_comments_in_an_existing_document()
 }
 
 #[test]
-fn add_vault_omits_managed_when_true_but_writes_it_when_false()
--> Result<(), Box<dyn std::error::Error>> {
+fn add_vault_omits_managed_when_true_but_writes_it_when_false() -> Result<(), Box<dyn std::error::Error>> {
     let vault_dir = tempdir()?;
     let mut document = ConfigDocument::new();
 
@@ -53,8 +50,7 @@ fn add_vault_omits_managed_when_true_but_writes_it_when_false()
 }
 
 #[test]
-fn add_vault_rejects_a_duplicate_name_and_leaves_the_document_unchanged()
--> Result<(), Box<dyn std::error::Error>> {
+fn add_vault_rejects_a_duplicate_name_and_leaves_the_document_unchanged() -> Result<(), Box<dyn std::error::Error>> {
     let first_dir = tempdir()?;
     let second_dir = tempdir()?;
     let mut document = ConfigDocument::new();
@@ -69,8 +65,7 @@ fn add_vault_rejects_a_duplicate_name_and_leaves_the_document_unchanged()
 }
 
 #[test]
-fn add_vault_rejects_a_nonexistent_path_and_leaves_the_document_unchanged()
--> Result<(), Box<dyn std::error::Error>> {
+fn add_vault_rejects_a_nonexistent_path_and_leaves_the_document_unchanged() -> Result<(), Box<dyn std::error::Error>> {
     let vault_dir = tempdir()?;
     let missing = vault_dir.path().join("does-not-exist");
     let mut document = ConfigDocument::new();
@@ -84,8 +79,7 @@ fn add_vault_rejects_a_nonexistent_path_and_leaves_the_document_unchanged()
 }
 
 #[test]
-fn remove_vault_removes_the_named_vault_and_keeps_the_rest()
--> Result<(), Box<dyn std::error::Error>> {
+fn remove_vault_removes_the_named_vault_and_keeps_the_rest() -> Result<(), Box<dyn std::error::Error>> {
     let first_dir = tempdir()?;
     let second_dir = tempdir()?;
     let mut document = ConfigDocument::new();
@@ -116,8 +110,8 @@ fn remove_vault_is_case_insensitive() -> Result<(), Box<dyn std::error::Error>> 
 }
 
 #[test]
-fn remove_vault_errors_on_an_unknown_name_and_leaves_the_document_unchanged()
--> Result<(), Box<dyn std::error::Error>> {
+fn remove_vault_errors_on_an_unknown_name_and_leaves_the_document_unchanged() -> Result<(), Box<dyn std::error::Error>>
+{
     let vault_dir = tempdir()?;
     let mut document = ConfigDocument::new();
     document.add_vault("mine", vault_dir.path(), true)?;
@@ -125,10 +119,7 @@ fn remove_vault_errors_on_an_unknown_name_and_leaves_the_document_unchanged()
 
     let result = document.remove_vault("nope");
 
-    assert!(matches!(
-        result,
-        Err(ConfigWriterError::UnknownVaultName { .. })
-    ));
+    assert!(matches!(result, Err(ConfigWriterError::UnknownVaultName { .. })));
     assert_eq!(document.render(), before);
     Ok(())
 }
@@ -208,8 +199,7 @@ fn enable_semantic_search_is_case_insensitive() -> Result<(), Box<dyn std::error
 }
 
 #[test]
-fn enable_semantic_search_leaves_other_vaults_untouched() -> Result<(), Box<dyn std::error::Error>>
-{
+fn enable_semantic_search_leaves_other_vaults_untouched() -> Result<(), Box<dyn std::error::Error>> {
     let first_dir = tempdir()?;
     let second_dir = tempdir()?;
     let model_dir = tempdir()?;
@@ -236,27 +226,21 @@ fn enable_semantic_search_errors_on_an_unknown_name_and_leaves_the_document_unch
 
     let result = document.enable_semantic_search("nope", model_dir.path());
 
-    assert!(matches!(
-        result,
-        Err(ConfigWriterError::UnknownVaultName { .. })
-    ));
+    assert!(matches!(result, Err(ConfigWriterError::UnknownVaultName { .. })));
     assert_eq!(document.render(), before);
     Ok(())
 }
 
 #[test]
-fn enable_semantic_search_errors_on_an_empty_document_and_leaves_it_unchanged()
--> Result<(), Box<dyn std::error::Error>> {
+fn enable_semantic_search_errors_on_an_empty_document_and_leaves_it_unchanged() -> Result<(), Box<dyn std::error::Error>>
+{
     let model_dir = tempdir()?;
     let mut document = ConfigDocument::new();
     let before = document.render();
 
     let result = document.enable_semantic_search("mine", model_dir.path());
 
-    assert!(matches!(
-        result,
-        Err(ConfigWriterError::UnknownVaultName { .. })
-    ));
+    assert!(matches!(result, Err(ConfigWriterError::UnknownVaultName { .. })));
     assert_eq!(document.render(), before);
     Ok(())
 }
@@ -311,8 +295,8 @@ fn update_vault_leaves_other_vaults_untouched() -> Result<(), Box<dyn std::error
 }
 
 #[test]
-fn update_vault_errors_on_an_unknown_name_and_leaves_the_document_unchanged()
--> Result<(), Box<dyn std::error::Error>> {
+fn update_vault_errors_on_an_unknown_name_and_leaves_the_document_unchanged() -> Result<(), Box<dyn std::error::Error>>
+{
     let vault_dir = tempdir()?;
     let mut document = ConfigDocument::new();
     document.add_vault("mine", vault_dir.path(), true)?;
@@ -320,17 +304,14 @@ fn update_vault_errors_on_an_unknown_name_and_leaves_the_document_unchanged()
 
     let result = document.update_vault("nope", "nope", vault_dir.path(), true);
 
-    assert!(matches!(
-        result,
-        Err(ConfigWriterError::UnknownVaultName { .. })
-    ));
+    assert!(matches!(result, Err(ConfigWriterError::UnknownVaultName { .. })));
     assert_eq!(document.render(), before);
     Ok(())
 }
 
 #[test]
-fn disable_semantic_search_turns_off_semantic_and_keeps_the_model_directory()
--> Result<(), Box<dyn std::error::Error>> {
+fn disable_semantic_search_turns_off_semantic_and_keeps_the_model_directory() -> Result<(), Box<dyn std::error::Error>>
+{
     let vault_dir = tempdir()?;
     let model_dir = tempdir()?;
     let mut document = ConfigDocument::new();
@@ -347,8 +328,7 @@ fn disable_semantic_search_turns_off_semantic_and_keeps_the_model_directory()
 }
 
 #[test]
-fn disable_semantic_search_on_a_vault_with_no_search_table_is_a_no_op()
--> Result<(), Box<dyn std::error::Error>> {
+fn disable_semantic_search_on_a_vault_with_no_search_table_is_a_no_op() -> Result<(), Box<dyn std::error::Error>> {
     let vault_dir = tempdir()?;
     let mut document = ConfigDocument::new();
     document.add_vault("mine", vault_dir.path(), true)?;
@@ -370,10 +350,7 @@ fn disable_semantic_search_errors_on_an_unknown_name_and_leaves_the_document_unc
 
     let result = document.disable_semantic_search("nope");
 
-    assert!(matches!(
-        result,
-        Err(ConfigWriterError::UnknownVaultName { .. })
-    ));
+    assert!(matches!(result, Err(ConfigWriterError::UnknownVaultName { .. })));
     assert_eq!(document.render(), before);
     Ok(())
 }
@@ -394,8 +371,7 @@ fn vaults_reports_semantic_state_and_model_directory() -> Result<(), Box<dyn std
 }
 
 #[test]
-fn vaults_reports_semantic_false_and_no_model_directory_by_default()
--> Result<(), Box<dyn std::error::Error>> {
+fn vaults_reports_semantic_false_and_no_model_directory_by_default() -> Result<(), Box<dyn std::error::Error>> {
     let vault_dir = tempdir()?;
     let mut document = ConfigDocument::new();
     document.add_vault("mine", vault_dir.path(), true)?;
@@ -434,18 +410,14 @@ fn set_server_settings_writes_non_default_values() -> Result<(), Box<dyn std::er
     assert_eq!(config.server.transports.len(), 2);
     assert_eq!(config.server.log_file, "/var/log/contextos.log");
     let settings = document.server_settings();
-    assert_eq!(
-        settings.transports,
-        vec!["stdio".to_owned(), "http".to_owned()]
-    );
+    assert_eq!(settings.transports, vec!["stdio".to_owned(), "http".to_owned()]);
     assert_eq!(settings.log_level, "debug");
     assert_eq!(settings.log_file, "/var/log/contextos.log");
     Ok(())
 }
 
 #[test]
-fn set_server_settings_omits_keys_equal_to_the_schema_default()
--> Result<(), Box<dyn std::error::Error>> {
+fn set_server_settings_omits_keys_equal_to_the_schema_default() -> Result<(), Box<dyn std::error::Error>> {
     let vault_dir = tempdir()?;
     let mut document = ConfigDocument::new();
     document.add_vault("mine", vault_dir.path(), true)?;
@@ -504,10 +476,7 @@ fn parse_rejects_malformed_toml() {
 fn parse_round_trips_an_existing_file_from_disk() -> Result<(), Box<dyn std::error::Error>> {
     let vault_dir = tempdir()?;
     let config_dir = tempdir()?;
-    let source = format!(
-        "[[vault]]\npath = {:?}\nname = \"mine\"\n",
-        vault_dir.path()
-    );
+    let source = format!("[[vault]]\npath = {:?}\nname = \"mine\"\n", vault_dir.path());
     let config_path = config_dir.path().join("config.toml");
     fs::write(&config_path, &source)?;
 

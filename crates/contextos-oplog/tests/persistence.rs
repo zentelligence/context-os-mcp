@@ -1,10 +1,9 @@
 use contextos_core::{
-    Clock, LogsOperations, OpKind, OperationEvent, Origin, VaultPath, VaultPathInput, VaultRoot,
-    VaultRootInput, VaultSet,
+    Clock, LogsOperations, OpKind, OperationEvent, Origin, VaultPath, VaultPathInput, VaultRoot, VaultRootInput,
+    VaultSet,
 };
 use contextos_fs::{
-    Filesystem, FilesystemConfig, FilesystemService, FilesystemServiceConfig, FsLimits,
-    default_hidden_patterns,
+    Filesystem, FilesystemConfig, FilesystemService, FilesystemServiceConfig, FsLimits, default_hidden_patterns,
 };
 use contextos_oplog::{ManualLogInput, OperationLog, OperationLogConfig};
 use tempfile::tempdir;
@@ -25,8 +24,7 @@ fn path(roots: &VaultSet, raw: &str) -> Result<VaultPath, Box<dyn std::error::Er
 }
 
 #[test]
-fn fr_23_appends_origin_aware_lines_without_rewriting_existing_content()
--> Result<(), Box<dyn std::error::Error>> {
+fn appends_origin_aware_lines_without_rewriting_existing_content() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::create_dir_all(vault.path().join("memory/log/2026/07"))?;
     let log_path = vault.path().join("memory/log/2026/07/2026-07-18.md");
@@ -98,8 +96,7 @@ fn fr_23_appends_origin_aware_lines_without_rewriting_existing_content()
 }
 
 #[test]
-fn fr_24_manual_append_uses_manual_origin_and_log_operation()
--> Result<(), Box<dyn std::error::Error>> {
+fn manual_append_uses_manual_origin_and_log_operation() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("note.md"), "note")?;
     let root = VaultRoot::try_from(VaultRootInput {
@@ -134,8 +131,9 @@ fn fr_24_manual_append_uses_manual_origin_and_log_operation()
     })?;
 
     let persisted = std::fs::read_to_string(vault.path().join("memory/log/2026/07/2026-07-18.md"))?;
-    assert!(persisted.contains(
-        "18:32:00 | manual | log | Reviewed priorities \\| retained operator intent | files: note.md\n"
-    ));
+    assert!(
+        persisted
+            .contains("18:32:00 | manual | log | Reviewed priorities \\| retained operator intent | files: note.md\n")
+    );
     Ok(())
 }

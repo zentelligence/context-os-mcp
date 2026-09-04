@@ -1,6 +1,6 @@
-//! Contract tests for `fs_delete_file` (`FR-14`): destructive-delete
-//! gating, the `D-30` managed-`index.md` emptiness relaxation, and
-//! `FR-115` bulk deletion via `paths`/`pattern`. Split out from
+//! Contract tests for `fs_delete_file`: destructive-delete gating, the
+//! managed-`index.md` emptiness relaxation, and bulk deletion via
+//! `paths`/`pattern`. Split out from
 //! `tool_contract.rs` to keep both files under the project's file-size
 //! limit rather than growing that already-oversized file further.
 
@@ -11,12 +11,11 @@ use serde_json::{Map, json};
 use tempfile::tempdir;
 
 #[tokio::test]
-async fn fr_14_hard_delete_requires_configuration_and_preserves_the_file_when_denied()
+async fn hard_delete_requires_configuration_and_preserves_the_file_when_denied()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(vault.path().join("protected.md"), "protected")?;
-    let denied_server =
-        ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
+    let denied_server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
     let denied = call_tool(
         denied_server,
         "fs_delete_file",
@@ -48,14 +47,14 @@ async fn fr_14_hard_delete_requires_configuration_and_preserves_the_file_when_de
     Ok(())
 }
 
-/// `D-30`: `contextos-index`'s own reconciliation (`FR-20`) recreates
-/// `index.md` after every mutation, so once the sole real file in a
+/// `contextos-index`'s own reconciliation recreates `index.md` after
+/// every mutation, so once the sole real file in a
 /// directory is deleted, that directory is never literally empty again.
 /// `fs_delete_file` must still be able to remove such a directory: its
 /// only remaining content is a managed artefact the index service itself
 /// owns, not operator content.
 #[tokio::test]
-async fn d_30_directory_delete_succeeds_when_only_content_is_managed_index_md()
+async fn directory_delete_succeeds_when_only_content_is_managed_index_md()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let config = Config::try_from(vec![vault.path().to_path_buf()])?;
@@ -78,8 +77,8 @@ async fn d_30_directory_delete_succeeds_when_only_content_is_managed_index_md()
     )
     .await?;
     assert_eq!(deleted_file.is_error, Some(false));
-    // `FR-20` reconciliation recreated `notes/index.md` as the directory's
-    // sole remaining entry.
+    // Reconciliation recreated `notes/index.md` as the directory's sole
+    // remaining entry.
     assert!(vault.path().join("notes/index.md").exists());
     assert_eq!(std::fs::read_dir(vault.path().join("notes"))?.count(), 1);
 
@@ -106,13 +105,13 @@ async fn d_30_directory_delete_succeeds_when_only_content_is_managed_index_md()
     Ok(())
 }
 
-/// The `D-30` relaxation must not apply when this directory's `index.md`
-/// is not actually managed by the index service: an unmanaged root or an
+/// The managed-`index.md` relaxation must not apply when this directory's
+/// `index.md` is not actually managed by the index service: an unmanaged root or an
 /// `index_md.exclude`d subtree can hold a real, operator-authored file
 /// literally named `index.md`, and deleting the directory must still
 /// require it to be genuinely empty.
 #[tokio::test]
-async fn d_30_directory_delete_still_requires_real_emptiness_outside_index_management()
+async fn directory_delete_still_requires_real_emptiness_outside_index_management()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::create_dir(vault.path().join("archive"))?;
@@ -141,11 +140,11 @@ async fn d_30_directory_delete_still_requires_real_emptiness_outside_index_manag
     Ok(())
 }
 
-/// `FR-115`: `paths` deletes several explicit targets in one call, and
-/// isolates each target's failure (`FR-02`'s partial-success pattern) so
-/// one missing or invalid path never fails the whole batch.
+/// `paths` deletes several explicit targets in one call, and isolates
+/// each target's failure (the same partial-success pattern batch reads
+/// use) so one missing or invalid path never fails the whole batch.
 #[tokio::test]
-async fn fr_115_paths_deletes_multiple_targets_and_isolates_per_item_failures()
+async fn paths_deletes_multiple_targets_and_isolates_per_item_failures()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let outside = tempdir()?;
@@ -191,12 +190,12 @@ async fn fr_115_paths_deletes_multiple_targets_and_isolates_per_item_failures()
     Ok(())
 }
 
-/// `FR-115`: `pattern` deletes every glob match under `path` in one call.
-/// A populated directory among the matches keeps the `D-30`-aware
+/// `pattern` deletes every glob match under `path` in one call. A
+/// populated directory among the matches keeps the managed-`index.md`-aware
 /// non-recursive guard: it reports `io/directory-not-empty` as that one
 /// item's error rather than deleting its contents or failing the batch.
 #[tokio::test]
-async fn fr_115_pattern_deletes_every_match_and_keeps_the_non_recursive_guard()
+async fn pattern_deletes_every_match_and_keeps_the_non_recursive_guard()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(vault.path().join("draft-one.tmp"), "one")?;
@@ -221,10 +220,7 @@ async fn fr_115_pattern_deletes_every_match_and_keeps_the_non_recursive_guard()
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| std::io::Error::other("delete batch omitted results"))?;
     assert_eq!(results.len(), 3);
-    let failed = results
-        .iter()
-        .filter(|item| item.get("error").is_some())
-        .count();
+    let failed = results.iter().filter(|item| item.get("error").is_some()).count();
     assert_eq!(failed, 1);
     assert!(
         results
@@ -238,12 +234,11 @@ async fn fr_115_pattern_deletes_every_match_and_keeps_the_non_recursive_guard()
     Ok(())
 }
 
-/// `FR-115`: giving more than one selector style (here `path` and `paths`
+/// Giving more than one selector style (here `path` and `paths`
 /// together) is a caller mistake, not a per-item failure, so it rejects
 /// the whole call up front rather than guessing which selector wins.
 #[tokio::test]
-async fn fr_115_ambiguous_target_selection_is_a_whole_call_error()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn ambiguous_target_selection_is_a_whole_call_error() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(vault.path().join("first.md"), "first")?;
     let config = Config::try_from(vec![vault.path().to_path_buf()])?;
@@ -268,12 +263,11 @@ async fn fr_115_ambiguous_target_selection_is_a_whole_call_error()
     Ok(())
 }
 
-/// `FR-115`: bulk delete shares `fs_read_multiple_files`'s batch cap
+/// Bulk delete shares `fs_read_multiple_files`'s batch cap
 /// (`max_batch_files`), so an oversized `paths` list is rejected up front
 /// rather than partially processed.
 #[tokio::test]
-async fn fr_115_paths_over_the_batch_cap_is_rejected()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn paths_over_the_batch_cap_is_rejected() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
     config.vaults[0].limits.max_batch_files = 2;

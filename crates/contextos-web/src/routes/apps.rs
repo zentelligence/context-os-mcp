@@ -1,16 +1,15 @@
-//! App registry and app-serving routes (`web-routes.md` §4, FR-233 to
-//! FR-234): `GET /{{vault_name}}/apps/`, `GET
-//! /{{vault_name}}/apps/{{slug}}/...`, and the operator-initiated rescan
-//! (`web-apps.md` §4's answered open question) `POST
-//! /{{vault_name}}/apps/rescan`.
+//! App registry and app-serving routes (`web-routes.md` §4): `GET
+//! /{{vault_name}}/apps/`, `GET /{{vault_name}}/apps/{{slug}}/...`, and
+//! the operator-initiated rescan (`web-apps.md` §4's answered open
+//! question) `POST /{{vault_name}}/apps/rescan`.
 //!
 //! Discovery ([`crate::apps::discover_apps`]) runs on a vault's first
-//! registry-route request (FR-230) and is cached in [`AppRoutesState`]
-//! thereafter, mirroring the vault content routes' own established pattern
-//! (`D-W05`) of resolving a vault's identity per request through an MCP
-//! tool call rather than this crate maintaining a second, locally
-//! pre-loaded vault registry; there is exactly one discovery code path,
-//! exercised identically by a real request and by this module's own tests.
+//! registry-route request and is cached in [`AppRoutesState`] thereafter,
+//! mirroring the vault content routes' own established pattern of
+//! resolving a vault's identity per request through an MCP tool call
+//! rather than this crate maintaining a second, locally pre-loaded vault
+//! registry; there is exactly one discovery code path, exercised
+//! identically by a real request and by this module's own tests.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -27,17 +26,15 @@ use crate::config;
 use crate::mcp_client::{McpCallError, McpClient, McpClientSet};
 use crate::rendering::page;
 use crate::rendering::shell::{self, ActiveScreen};
-use crate::routes::vault::{
-    Attached, fetch_attached, html_response, not_found, server_not_configured, unreachable,
-};
+use crate::routes::vault::{Attached, fetch_attached, html_response, not_found, server_not_configured, unreachable};
 
 /// Shared state an app route needs: the connected MCP sessions, the
 /// `[[mcp_server]]` name every vault operation is issued against, the
 /// full configured `[[mcp_server]]` name list (a manifest's own
-/// `mcp_servers` allow-list is validated against this, FR-232), the
-/// per-vault discovered-app cache, and `web.toml`'s own path (read fresh
-/// per request for the nav shell's `[server.ui]` appearance, `FR-251`;
-/// this route never writes it).
+/// `mcp_servers` allow-list is validated against this), the per-vault
+/// discovered-app cache, and `web.toml`'s own path (read fresh per
+/// request for the nav shell's `[server.ui]` appearance; this route
+/// never writes it).
 #[derive(Clone)]
 pub struct AppRoutesState {
     clients: Arc<McpClientSet>,
@@ -194,15 +191,11 @@ fn render_list(vault_name: &str, registered: &[RegisteredApp]) -> String {
         .unwrap_or_else(|_| "<p>The app registry could not be rendered.</p>".to_owned())
 }
 
-/// `GET /{{vault_name}}/apps/` (`FR-234`): lists every registered app.
+/// `GET /{{vault_name}}/apps/`: lists every registered app.
 /// Follows the identical `HX-Request` full-page/fragment split every other
 /// full-page route in this crate uses
 /// (`standards/http-routing-response-contract-standard.md`).
-pub async fn list(
-    State(state): State<AppRoutesState>,
-    Path(vault_name): Path<String>,
-    headers: HeaderMap,
-) -> Response {
+pub async fn list(State(state): State<AppRoutesState>, Path(vault_name): Path<String>, headers: HeaderMap) -> Response {
     let client = match state.client() {
         Ok(client) => client,
         Err(error) => return registry_error_response(error),
@@ -216,14 +209,7 @@ pub async fn list(
             if headers.contains_key("hx-request") {
                 html_response(fragment)
             } else {
-                let mut nav = shell::build_nav(
-                    client,
-                    ActiveScreen::Apps,
-                    Some(&vault_name),
-                    Some("apps"),
-                    None,
-                )
-                .await;
+                let mut nav = shell::build_nav(client, ActiveScreen::Apps, Some(&vault_name), Some("apps"), None).await;
                 nav.appearance = config::current_appearance(&state.web_config_path);
                 html_response(page::render_page(&nav, "Apps", &fragment))
             }
@@ -237,10 +223,7 @@ pub async fn list(
 /// [`list`]'s page), then redirects back to the listing so a plain HTML
 /// form submission (no client-side script required) re-renders the
 /// refreshed list.
-pub async fn rescan(
-    State(state): State<AppRoutesState>,
-    Path(vault_name): Path<String>,
-) -> Response {
+pub async fn rescan(State(state): State<AppRoutesState>, Path(vault_name): Path<String>) -> Response {
     let client = match state.client() {
         Ok(client) => client,
         Err(error) => return registry_error_response(error),
@@ -254,7 +237,7 @@ pub async fn rescan(
     }
 }
 
-/// `GET /{{vault_name}}/apps/{{slug}}/` (`FR-233`, `FR-233a`).
+/// `GET /{{vault_name}}/apps/{{slug}}/`.
 pub async fn serve_root(
     State(state): State<AppRoutesState>,
     Path((vault_name, slug)): Path<(String, String)>,
@@ -262,7 +245,7 @@ pub async fn serve_root(
     serve(state, vault_name, slug, String::new()).await
 }
 
-/// `GET /{{vault_name}}/apps/{{slug}}/{{*sub_path}}` (`FR-233`, `FR-233a`).
+/// `GET /{{vault_name}}/apps/{{slug}}/{{*sub_path}}`.
 pub async fn serve_path(
     State(state): State<AppRoutesState>,
     Path((vault_name, slug, sub_path)): Path<(String, String, String)>,
@@ -270,12 +253,7 @@ pub async fn serve_path(
     serve(state, vault_name, slug, sub_path).await
 }
 
-async fn serve(
-    state: AppRoutesState,
-    vault_name: String,
-    slug: String,
-    sub_path: String,
-) -> Response {
+async fn serve(state: AppRoutesState, vault_name: String, slug: String, sub_path: String) -> Response {
     let client = match state.client() {
         Ok(client) => client,
         Err(error) => return registry_error_response(error),
@@ -303,9 +281,7 @@ async fn serve(
     let bundle_path = format!("{vault_name}://registry/apps/{slug}/{target}");
     match fetch_attached(client, bundle_path).await {
         Ok(Attached::Found(response)) => response,
-        Ok(Attached::NotFound) => {
-            serve_entry_fallback(client, &vault_name, &slug, &app.entry).await
-        }
+        Ok(Attached::NotFound) => serve_entry_fallback(client, &vault_name, &slug, &app.entry).await,
         Err(McpCallError::Unreachable { .. }) => unreachable(),
     }
 }
@@ -313,12 +289,7 @@ async fn serve(
 /// Standard SPA fallback (`web-routes.md` §4): an unmatched sub-path
 /// serves the bundle's own entry file, letting the SPA's own client-side
 /// router handle it.
-async fn serve_entry_fallback(
-    client: &McpClient,
-    vault_name: &str,
-    slug: &str,
-    entry: &str,
-) -> Response {
+async fn serve_entry_fallback(client: &McpClient, vault_name: &str, slug: &str, entry: &str) -> Response {
     let entry_path = format!("{vault_name}://registry/apps/{slug}/{entry}");
     match fetch_attached(client, entry_path).await {
         Ok(Attached::Found(response)) => response,

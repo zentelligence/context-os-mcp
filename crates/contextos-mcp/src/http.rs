@@ -58,15 +58,11 @@ pub const MOUNT_PATH: &str = "/mcp";
 /// [`HttpTransportError::NonLoopbackBindWithoutToken`] when `bind` resolves
 /// to a non-loopback address and `token` is empty.
 pub fn validate_bind(bind: &str, token: &str) -> Result<(), HttpTransportError> {
-    let address =
-        bind.parse::<SocketAddr>()
-            .map_err(|_source| HttpTransportError::InvalidBindAddress {
-                bind: bind.to_owned(),
-            })?;
+    let address = bind
+        .parse::<SocketAddr>()
+        .map_err(|_source| HttpTransportError::InvalidBindAddress { bind: bind.to_owned() })?;
     if !address.ip().is_loopback() && token.is_empty() {
-        return Err(HttpTransportError::NonLoopbackBindWithoutToken {
-            bind: bind.to_owned(),
-        });
+        return Err(HttpTransportError::NonLoopbackBindWithoutToken { bind: bind.to_owned() });
     }
     Ok(())
 }
@@ -86,10 +82,7 @@ pub fn validate_bind(bind: &str, token: &str) -> Result<(), HttpTransportError> 
 ///
 /// Returns [`HttpTransportError::BodyLimitOverflow`] when `max_body_kb`
 /// overflows a byte count on this platform.
-pub fn build_router(
-    server: ContextOsServer,
-    config: &HttpConfig,
-) -> Result<Router, HttpTransportError> {
+pub fn build_router(server: ContextOsServer, config: &HttpConfig) -> Result<Router, HttpTransportError> {
     let max_body_bytes = usize::try_from(
         config
             .max_body_kb
@@ -115,12 +108,10 @@ pub fn build_router(
 
     Ok(Router::new()
         .nest_service(MOUNT_PATH, service)
-        .layer(axum::middleware::from_fn(
-            move |request: Request, next: Next| {
-                let guard = Arc::clone(&guard);
-                async move { enforce_http_contract(&guard, request, next).await }
-            },
-        )))
+        .layer(axum::middleware::from_fn(move |request: Request, next: Next| {
+            let guard = Arc::clone(&guard);
+            async move { enforce_http_contract(&guard, request, next).await }
+        })))
 }
 
 /// Typed startup and configuration failures for the HTTP transport.
@@ -136,9 +127,7 @@ pub enum HttpTransportError {
     NonLoopbackBindWithoutToken { bind: String },
     /// The configured bind string is not a parseable `host:port` socket
     /// address.
-    #[error(
-        "HTTP bind address is invalid; expected a host:port socket address such as 127.0.0.1:7331, got {bind}"
-    )]
+    #[error("HTTP bind address is invalid; expected a host:port socket address such as 127.0.0.1:7331, got {bind}")]
     InvalidBindAddress { bind: String },
     /// `max_body_kb` overflows a byte count on this platform.
     #[error("configured server.http.max_body_kb overflows a byte count")]
@@ -253,10 +242,9 @@ fn unauthorized_response() -> Response {
     let payload = serde_json::to_vec(&AUTH_ERROR_BODY).unwrap_or_default();
     let mut response = Response::new(Body::from(payload));
     *response.status_mut() = StatusCode::UNAUTHORIZED;
-    response.headers_mut().insert(
-        header::CONTENT_TYPE,
-        HeaderValue::from_static("application/json"),
-    );
+    response
+        .headers_mut()
+        .insert(header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
     response
         .headers_mut()
         .insert(header::WWW_AUTHENTICATE, HeaderValue::from_static("Bearer"));
@@ -369,9 +357,6 @@ mod tests {
     #[test]
     fn validate_bind_rejects_an_unparseable_bind() {
         let result = validate_bind("not-a-socket-address", "");
-        assert!(matches!(
-            result,
-            Err(HttpTransportError::InvalidBindAddress { .. })
-        ));
+        assert!(matches!(result, Err(HttpTransportError::InvalidBindAddress { .. })));
     }
 }

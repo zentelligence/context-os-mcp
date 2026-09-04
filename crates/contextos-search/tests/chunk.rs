@@ -13,14 +13,11 @@ fn chunks_for(
     content: &str,
 ) -> Result<Vec<Chunk>, Box<dyn std::error::Error>> {
     let (_roots, path) = vault_note(vault, relative, content)?;
-    Ok(chunk_document(ChunkSource {
-        path: &path,
-        content,
-    }))
+    Ok(chunk_document(ChunkSource { path: &path, content }))
 }
 
 #[test]
-fn fr_53_empty_document_produces_no_chunks() -> Result<(), Box<dyn std::error::Error>> {
+fn empty_document_produces_no_chunks() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let chunks = chunks_for(&vault, "empty.md", "")?;
     assert!(chunks.is_empty());
@@ -28,7 +25,7 @@ fn fr_53_empty_document_produces_no_chunks() -> Result<(), Box<dyn std::error::E
 }
 
 #[test]
-fn fr_53_whitespace_only_document_produces_no_chunks() -> Result<(), Box<dyn std::error::Error>> {
+fn whitespace_only_document_produces_no_chunks() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let chunks = chunks_for(&vault, "blank.md", "\n\n   \n\t\n")?;
     assert!(chunks.is_empty());
@@ -36,8 +33,7 @@ fn fr_53_whitespace_only_document_produces_no_chunks() -> Result<(), Box<dyn std
 }
 
 #[test]
-fn fr_53_document_with_no_headings_yields_one_chunk_with_empty_heading_context()
--> Result<(), Box<dyn std::error::Error>> {
+fn document_with_no_headings_yields_one_chunk_with_empty_heading_context() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "Plain prose with no structure at all.\n";
     let chunks = chunks_for(&vault, "plain.md", content)?;
@@ -51,8 +47,7 @@ fn fr_53_document_with_no_headings_yields_one_chunk_with_empty_heading_context()
 }
 
 #[test]
-fn fr_53_single_heading_carries_its_own_text_as_heading_context()
--> Result<(), Box<dyn std::error::Error>> {
+fn single_heading_carries_its_own_text_as_heading_context() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "# Overview\n\nSome introductory prose.\n";
     let chunks = chunks_for(&vault, "single.md", content)?;
@@ -64,8 +59,7 @@ fn fr_53_single_heading_carries_its_own_text_as_heading_context()
 }
 
 #[test]
-fn fr_53_preamble_before_first_heading_forms_its_own_chunk()
--> Result<(), Box<dyn std::error::Error>> {
+fn preamble_before_first_heading_forms_its_own_chunk() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "Preamble text.\n\n# First Heading\n\nBody one.\n";
     let chunks = chunks_for(&vault, "preamble.md", content)?;
@@ -81,8 +75,7 @@ fn fr_53_preamble_before_first_heading_forms_its_own_chunk()
 }
 
 #[test]
-fn fr_53_nested_headings_produce_a_correct_heading_trail() -> Result<(), Box<dyn std::error::Error>>
-{
+fn nested_headings_produce_a_correct_heading_trail() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "\
 # Guide
@@ -100,10 +93,7 @@ Run the command.
     let chunks = chunks_for(&vault, "nested.md", content)?;
 
     assert_eq!(chunks.len(), 2);
-    assert_eq!(
-        chunks[0].heading_context(),
-        ["Guide", "Setup", "Prerequisites"]
-    );
+    assert_eq!(chunks[0].heading_context(), ["Guide", "Setup", "Prerequisites"]);
     assert_eq!(chunks[0].text(), "Install the toolchain first.");
     assert_eq!(chunks[1].heading_context(), ["Guide", "Usage"]);
     assert_eq!(chunks[1].text(), "Run the command.");
@@ -111,23 +101,18 @@ Run the command.
 }
 
 #[test]
-fn fr_53_heading_with_no_body_before_the_next_heading_produces_no_chunk()
--> Result<(), Box<dyn std::error::Error>> {
+fn heading_with_no_body_before_the_next_heading_produces_no_chunk() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "# Empty Section\n\n## Actual Content\n\nHere is the prose.\n";
     let chunks = chunks_for(&vault, "empty-section.md", content)?;
 
     assert_eq!(chunks.len(), 1);
-    assert_eq!(
-        chunks[0].heading_context(),
-        ["Empty Section", "Actual Content"]
-    );
+    assert_eq!(chunks[0].heading_context(), ["Empty Section", "Actual Content"]);
     Ok(())
 }
 
 #[test]
-fn fr_53_code_block_hash_lines_are_never_treated_as_headings()
--> Result<(), Box<dyn std::error::Error>> {
+fn code_block_hash_lines_are_never_treated_as_headings() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "\
 # Real Heading
@@ -151,8 +136,7 @@ More prose after the fence.
 }
 
 #[test]
-fn fr_53_chunk_text_is_byte_exact_for_a_section_with_a_fenced_code_block()
--> Result<(), Box<dyn std::error::Error>> {
+fn chunk_text_is_byte_exact_for_a_section_with_a_fenced_code_block() -> Result<(), Box<dyn std::error::Error>> {
     // The `chunk` field is returned verbatim to MCP clients and its content
     // hash gates re-embedding, so whitespace-normalised reconstruction is
     // unacceptable: a code block must survive with its newlines and
@@ -184,7 +168,7 @@ Trailing prose with  double   spaces and\ta tab.
 }
 
 #[test]
-fn fr_53_chunk_text_preserves_multiline_indentation() -> Result<(), Box<dyn std::error::Error>> {
+fn chunk_text_preserves_multiline_indentation() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "\
 # Notes
@@ -202,15 +186,13 @@ fn fr_53_chunk_text_preserves_multiline_indentation() -> Result<(), Box<dyn std:
         content.contains(chunks[0].text()),
         "chunk text must be a byte-exact substring of the source"
     );
-    let expected =
-        "- Item one\n  - Nested item\n- Item two\n\n    Indented paragraph continuation.";
+    let expected = "- Item one\n  - Nested item\n- Item two\n\n    Indented paragraph continuation.";
     assert_eq!(chunks[0].text(), expected);
     Ok(())
 }
 
 #[test]
-fn fr_53_tilde_fenced_hash_lines_are_never_treated_as_headings()
--> Result<(), Box<dyn std::error::Error>> {
+fn tilde_fenced_hash_lines_are_never_treated_as_headings() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "\
 # Heading
@@ -230,7 +212,7 @@ Tail prose.
 }
 
 #[test]
-fn fr_53_setext_style_titles_are_treated_as_plain_text() -> Result<(), Box<dyn std::error::Error>> {
+fn setext_style_titles_are_treated_as_plain_text() -> Result<(), Box<dyn std::error::Error>> {
     // The crate has no CommonMark parser in its dependency graph and its
     // existing heading extraction (`document::extract_headings`) recognises
     // only ATX headings; chunking deliberately matches that behaviour rather
@@ -247,7 +229,7 @@ fn fr_53_setext_style_titles_are_treated_as_plain_text() -> Result<(), Box<dyn s
 }
 
 #[test]
-fn fr_53_unicode_content_is_chunked_correctly() -> Result<(), Box<dyn std::error::Error>> {
+fn unicode_content_is_chunked_correctly() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "# 見出し\n\n日本語のテキストと emoji 🎉 と café.\n";
     let chunks = chunks_for(&vault, "unicode.md", content)?;
@@ -269,7 +251,7 @@ fn fr_53_unicode_content_is_chunked_correctly() -> Result<(), Box<dyn std::error
 }
 
 #[test]
-fn fr_53_short_section_stays_a_single_unpadded_chunk() -> Result<(), Box<dyn std::error::Error>> {
+fn short_section_stays_a_single_unpadded_chunk() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "# Tiny\n\nJust a few words.\n";
     let chunks = chunks_for(&vault, "tiny.md", content)?;
@@ -280,17 +262,14 @@ fn fr_53_short_section_stays_a_single_unpadded_chunk() -> Result<(), Box<dyn std
 }
 
 #[test]
-fn fr_53_oversized_section_splits_with_overlap() -> Result<(), Box<dyn std::error::Error>> {
+fn oversized_section_splits_with_overlap() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let words: Vec<String> = (0..1200).map(|index| format!("word{index}")).collect();
     let body = words.join(" ");
     let content = format!("# Big Section\n\n{body}\n");
     let chunks = chunks_for(&vault, "big.md", &content)?;
 
-    assert!(
-        chunks.len() > 1,
-        "an oversized section must split into multiple chunks"
-    );
+    assert!(chunks.len() > 1, "an oversized section must split into multiple chunks");
     for chunk in &chunks {
         assert_eq!(chunk.heading_context(), ["Big Section"]);
     }
@@ -314,8 +293,7 @@ fn fr_53_oversized_section_splits_with_overlap() -> Result<(), Box<dyn std::erro
 }
 
 #[test]
-fn fr_53_undersized_trailing_remainder_is_folded_into_the_previous_chunk()
--> Result<(), Box<dyn std::error::Error>> {
+fn undersized_trailing_remainder_is_folded_into_the_previous_chunk() -> Result<(), Box<dyn std::error::Error>> {
     // Uniform 3-character words, joined by single spaces, make the token
     // arithmetic exact: `tokens_between(a, b) == b - a` (each word costs
     // precisely one token because a 3-char word plus its separator is
@@ -348,7 +326,7 @@ fn fr_53_undersized_trailing_remainder_is_folded_into_the_previous_chunk()
 }
 
 #[test]
-fn fr_53_ordinals_are_stable_across_identical_reruns() -> Result<(), Box<dyn std::error::Error>> {
+fn ordinals_are_stable_across_identical_reruns() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "# One\n\nFirst body.\n\n# Two\n\nSecond body.\n";
     let first_run = chunks_for(&vault, "stable.md", content)?;
@@ -359,7 +337,7 @@ fn fr_53_ordinals_are_stable_across_identical_reruns() -> Result<(), Box<dyn std
 }
 
 #[test]
-fn fr_53_hash_is_stable_when_chunk_text_is_unchanged() -> Result<(), Box<dyn std::error::Error>> {
+fn hash_is_stable_when_chunk_text_is_unchanged() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "# Heading\n\nUnchanged body text.\n";
     let first = chunks_for(&vault, "same.md", content)?;
@@ -370,7 +348,7 @@ fn fr_53_hash_is_stable_when_chunk_text_is_unchanged() -> Result<(), Box<dyn std
 }
 
 #[test]
-fn fr_53_hash_changes_when_chunk_text_changes() -> Result<(), Box<dyn std::error::Error>> {
+fn hash_changes_when_chunk_text_changes() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let before = chunks_for(&vault, "before.md", "# Heading\n\nOriginal body text.\n")?;
     let after = chunks_for(&vault, "after.md", "# Heading\n\nChanged body text.\n")?;
@@ -380,7 +358,7 @@ fn fr_53_hash_changes_when_chunk_text_changes() -> Result<(), Box<dyn std::error
 }
 
 #[test]
-fn fr_53_estimate_tokens_is_a_documented_chars_over_four_approximation() {
+fn estimate_tokens_is_a_documented_chars_over_four_approximation() {
     assert_eq!(estimate_tokens(""), 0);
     assert_eq!(estimate_tokens("abcd"), 1);
     assert_eq!(estimate_tokens("abcde"), 2);
@@ -388,7 +366,7 @@ fn fr_53_estimate_tokens_is_a_documented_chars_over_four_approximation() {
 }
 
 #[test]
-fn fr_53_estimate_tokens_counts_unicode_scalar_values_not_bytes() {
+fn estimate_tokens_counts_unicode_scalar_values_not_bytes() {
     // "日本語日" is 4 Unicode scalar values but 12 UTF-8 bytes (3 bytes per
     // CJK character): a byte-based estimate would report 3 tokens
     // (12 bytes / 4), but the documented approximation counts `char`s, so it
@@ -422,19 +400,15 @@ fn build_sectioned_document(word_counts: &[usize]) -> (String, Vec<Vec<String>>)
 
 fn compute_chunks(content: &str) -> Result<Vec<Chunk>, String> {
     let vault = tempfile::tempdir().map_err(|error| error.to_string())?;
-    let (_roots, path) =
-        vault_note(&vault, "property.md", content).map_err(|error| error.to_string())?;
-    Ok(chunk_document(ChunkSource {
-        path: &path,
-        content,
-    }))
+    let (_roots, path) = vault_note(&vault, "property.md", content).map_err(|error| error.to_string())?;
+    Ok(chunk_document(ChunkSource { path: &path, content }))
 }
 
 proptest! {
-    /// Full coverage (FR-53): every non-empty content region of the document
+    /// Full coverage: every non-empty content region of the document
     /// appears in at least one chunk.
     #[test]
-    fn fr_53_every_section_word_appears_in_at_least_one_chunk(
+    fn every_section_word_appears_in_at_least_one_chunk(
         word_counts in prop::collection::vec(0_usize..=600, 1..=4),
     ) {
         let (content, expected_words) = build_sectioned_document(&word_counts);
@@ -456,12 +430,12 @@ proptest! {
         }
     }
 
-    /// Heading-boundary preservation (FR-53): no chunk spans across a
+    /// Heading-boundary preservation: no chunk spans across a
     /// heading boundary of its bounding section. Since every word is tagged
     /// with its originating section, a chunk that crossed a boundary would
     /// contain words from more than one section marker.
     #[test]
-    fn fr_53_no_chunk_crosses_a_heading_boundary(
+    fn no_chunk_crosses_a_heading_boundary(
         word_counts in prop::collection::vec(1_usize..=600, 2..=4),
     ) {
         let (content, _expected_words) = build_sectioned_document(&word_counts);
@@ -483,11 +457,11 @@ proptest! {
         }
     }
 
-    /// Overlap bounds (FR-53): adjacent chunks within one oversized section
+    /// Overlap bounds: adjacent chunks within one oversized section
     /// share a non-empty word run, and that run never grows far past the
     /// 40-token overlap target.
     #[test]
-    fn fr_53_adjacent_chunks_within_a_section_overlap_within_bounds(
+    fn adjacent_chunks_within_a_section_overlap_within_bounds(
         word_count in 500_usize..=1500,
     ) {
         let (content, _expected_words) = build_sectioned_document(&[word_count]);
@@ -521,14 +495,14 @@ proptest! {
         }
     }
 
-    /// Chunk-size band adherence (FR-53) for well-formed inputs: every
+    /// Chunk-size band adherence for well-formed inputs: every
     /// non-final chunk of an oversized section lands close to the 200 to
     /// 400 token heuristic target (see `chunk::estimate_tokens` docs for why
     /// this is a band, not a contract). Only the section's last chunk is
     /// exempt, since a small trailing remainder is folded into it rather
     /// than left as an under-sized orphan.
     #[test]
-    fn fr_53_non_final_chunks_hit_the_target_band(
+    fn non_final_chunks_hit_the_target_band(
         word_count in 500_usize..=1500,
     ) {
         let (content, _expected_words) = build_sectioned_document(&[word_count]);

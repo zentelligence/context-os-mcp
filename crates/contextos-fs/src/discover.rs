@@ -116,23 +116,14 @@ impl Filesystem {
     ///
     /// Returns a typed error for unauthorised, missing, non-directory, or
     /// unreadable paths.
-    pub fn list_directory(
-        &self,
-        request: &ListDirectoryRequest,
-    ) -> Result<DirectoryListing, FsError> {
+    pub fn list_directory(&self, request: &ListDirectoryRequest) -> Result<DirectoryListing, FsError> {
         let path = self.authorise(&request.path)?;
         let entries = directory_entries(path, false)?;
         let hidden = self.hidden(&request.path)?;
         let excludes = exclusion_matcher(path, hidden, &[])?;
         let entries: Vec<_> = entries
             .into_iter()
-            .filter(|entry| {
-                !is_excluded(
-                    &excludes,
-                    Path::new(&entry.name),
-                    entry.kind == EntryKind::Directory,
-                )
-            })
+            .filter(|entry| !is_excluded(&excludes, Path::new(&entry.name), entry.kind == EntryKind::Directory))
             .collect();
         Ok(DirectoryListing {
             rendered: render_entries(&entries, false),
@@ -156,20 +147,10 @@ impl Filesystem {
         let excludes = exclusion_matcher(path, hidden, &[])?;
         let mut entries: Vec<_> = entries
             .into_iter()
-            .filter(|entry| {
-                !is_excluded(
-                    &excludes,
-                    Path::new(&entry.name),
-                    entry.kind == EntryKind::Directory,
-                )
-            })
+            .filter(|entry| !is_excluded(&excludes, Path::new(&entry.name), entry.kind == EntryKind::Directory))
             .collect();
         if request.sort_by == SortBy::Size {
-            entries.sort_by(|left, right| {
-                left.size
-                    .cmp(&right.size)
-                    .then_with(|| left.name.cmp(&right.name))
-            });
+            entries.sort_by(|left, right| left.size.cmp(&right.size).then_with(|| left.name.cmp(&right.name)));
         }
         Ok(DirectoryListing {
             rendered: render_entries(&entries, true),
@@ -225,12 +206,11 @@ impl Filesystem {
             EntryKind::File
         };
         let limits = self.limits(&request.path)?;
-        let content_hash =
-            if file_metadata.is_file() && file_metadata.len() <= limits.max_read_bytes {
-                Some(hash_file(path)?)
-            } else {
-                None
-            };
+        let content_hash = if file_metadata.is_file() && file_metadata.len() <= limits.max_read_bytes {
+            Some(hash_file(path)?)
+        } else {
+            None
+        };
         Ok(FileInfo {
             path: request.path.relative().to_string_lossy().into_owned(),
             kind,
@@ -357,11 +337,7 @@ pub fn default_hidden_patterns() -> Vec<String> {
         .collect()
 }
 
-fn exclusion_matcher(
-    root: &Path,
-    hidden: &[String],
-    patterns: &[String],
-) -> Result<Gitignore, FsError> {
+fn exclusion_matcher(root: &Path, hidden: &[String], patterns: &[String]) -> Result<Gitignore, FsError> {
     let mut builder = GitignoreBuilder::new(root);
     for fixed in hidden {
         builder
@@ -386,9 +362,7 @@ fn exclusion_matcher(
 }
 
 fn is_excluded(excludes: &Gitignore, relative: &Path, is_directory: bool) -> bool {
-    let direct = excludes
-        .matched_path_or_any_parents(relative, is_directory)
-        .is_ignore();
+    let direct = excludes.matched_path_or_any_parents(relative, is_directory).is_ignore();
     direct
         || (is_directory
             && excludes
@@ -417,12 +391,10 @@ fn tree_node(
         let mut nodes = Vec::new();
         for entry in directory_entries(current, false)? {
             let child = current.join(&entry.name);
-            let relative = child
-                .strip_prefix(root)
-                .map_err(|source| FsError::PrefixMismatch {
-                    path: child.clone(),
-                    source,
-                })?;
+            let relative = child.strip_prefix(root).map_err(|source| FsError::PrefixMismatch {
+                path: child.clone(),
+                source,
+            })?;
             if !is_excluded(excludes, relative, entry.kind == EntryKind::Directory) {
                 nodes.push(tree_node(root, &child, depth + 1, max_depth, excludes)?);
             }
@@ -431,11 +403,7 @@ fn tree_node(
     } else {
         None
     };
-    Ok(TreeNode {
-        name,
-        kind,
-        children,
-    })
+    Ok(TreeNode { name, kind, children })
 }
 
 /// Renders a relative path using forward slashes regardless of platform,
@@ -462,14 +430,13 @@ fn search_walk(
             path: root.to_path_buf(),
             source,
         })?;
-        let relative =
-            entry
-                .path()
-                .strip_prefix(root)
-                .map_err(|source| FsError::PrefixMismatch {
-                    path: entry.path().to_path_buf(),
-                    source,
-                })?;
+        let relative = entry
+            .path()
+            .strip_prefix(root)
+            .map_err(|source| FsError::PrefixMismatch {
+                path: entry.path().to_path_buf(),
+                source,
+            })?;
         if is_excluded(excludes, relative, entry.file_type().is_dir()) {
             continue;
         }
@@ -490,12 +457,10 @@ pub(crate) fn hash_file(path: &Path) -> Result<ContentHash, FsError> {
     let mut hasher = Sha256::new();
     let mut buffer = vec![0_u8; 64 * 1024];
     loop {
-        let count = file
-            .read(&mut buffer)
-            .map_err(|source| FsError::ReadContent {
-                path: path.to_path_buf(),
-                source,
-            })?;
+        let count = file.read(&mut buffer).map_err(|source| FsError::ReadContent {
+            path: path.to_path_buf(),
+            source,
+        })?;
         if count == 0 {
             break;
         }

@@ -3,11 +3,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use contextos_core::{
-    AppendMutation, AppendOutcome, AppendsVault, AppliesMutations, Clock, ContentHash,
-    CreateDirectoryMutation, CreateDirectoryOutcome, DeleteMode, DeleteMutation, DeleteOutcome,
-    MoveMutation, MoveOutcome, MovesVault, NoSubstrateServices, OperationEvent, OperationWarning,
-    PipelineResult, RestoreMutation, RoutedPipelineConfig, RoutedWritePipeline, RoutesOperations,
-    VaultPath, VaultPathInput, WriteMutation, WriteOutcome, WritesVault,
+    AppendMutation, AppendOutcome, AppendsVault, AppliesMutations, Clock, ContentHash, CreateDirectoryMutation,
+    CreateDirectoryOutcome, DeleteMode, DeleteMutation, DeleteOutcome, MoveMutation, MoveOutcome, MovesVault,
+    NoSubstrateServices, OperationEvent, OperationWarning, PipelineResult, RestoreMutation, RoutedPipelineConfig,
+    RoutedWritePipeline, RoutesOperations, VaultPath, VaultPathInput, WriteMutation, WriteOutcome, WritesVault,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -107,10 +106,7 @@ where
     /// # Errors
     ///
     /// Returns a typed confinement, conflict, or persistence error.
-    pub fn write_file(
-        &self,
-        request: &WriteMutation,
-    ) -> Result<PipelineResult<WriteOutcome>, FsError> {
+    pub fn write_file(&self, request: &WriteMutation) -> Result<PipelineResult<WriteOutcome>, FsError> {
         self.pipeline.write(request)
     }
 
@@ -119,10 +115,7 @@ where
     /// # Errors
     ///
     /// Returns a typed confinement, conflict, or persistence error.
-    pub fn restore_file(
-        &self,
-        request: &RestoreMutation,
-    ) -> Result<PipelineResult<WriteOutcome>, FsError> {
+    pub fn restore_file(&self, request: &RestoreMutation) -> Result<PipelineResult<WriteOutcome>, FsError> {
         self.pipeline.restore(request)
     }
 
@@ -131,10 +124,7 @@ where
     /// # Errors
     ///
     /// Returns a typed confinement or deletion error.
-    pub fn delete_path(
-        &self,
-        request: &DeleteMutation,
-    ) -> Result<PipelineResult<DeleteOutcome>, FsError> {
+    pub fn delete_path(&self, request: &DeleteMutation) -> Result<PipelineResult<DeleteOutcome>, FsError> {
         self.pipeline.delete(request)
     }
 
@@ -143,10 +133,7 @@ where
     /// # Errors
     ///
     /// Returns a typed confinement or append error.
-    pub fn append_file(
-        &self,
-        request: &AppendMutation,
-    ) -> Result<PipelineResult<AppendOutcome>, FsError> {
+    pub fn append_file(&self, request: &AppendMutation) -> Result<PipelineResult<AppendOutcome>, FsError> {
         self.pipeline.append(request)
     }
 
@@ -167,10 +154,7 @@ where
     /// # Errors
     ///
     /// Returns a typed confinement, destination, or persistence error.
-    pub fn move_file(
-        &self,
-        request: &MoveMutation,
-    ) -> Result<PipelineResult<MoveOutcome>, FsError> {
+    pub fn move_file(&self, request: &MoveMutation) -> Result<PipelineResult<MoveOutcome>, FsError> {
         self.pipeline.move_path(request)
     }
 
@@ -233,24 +217,15 @@ where
 {
     type Error = FsError;
 
-    fn persist(
-        &self,
-        request: &WriteMutation,
-    ) -> Result<PipelineResult<WriteOutcome>, Self::Error> {
+    fn persist(&self, request: &WriteMutation) -> Result<PipelineResult<WriteOutcome>, Self::Error> {
         self.write_file(request)
     }
 
-    fn restore(
-        &self,
-        request: &RestoreMutation,
-    ) -> Result<PipelineResult<WriteOutcome>, Self::Error> {
+    fn restore(&self, request: &RestoreMutation) -> Result<PipelineResult<WriteOutcome>, Self::Error> {
         self.restore_file(request)
     }
 
-    fn delete(
-        &self,
-        request: &DeleteMutation,
-    ) -> Result<PipelineResult<DeleteOutcome>, Self::Error> {
+    fn delete(&self, request: &DeleteMutation) -> Result<PipelineResult<DeleteOutcome>, Self::Error> {
         self.delete_path(request)
     }
 }
@@ -262,10 +237,7 @@ where
 {
     type Error = FsError;
 
-    fn append(
-        &self,
-        request: &AppendMutation,
-    ) -> Result<PipelineResult<AppendOutcome>, Self::Error> {
+    fn append(&self, request: &AppendMutation) -> Result<PipelineResult<AppendOutcome>, Self::Error> {
         self.append_file(request)
     }
 }
@@ -277,19 +249,12 @@ where
 {
     type Error = FsError;
 
-    fn move_path(
-        &self,
-        request: &MoveMutation,
-    ) -> Result<PipelineResult<MoveOutcome>, Self::Error> {
+    fn move_path(&self, request: &MoveMutation) -> Result<PipelineResult<MoveOutcome>, Self::Error> {
         self.move_file(request)
     }
 }
 
-fn apply_exact_edit(
-    content: &mut String,
-    edit: &TextEdit,
-    path: &VaultPath,
-) -> Result<(), FsError> {
+fn apply_exact_edit(content: &mut String, edit: &TextEdit, path: &VaultPath) -> Result<(), FsError> {
     let mut occurrences = content.match_indices(&edit.old_text);
     let Some((start, _)) = occurrences.next() else {
         let standard_path: &Path = path.into();
@@ -317,10 +282,7 @@ impl AppliesMutations for Filesystem {
         validate_expected_hash(&target, existed, request)?;
         let parent = target.parent().ok_or_else(|| FsError::CreateParent {
             path: target.clone(),
-            source: std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "target has no parent directory",
-            ),
+            source: std::io::Error::new(std::io::ErrorKind::InvalidInput, "target has no parent directory"),
         })?;
         fs::create_dir_all(parent).map_err(|source| FsError::CreateParent {
             path: parent.to_path_buf(),
@@ -328,11 +290,10 @@ impl AppliesMutations for Filesystem {
         })?;
         self.revalidate(&request.path)?;
 
-        let mut temporary =
-            NamedTempFile::new_in(parent).map_err(|source| FsError::CreateTemporary {
-                path: target.clone(),
-                source,
-            })?;
+        let mut temporary = NamedTempFile::new_in(parent).map_err(|source| FsError::CreateTemporary {
+            path: target.clone(),
+            source,
+        })?;
         temporary
             .write_all(request.content.as_bytes())
             .map_err(|source| FsError::WriteTemporary {
@@ -352,12 +313,10 @@ impl AppliesMutations for Filesystem {
                 path: target.clone(),
                 source,
             })?;
-        temporary
-            .persist(&target)
-            .map_err(|error| FsError::PersistTemporary {
-                path: target.clone(),
-                source: error.error,
-            })?;
+        temporary.persist(&target).map_err(|error| FsError::PersistTemporary {
+            path: target.clone(),
+            source: error.error,
+        })?;
 
         let mut hasher = Sha256::new();
         hasher.update(request.content.as_bytes());
@@ -369,10 +328,7 @@ impl AppliesMutations for Filesystem {
         })
     }
 
-    fn create_directory(
-        &self,
-        request: &CreateDirectoryMutation,
-    ) -> Result<CreateDirectoryOutcome, Self::Error> {
+    fn create_directory(&self, request: &CreateDirectoryMutation) -> Result<CreateDirectoryOutcome, Self::Error> {
         let target = self.revalidate(&request.path)?;
         if target.exists() {
             if target.is_dir() {
@@ -405,10 +361,7 @@ impl AppliesMutations for Filesystem {
         }
         let parent = destination.parent().ok_or_else(|| FsError::CreateParent {
             path: destination.clone(),
-            source: std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "destination has no parent directory",
-            ),
+            source: std::io::Error::new(std::io::ErrorKind::InvalidInput, "destination has no parent directory"),
         })?;
         fs::create_dir_all(parent).map_err(|source| FsError::CreateParent {
             path: parent.to_path_buf(),
@@ -430,9 +383,7 @@ impl AppliesMutations for Filesystem {
         let target = self.revalidate(&request.path)?;
         let metadata = target.metadata().map_err(|source| {
             if source.kind() == std::io::ErrorKind::NotFound {
-                FsError::NotFound {
-                    path: target.clone(),
-                }
+                FsError::NotFound { path: target.clone() }
             } else {
                 FsError::ReadMetadata {
                     path: target.clone(),
@@ -442,11 +393,10 @@ impl AppliesMutations for Filesystem {
         })?;
         if metadata.is_dir() {
             if request.mode != DeleteMode::HardRecursive {
-                let mut entries =
-                    fs::read_dir(&target).map_err(|source| FsError::ReadDirectory {
-                        path: target.clone(),
-                        source,
-                    })?;
+                let mut entries = fs::read_dir(&target).map_err(|source| FsError::ReadDirectory {
+                    path: target.clone(),
+                    source,
+                })?;
                 if entries
                     .next()
                     .transpose()
@@ -464,12 +414,10 @@ impl AppliesMutations for Filesystem {
         }
         match request.mode {
             DeleteMode::Trash => {
-                trash_context()
-                    .delete(&target)
-                    .map_err(|source| FsError::TrashPath {
-                        path: target.clone(),
-                        source,
-                    })?;
+                trash_context().delete(&target).map_err(|source| FsError::TrashPath {
+                    path: target.clone(),
+                    source,
+                })?;
             }
             DeleteMode::Hard if metadata.is_dir() => {
                 fs::remove_dir(&target).map_err(|source| FsError::DeletePath {
@@ -544,10 +492,8 @@ impl AppliesMutations for Filesystem {
                 path: target.clone(),
                 source,
             })?;
-        file.sync_data().map_err(|source| FsError::FlushAppend {
-            path: target,
-            source,
-        })?;
+        file.sync_data()
+            .map_err(|source| FsError::FlushAppend { path: target, source })?;
         Ok(AppendOutcome {
             path: request.path.clone(),
             bytes_appended: appended.len(),
@@ -604,11 +550,7 @@ impl Filesystem {
     }
 }
 
-fn validate_expected_hash(
-    target: &Path,
-    existed: bool,
-    request: &WriteMutation,
-) -> Result<(), FsError> {
+fn validate_expected_hash(target: &Path, existed: bool, request: &WriteMutation) -> Result<(), FsError> {
     if request.force {
         return Ok(());
     }

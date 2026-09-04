@@ -5,8 +5,7 @@ use tempfile::tempdir;
 mod support;
 
 #[test]
-fn fr_34_initialises_repository_ignore_policy_and_first_commit()
--> Result<(), Box<dyn std::error::Error>> {
+fn initialises_repository_ignore_policy_and_first_commit() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("note.md"), "tracked\n")?;
     std::fs::write(vault.path().join(".gitignore"), "operator-rule\n")?;
@@ -38,17 +37,12 @@ fn fr_34_initialises_repository_ignore_policy_and_first_commit()
     assert_eq!(result.commit_id.as_deref(), Some(head_id.as_str()));
     assert_eq!(ignore, "operator-rule\n.contextos/\n.obsidian/workspace*\n");
     assert!(index.get_path(std::path::Path::new("note.md"), 0).is_some());
-    assert!(
-        index
-            .get_path(std::path::Path::new(".contextos/cache"), 0)
-            .is_none()
-    );
+    assert!(index.get_path(std::path::Path::new(".contextos/cache"), 0).is_none());
     Ok(())
 }
 
 #[test]
-fn fr_34_completes_an_existing_empty_repository_with_initial_history()
--> Result<(), Box<dyn std::error::Error>> {
+fn completes_an_existing_empty_repository_with_initial_history() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     git2::Repository::init(vault.path())?;
     std::fs::write(vault.path().join("note.md"), "tracked\n")?;

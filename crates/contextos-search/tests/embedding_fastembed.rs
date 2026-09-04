@@ -1,4 +1,4 @@
-//! FR-54, D-05: `FastembedLocal` construction, gated behind the default-on
+//! `FastembedLocal` construction, gated behind the default-on
 //! `semantic-local` Cargo feature.
 //!
 //! Every test in this file that does not carry `#[ignore]` runs without any
@@ -36,15 +36,11 @@ fn chunks_for(
     content: &str,
 ) -> Result<Vec<Chunk>, Box<dyn std::error::Error>> {
     let (_roots, path) = vault_note(vault, relative, content)?;
-    Ok(chunk_document(ChunkSource {
-        path: &path,
-        content,
-    }))
+    Ok(chunk_document(ChunkSource { path: &path, content }))
 }
 
 #[test]
-fn fr_54_missing_model_directory_is_a_typed_error_with_no_download()
--> Result<(), Box<dyn std::error::Error>> {
+fn missing_model_directory_is_a_typed_error_with_no_download() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let missing = vault.path().join("does-not-exist");
 
@@ -58,8 +54,7 @@ fn fr_54_missing_model_directory_is_a_typed_error_with_no_download()
 }
 
 #[test]
-fn fr_54_model_directory_missing_one_required_file_is_a_typed_error()
--> Result<(), Box<dyn std::error::Error>> {
+fn model_directory_missing_one_required_file_is_a_typed_error() -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempfile::tempdir()?;
     // Every required file except `model.onnx`.
     std::fs::write(directory.path().join("tokenizer.json"), b"{}")?;
@@ -77,16 +72,12 @@ fn fr_54_model_directory_missing_one_required_file_is_a_typed_error()
 }
 
 #[test]
-fn fr_54_malformed_model_files_are_a_typed_error_not_a_panic()
--> Result<(), Box<dyn std::error::Error>> {
+fn malformed_model_files_are_a_typed_error_not_a_panic() -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempfile::tempdir()?;
     // All five required files present, but every one holds garbage bytes
     // rather than a real ONNX model or tokenizer: fastembed must reject
     // this as invalid, not download a replacement or panic.
-    std::fs::write(
-        directory.path().join("model.onnx"),
-        b"not a real onnx model",
-    )?;
+    std::fs::write(directory.path().join("model.onnx"), b"not a real onnx model")?;
     std::fs::write(directory.path().join("tokenizer.json"), b"not real json")?;
     std::fs::write(directory.path().join("config.json"), b"{}")?;
     std::fs::write(directory.path().join("special_tokens_map.json"), b"{}")?;
@@ -103,13 +94,9 @@ fn fr_54_malformed_model_files_are_a_typed_error_not_a_panic()
 
 #[test]
 #[ignore = "requires a real ONNX model directory; see this file's module documentation"]
-fn fr_54_local_model_directory_produces_consistent_embeddings()
--> Result<(), Box<dyn std::error::Error>> {
+fn local_model_directory_produces_consistent_embeddings() -> Result<(), Box<dyn std::error::Error>> {
     let Some(model_directory) = std::env::var_os("CONTEXTOS_TEST_FASTEMBED_MODEL_DIR") else {
-        return Err(
-            "set CONTEXTOS_TEST_FASTEMBED_MODEL_DIR to a real model directory to run this test"
-                .into(),
-        );
+        return Err("set CONTEXTOS_TEST_FASTEMBED_MODEL_DIR to a real model directory to run this test".into());
     };
 
     let vault = tempfile::tempdir()?;

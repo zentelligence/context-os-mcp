@@ -6,9 +6,7 @@
 
 use std::sync::Arc;
 
-use contextos_core::{
-    Origin, SystemClock, VaultPath, VaultPathInput, VaultRoot, VaultRootId, VaultSet,
-};
+use contextos_core::{Origin, SystemClock, VaultPath, VaultPathInput, VaultRoot, VaultRootId, VaultSet};
 use contextos_fs::{Filesystem, FilesystemService, FilesystemServiceConfig};
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::{schemars, tool};
@@ -49,10 +47,8 @@ impl ContextOsServer {
         let roots = Arc::clone(&self.roots);
         let target_vault_index = if let Some(raw) = input.path {
             let roots = Arc::clone(&roots);
-            let path = evaluate(move || {
-                VaultPath::try_from_vault_selector(&roots, &raw).map_err(ToolError::from)
-            })
-            .await?;
+            let path =
+                evaluate(move || VaultPath::try_from_vault_selector(&roots, &raw).map_err(ToolError::from)).await?;
             Some(usize::try_from(path.root_id()).map_err(ToolError::from)?)
         } else {
             None
@@ -102,9 +98,7 @@ struct ResolveContext<'a> {
     dry_run: bool,
 }
 
-fn resolve_doctor_findings(
-    ctx: &ResolveContext<'_>,
-) -> Result<DoctorResolveToolResult, DoctorError> {
+fn resolve_doctor_findings(ctx: &ResolveContext<'_>) -> Result<DoctorResolveToolResult, DoctorError> {
     let before = DoctorReport::try_from(ctx.config)?;
     let mut outcomes = Vec::new();
     let mut wrote = false;
@@ -116,10 +110,7 @@ fn resolve_doctor_findings(
         let Some(vault_index) = check.vault_index else {
             continue;
         };
-        if ctx
-            .target_vault_index
-            .is_some_and(|target| target != vault_index)
-        {
+        if ctx.target_vault_index.is_some_and(|target| target != vault_index) {
             continue;
         }
         let Some(root) = ctx.roots.iter().nth(vault_index) else {
@@ -168,11 +159,7 @@ fn resolve_stale_index(
             message: "managed indexes are unavailable for this vault".to_owned(),
         });
     };
-    let report = service.rebuild_report(
-        &vault_path,
-        Origin::Tool("doctor_resolve".to_owned()),
-        false,
-    );
+    let report = service.rebuild_report(&vault_path, Origin::Tool("doctor_resolve".to_owned()), false);
     let message = match report {
         Ok(report) => format!(
             "vault_index_rebuild created {} and updated {} indexes",
@@ -241,10 +228,7 @@ fn resolve_absent_git_repository(
 /// server start and this call). A remediation failing for one finding is
 /// not an error here: it is reported as an unresolved
 /// [`DoctorResolveOutcome`] alongside every other finding.
-pub fn resolve_for_cli(
-    server: &ContextOsServer,
-    dry_run: bool,
-) -> Result<Vec<DoctorResolveOutcome>, DoctorError> {
+pub fn resolve_for_cli(server: &ContextOsServer, dry_run: bool) -> Result<Vec<DoctorResolveOutcome>, DoctorError> {
     resolve_doctor_findings(&ResolveContext {
         config: server.config.as_ref(),
         roots: server.roots.as_ref(),
@@ -301,11 +285,7 @@ impl From<DoctorReport> for DoctorToolResult {
     fn from(value: DoctorReport) -> Self {
         let has_failures = value.has_failures();
         Self {
-            checks: value
-                .checks
-                .iter()
-                .map(DoctorCheckToolResult::from)
-                .collect(),
+            checks: value.checks.iter().map(DoctorCheckToolResult::from).collect(),
             has_failures,
         }
     }

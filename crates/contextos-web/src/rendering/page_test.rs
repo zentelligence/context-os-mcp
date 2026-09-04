@@ -95,9 +95,7 @@ fn appearance_is_applied_as_html_data_attributes() {
         ..empty_nav()
     };
     let html = render_page(&nav, "note.md", "<p>Body.</p>");
-    assert!(html.contains(
-        "<html lang=\"en\" data-theme=\"dark\" data-font=\"serif\" data-size=\"large\">"
-    ));
+    assert!(html.contains("<html lang=\"en\" data-theme=\"dark\" data-font=\"serif\" data-size=\"large\">"));
 }
 
 #[test]

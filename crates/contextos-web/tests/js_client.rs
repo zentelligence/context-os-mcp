@@ -1,15 +1,15 @@
-//! FR-211: the `/static/`-served JS client library wraps
+//! The `/static/`-served JS client library wraps
 //! `POST /mcp/{server_name}/{tool_name}` as `callTool(serverName, toolName,
 //! args)` returning a Promise, with no LLM step between an app's own
 //! JavaScript and the tool result.
 //!
 //! Verified by actually fetching the shipped script over HTTP from
-//! `/static/` (FR-250) and running it under Node against a real, live
+//! `/static/` and running it under Node against a real, live
 //! `contextos-web` router (itself backed by a real `contextos-mcp` stdio
 //! session), not by inspecting the script's source text or loading it from
 //! disk directly: this is the only way to prove the documented `callTool`
-//! contract is genuinely callable JavaScript served the way FR-250 and
-//! FR-211 together specify, not merely plausible-looking code sitting next
+//! contract is genuinely callable JavaScript served the way it is
+//! specified, not merely plausible-looking code sitting next
 //! to the crate. Skipped, not failed, when no `node` binary is available
 //! (this crate has no other reason to depend on a JavaScript runtime),
 //! matching this project's existing precedent for environment-conditional
@@ -32,7 +32,7 @@ fn node_is_available() -> bool {
 }
 
 /// The crate's own bundled `static/` directory, which ships
-/// `contextos-web-client.js` (FR-211) as a real, checked-in asset.
+/// `contextos-web-client.js` as a real, checked-in asset.
 fn bundled_static_dir() -> std::path::PathBuf {
     std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/static"))
 }
@@ -59,10 +59,7 @@ async fn spawn_server(
 }
 
 fn run_node_script(script: &str) -> Result<std::process::Output, BoxError> {
-    Ok(std::process::Command::new("node")
-        .arg("-e")
-        .arg(script)
-        .output()?)
+    Ok(std::process::Command::new("node").arg("-e").arg(script).output()?)
 }
 
 /// A Node script preamble common to both tests: fetches
@@ -113,10 +110,7 @@ async fn call_tool_resolves_with_the_real_tool_result() -> Result<(), BoxError> 
         String::from_utf8_lossy(&output.stderr)
     );
     let result: serde_json::Value = serde_json::from_slice(&output.stdout)?;
-    assert_eq!(
-        result["structuredContent"]["vaults"][0]["name"],
-        "contract-fixture"
-    );
+    assert_eq!(result["structuredContent"]["vaults"][0]["name"], "contract-fixture");
     Ok(())
 }
 

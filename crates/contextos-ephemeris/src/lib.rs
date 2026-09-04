@@ -178,11 +178,7 @@ pub trait ComputesWheelOfYear {
     ///
     /// Returns [`EphemerisError::YearOutOfRange`] if `year` cannot be
     /// represented by the underlying algorithm.
-    fn wheel_of_year(
-        &self,
-        year: i32,
-        hemisphere: Hemisphere,
-    ) -> Result<[WheelOfYearPoint; 8], EphemerisError>;
+    fn wheel_of_year(&self, year: i32, hemisphere: Hemisphere) -> Result<[WheelOfYearPoint; 8], EphemerisError>;
 }
 
 /// One of the seven planetary rulers of a personal-year period, in fixed
@@ -353,11 +349,7 @@ impl ComputesSolarEvents for AstroEphemeris {
 }
 
 impl ComputesWheelOfYear for AstroEphemeris {
-    fn wheel_of_year(
-        &self,
-        year: i32,
-        hemisphere: Hemisphere,
-    ) -> Result<[WheelOfYearPoint; 8], EphemerisError> {
+    fn wheel_of_year(&self, year: i32, hemisphere: Hemisphere) -> Result<[WheelOfYearPoint; 8], EphemerisError> {
         wheel_of_year(year, hemisphere)
     }
 }
@@ -695,11 +687,8 @@ fn solve_solar_event_jd(seed_jd: f64, target_longitude_degrees: f64) -> f64 {
 /// comment on why `jd_ut` is always positive given its caller's `year`
 /// check).
 fn jd_to_utc(jd_ut: f64, original_year: i32) -> Result<time::OffsetDateTime, EphemerisError> {
-    let year_out_of_range = || EphemerisError::YearOutOfRange {
-        year: original_year,
-    };
-    let (year, month, decimal_day) =
-        astro::time::date_frm_julian_day(jd_ut).map_err(|_| year_out_of_range())?;
+    let year_out_of_range = || EphemerisError::YearOutOfRange { year: original_year };
+    let (year, month, decimal_day) = astro::time::date_frm_julian_day(jd_ut).map_err(|_| year_out_of_range())?;
     let day_number = decimal_day.floor();
     // Rounded to the nearest second: this computation's own accuracy
     // (root-finder tolerance, `delta_t`'s polynomial approximation, the
@@ -722,8 +711,7 @@ fn jd_to_utc(jd_ut: f64, original_year: i32) -> Result<time::OffsetDateTime, Eph
     )]
     let seconds_into_day = seconds_into_day as i64;
     let month = time::Month::try_from(month).map_err(|_| year_out_of_range())?;
-    let date = time::Date::from_calendar_date(i32::from(year), month, day)
-        .map_err(|_| year_out_of_range())?;
+    let date = time::Date::from_calendar_date(i32::from(year), month, day).map_err(|_| year_out_of_range())?;
     let midnight = time::PrimitiveDateTime::new(date, time::Time::MIDNIGHT);
     // `PrimitiveDateTime + Duration` rolls the date forward on its own if
     // `seconds_into_day` rounded up to a full day, so no separate
@@ -742,11 +730,9 @@ fn jd_to_utc(jd_ut: f64, original_year: i32) -> Result<time::OffsetDateTime, Eph
 /// would never be visible at this method's own whole-second output
 /// precision (confirmed for the solar-events calculation, the same
 /// reasoning applies unchanged here).
-fn jd_dynamical_time_to_utc(
-    jd_dynamical_time: f64,
-) -> Result<time::OffsetDateTime, EphemerisError> {
-    let (approx_year, approx_month, _) = astro::time::date_frm_julian_day(jd_dynamical_time)
-        .map_err(|_| EphemerisError::YearOutOfRange { year: 0 })?;
+fn jd_dynamical_time_to_utc(jd_dynamical_time: f64) -> Result<time::OffsetDateTime, EphemerisError> {
+    let (approx_year, approx_month, _) =
+        astro::time::date_frm_julian_day(jd_dynamical_time).map_err(|_| EphemerisError::YearOutOfRange { year: 0 })?;
     let delta_t_seconds = astro::time::delta_t(i32::from(approx_year), approx_month);
     let jd_universal_time = jd_dynamical_time - delta_t_seconds / 86_400.0;
     jd_to_utc(jd_universal_time, i32::from(approx_year))
@@ -762,10 +748,7 @@ fn jd_dynamical_time_to_utc(
 /// (1 February, 31 October), consistent with the "eve of" convention
 /// under which many traditions begin the observance the night before,
 /// documented here as a deliberate choice, not an unstated default.
-fn wheel_of_year(
-    year: i32,
-    hemisphere: Hemisphere,
-) -> Result<[WheelOfYearPoint; 8], EphemerisError> {
+fn wheel_of_year(year: i32, hemisphere: Hemisphere) -> Result<[WheelOfYearPoint; 8], EphemerisError> {
     let events = solar_events(year)?;
     let imbolc = checkpoint_instant(year, time::Month::February, 1)?;
     let beltane = checkpoint_instant(year, time::Month::May, 1)?;
@@ -845,13 +828,8 @@ fn wheel_name_for_position(position: u8, hemisphere: Hemisphere) -> WheelOfYearN
 /// Midnight UTC of a fixed calendar date: a checkpoint's nominal instant,
 /// which carries no astronomically precise time of day of its own, unlike
 /// a boundary's solar-event-derived instant.
-fn checkpoint_instant(
-    year: i32,
-    month: time::Month,
-    day: u8,
-) -> Result<time::OffsetDateTime, EphemerisError> {
-    let date = time::Date::from_calendar_date(year, month, day)
-        .map_err(|_| EphemerisError::YearOutOfRange { year })?;
+fn checkpoint_instant(year: i32, month: time::Month, day: u8) -> Result<time::OffsetDateTime, EphemerisError> {
+    let date = time::Date::from_calendar_date(year, month, day).map_err(|_| EphemerisError::YearOutOfRange { year })?;
     Ok(time::PrimitiveDateTime::new(date, time::Time::MIDNIGHT).assume_utc())
 }
 
@@ -933,14 +911,9 @@ fn most_recent_birthday_anniversary(birth_date: time::Date, as_of_date: time::Da
 /// handling; the closing `unwrap_or_else` is therefore defensive only,
 /// covering no reachable input, since 28 February is valid in every year.
 fn anniversary_in_year(birth_date: time::Date, year: i32) -> time::Date {
-    let is_unobservable_leap_day = birth_date.month() == time::Month::February
-        && birth_date.day() == 29
-        && !time::util::is_leap_year(year);
-    let day = if is_unobservable_leap_day {
-        28
-    } else {
-        birth_date.day()
-    };
+    let is_unobservable_leap_day =
+        birth_date.month() == time::Month::February && birth_date.day() == 29 && !time::util::is_leap_year(year);
+    let day = if is_unobservable_leap_day { 28 } else { birth_date.day() };
     time::Date::from_calendar_date(year, birth_date.month(), day).unwrap_or(birth_date)
 }
 
@@ -952,10 +925,7 @@ fn boundaries(
     config: BoundariesConfig,
 ) -> Result<Vec<HorizonEvent>, EphemerisError> {
     if start_date > end_date {
-        return Err(EphemerisError::InvalidDateRange {
-            start_date,
-            end_date,
-        });
+        return Err(EphemerisError::InvalidDateRange { start_date, end_date });
     }
 
     let range_start_jd = astro::time::julian_day(&to_astro_date(start_date));
@@ -1080,8 +1050,7 @@ fn wheel_of_year_events_in_range(
     hemisphere: Hemisphere,
 ) -> Result<Vec<WheelOfYearPoint>, EphemerisError> {
     let range_start = time::PrimitiveDateTime::new(start_date, time::Time::MIDNIGHT).assume_utc();
-    let range_end =
-        time::PrimitiveDateTime::new(end_date, time::Time::MIDNIGHT).assume_utc() + ONE_DAY;
+    let range_end = time::PrimitiveDateTime::new(end_date, time::Time::MIDNIGHT).assume_utc() + ONE_DAY;
 
     let mut points = Vec::new();
     for year in start_date.year()..=end_date.year() {
@@ -1112,24 +1081,19 @@ fn personal_year_period_changes_in_range(
     tolerance_days: f64,
 ) -> Vec<(u8, time::OffsetDateTime)> {
     let tolerance = time::Duration::seconds_f64(tolerance_days * 86_400.0);
-    let range_start =
-        time::PrimitiveDateTime::new(start_date, time::Time::MIDNIGHT).assume_utc() - tolerance;
-    let range_end = time::PrimitiveDateTime::new(end_date, time::Time::MIDNIGHT).assume_utc()
-        + ONE_DAY
-        + tolerance;
+    let range_start = time::PrimitiveDateTime::new(start_date, time::Time::MIDNIGHT).assume_utc() - tolerance;
+    let range_end = time::PrimitiveDateTime::new(end_date, time::Time::MIDNIGHT).assume_utc() + ONE_DAY + tolerance;
 
     let mut changes = Vec::new();
     let mut anniversary = most_recent_birthday_anniversary(birth_date, start_date);
     loop {
-        let anniversary_instant =
-            time::PrimitiveDateTime::new(anniversary, time::Time::MIDNIGHT).assume_utc();
+        let anniversary_instant = time::PrimitiveDateTime::new(anniversary, time::Time::MIDNIGHT).assume_utc();
         if anniversary_instant > range_end {
             break;
         }
         for period_index in 0_u8..7 {
             let offset_days = f64::from(period_index) * PERSONAL_YEAR_PERIOD_LENGTH_DAYS;
-            let boundary_instant =
-                anniversary_instant + time::Duration::seconds_f64(offset_days * 86_400.0);
+            let boundary_instant = anniversary_instant + time::Duration::seconds_f64(offset_days * 86_400.0);
             if boundary_instant >= range_start && boundary_instant <= range_end {
                 changes.push((period_index + 1, boundary_instant));
             }
@@ -1162,17 +1126,12 @@ fn to_astro_date(date: time::Date) -> astro::time::Date {
 #[cfg(test)]
 mod tests {
     use super::{
-        AstroEphemeris, BoundariesConfig, ComputesBoundaries, ComputesMoonPhase,
-        ComputesPersonalYearPeriod, ComputesSolarEvents, ComputesWheelOfYear, EphemerisError,
-        Hemisphere, HorizonEvent, MoonPhaseName, PrimaryMoonPhase, RulingPlanet, SolarEventKind,
-        WheelOfYearName, WheelOfYearRole,
+        AstroEphemeris, BoundariesConfig, ComputesBoundaries, ComputesMoonPhase, ComputesPersonalYearPeriod,
+        ComputesSolarEvents, ComputesWheelOfYear, EphemerisError, Hemisphere, HorizonEvent, MoonPhaseName,
+        PrimaryMoonPhase, RulingPlanet, SolarEventKind, WheelOfYearName, WheelOfYearRole,
     };
 
-    fn date(
-        year: i32,
-        month: time::Month,
-        day: u8,
-    ) -> Result<time::Date, time::error::ComponentRange> {
+    fn date(year: i32, month: time::Month, day: u8) -> Result<time::Date, time::error::ComponentRange> {
         time::Date::from_calendar_date(year, month, day)
     }
 
@@ -1182,7 +1141,7 @@ mod tests {
     /// regression test (`astro-2.0.0/tests/lunar.rs::phases`). Querying the
     /// same calendar day places the tool ~3.6 hours before that instant.
     #[test]
-    fn fr_101_a_verified_new_moon_instant_reports_new_phase_and_near_zero_illumination()
+    fn a_verified_new_moon_instant_reports_new_phase_and_near_zero_illumination()
     -> Result<(), time::error::ComponentRange> {
         let report = AstroEphemeris::new().moon_phase(date(1977, time::Month::February, 18)?, 12.0);
 
@@ -1208,7 +1167,7 @@ mod tests {
     /// at JD 2443208.21807 (1977-03-05 ~17:14 UT). Querying the following
     /// calendar day places the tool ~6.8 hours after that instant.
     #[test]
-    fn fr_101_a_verified_full_moon_instant_reports_full_phase_and_near_total_illumination()
+    fn a_verified_full_moon_instant_reports_full_phase_and_near_total_illumination()
     -> Result<(), time::error::ComponentRange> {
         let report = AstroEphemeris::new().moon_phase(date(1977, time::Month::March, 6)?, 12.0);
 
@@ -1228,8 +1187,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_101_a_date_far_from_any_primary_phase_is_near_none_of_them()
-    -> Result<(), time::error::ComponentRange> {
+    fn a_date_far_from_any_primary_phase_is_near_none_of_them() -> Result<(), time::error::ComponentRange> {
         // Halfway between the verified New Moon (1977-02-18) and First
         // Quarter (1977-02-26, computed via the same code path): sits
         // ~4 days from both, well outside even a generous 24-hour
@@ -1254,7 +1212,7 @@ mod tests {
     /// 45-degree phase bucket entirely (New instead of the correct Waning
     /// Crescent). This pins the correct value directly.
     #[test]
-    fn fr_101_the_time_of_phase_anchor_quirk_does_not_skip_the_true_nearest_occurrence()
+    fn the_time_of_phase_anchor_quirk_does_not_skip_the_true_nearest_occurrence()
     -> Result<(), time::error::ComponentRange> {
         let report = AstroEphemeris::new().moon_phase(date(1977, time::Month::February, 13)?, 12.0);
         assert_eq!(report.name, MoonPhaseName::WaningCrescent);
@@ -1270,12 +1228,12 @@ mod tests {
         Ok(())
     }
 
-    /// `FR-102`: the four solar events for a given year, in chronological
+    /// The four solar events for a given year, in chronological
     /// order, each within its correct calendar month (no external citation
     /// needed for this one, only that a March equinox genuinely falls in
     /// March and precedes June's solstice, and so on).
     #[test]
-    fn fr_102_solar_events_returns_four_events_in_chronological_order() {
+    fn solar_events_returns_four_events_in_chronological_order() {
         let Ok(events) = AstroEphemeris::new().solar_events(2024) else {
             unreachable!("2024 is a representable year");
         };
@@ -1309,7 +1267,7 @@ mod tests {
     /// headroom for residual `delta_t`-table or seed-precision variance
     /// without masking a genuine regression.
     #[test]
-    fn fr_102_solar_events_are_close_to_commonly_published_2024_instants() {
+    fn solar_events_are_close_to_commonly_published_2024_instants() {
         let Ok(events) = AstroEphemeris::new().solar_events(2024) else {
             unreachable!("2024 is a representable year");
         };
@@ -1327,8 +1285,7 @@ mod tests {
             let Ok(expected_time) = time::Time::from_hms(hour, minute, 0) else {
                 unreachable!("every expected time above is a valid time of day");
             };
-            let expected_instant =
-                time::PrimitiveDateTime::new(expected_date, expected_time).assume_utc();
+            let expected_instant = time::PrimitiveDateTime::new(expected_date, expected_time).assume_utc();
             let difference = (event.instant - expected_instant).abs();
             assert!(
                 difference < time::Duration::minutes(5),
@@ -1347,7 +1304,7 @@ mod tests {
     /// year regression without needing an external citation for either
     /// year individually.
     #[test]
-    fn fr_102_consecutive_march_equinoxes_are_close_to_one_tropical_year_apart() {
+    fn consecutive_march_equinoxes_are_close_to_one_tropical_year_apart() {
         let ephemeris = AstroEphemeris::new();
         let Ok(this_year) = ephemeris.solar_events(2024) else {
             unreachable!("2024 is a representable year");
@@ -1364,7 +1321,7 @@ mod tests {
         );
     }
 
-    /// Tightens `FR-102`'s accuracy evidence by independently verifying
+    /// Tightens the solar-events accuracy evidence by independently verifying
     /// the *correction* term this crate adds beyond `astro`'s own already-
     /// cited `geocent_ecl_pos` fixture: nutation in longitude, one of the
     /// two corrections `sun_apparent_longitude_degrees` applies (the other
@@ -1376,9 +1333,8 @@ mod tests {
     /// accuracy, not only the base longitude function, is independently
     /// verified.
     #[test]
-    fn fr_102_the_nutation_correction_this_crate_depends_on_matches_astros_own_cited_fixture() {
-        let (nutation_in_longitude, _nutation_in_obliquity) =
-            astro::nutation::nutation(2_446_895.5);
+    fn the_nutation_correction_this_crate_depends_on_matches_astros_own_cited_fixture() {
+        let (nutation_in_longitude, _nutation_in_obliquity) = astro::nutation::nutation(2_446_895.5);
         let arcseconds = nutation_in_longitude.to_degrees() * 3600.0;
         assert!(
             (-3.789..-3.787).contains(&arcseconds),
@@ -1387,7 +1343,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_102_a_year_outside_the_representable_range_is_a_typed_error() {
+    fn solar_events_rejects_a_year_outside_the_representable_range() {
         let year = 10_000;
         assert_eq!(
             AstroEphemeris::new().solar_events(year),
@@ -1395,12 +1351,12 @@ mod tests {
         );
     }
 
-    /// `FR-103`: eight points, alternating Checkpoint/Boundary starting
+    /// Eight points, alternating Checkpoint/Boundary starting
     /// with a checkpoint (Imbolc, the year's first position), strictly
-    /// chronological, matching `D-19`'s fixed calendar dates interleaved
-    /// with `FR-102`'s solar-event instants.
+    /// chronological, matching the fixed calendar dates interleaved
+    /// with the solar-event instants.
     #[test]
-    fn fr_103_wheel_of_year_returns_eight_points_in_chronological_order_with_correct_roles() {
+    fn wheel_of_year_returns_eight_points_in_chronological_order_with_correct_roles() {
         let Ok(points) = AstroEphemeris::new().wheel_of_year(2024, Hemisphere::Northern) else {
             unreachable!("2024 is a representable year");
         };
@@ -1431,13 +1387,12 @@ mod tests {
         }
     }
 
-    /// `FR-103`'s traditional Northern Hemisphere mapping (Sacred Seasons
-    /// convention, as referenced by the Operating Rhythm specification
-    /// this phase serves): Imbolc (Feb), Spring Equinox (Mar), Beltane
+    /// The traditional Northern Hemisphere mapping (Sacred Seasons
+    /// convention): Imbolc (Feb), Spring Equinox (Mar), Beltane
     /// (May), Summer Solstice (Jun), Lughnasadh (Aug), Autumn Equinox
     /// (Sep), Samhain (Oct/Nov), Winter Solstice (Dec).
     #[test]
-    fn fr_103_northern_hemisphere_names_match_the_traditional_calendar_mapping() {
+    fn northern_hemisphere_names_match_the_traditional_calendar_mapping() {
         let Ok(points) = AstroEphemeris::new().wheel_of_year(2024, Hemisphere::Northern) else {
             unreachable!("2024 is a representable year");
         };
@@ -1457,7 +1412,7 @@ mod tests {
         );
     }
 
-    /// `FR-103`'s core requirement: "a June solstice is midsummer in the
+    /// The core requirement: "a June solstice is midsummer in the
     /// north, midwinter in the south". The Southern Hemisphere names are
     /// the same eight names rotated by exactly half the wheel (`+4`), and
     /// critically, every point's *instant* is completely unchanged from
@@ -1466,7 +1421,7 @@ mod tests {
     /// itself, proving hemisphere is a labelling concern only, not a
     /// second, different set of dates.
     #[test]
-    fn fr_103_southern_hemisphere_swaps_names_by_half_the_wheel_but_keeps_the_same_instants() {
+    fn southern_hemisphere_swaps_names_by_half_the_wheel_but_keeps_the_same_instants() {
         let ephemeris = AstroEphemeris::new();
         let Ok(northern) = ephemeris.wheel_of_year(2024, Hemisphere::Northern) else {
             unreachable!("2024 is a representable year");
@@ -1475,8 +1430,7 @@ mod tests {
             unreachable!("2024 is a representable year");
         };
 
-        let southern_names: Vec<WheelOfYearName> =
-            southern.iter().map(|point| point.name).collect();
+        let southern_names: Vec<WheelOfYearName> = southern.iter().map(|point| point.name).collect();
         assert_eq!(
             southern_names,
             vec![
@@ -1503,12 +1457,12 @@ mod tests {
         }
     }
 
-    /// `D-19`: the four cross-quarter checkpoints fall on fixed calendar
-    /// dates regardless of hemisphere, this phase's own resolution of the
-    /// "1/2 February"/"31 October, 1 November" ambiguity (the earlier day
-    /// in both cases).
+    /// The four cross-quarter checkpoints fall on fixed calendar
+    /// dates regardless of hemisphere, resolving the
+    /// "1/2 February"/"31 October, 1 November" ambiguity to the earlier day
+    /// in both cases.
     #[test]
-    fn fr_103_checkpoint_dates_fall_on_the_fixed_traditional_calendar_dates() {
+    fn checkpoint_dates_fall_on_the_fixed_traditional_calendar_dates() {
         let Ok(points) = AstroEphemeris::new().wheel_of_year(2024, Hemisphere::Northern) else {
             unreachable!("2024 is a representable year");
         };
@@ -1526,7 +1480,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_103_a_year_outside_the_representable_range_is_a_typed_error() {
+    fn wheel_of_year_rejects_a_year_outside_the_representable_range() {
         let year = 10_000;
         assert_eq!(
             AstroEphemeris::new().wheel_of_year(year, Hemisphere::Northern),
@@ -1534,11 +1488,10 @@ mod tests {
         );
     }
 
-    /// `FR-104`: period 1 is always Sun-ruled and always begins exactly at
+    /// Period 1 is always Sun-ruled and always begins exactly at
     /// the birthday itself.
     #[test]
-    fn fr_104_period_1_always_begins_exactly_at_the_birthday_and_is_sun_ruled()
-    -> Result<(), time::error::ComponentRange> {
+    fn period_1_always_begins_exactly_at_the_birthday_and_is_sun_ruled() -> Result<(), time::error::ComponentRange> {
         let birth_date = date(1990, time::Month::June, 15)?;
         let result = AstroEphemeris::new().personal_year_period(birth_date, birth_date, 2.0);
 
@@ -1551,13 +1504,12 @@ mod tests {
         Ok(())
     }
 
-    /// `FR-104`'s fixed Chaldean order, checked at the midpoint of every
+    /// The fixed Chaldean order, checked at the midpoint of every
     /// one of the seven periods (safely clear of any boundary, so
     /// `transition` cannot interfere with reading `period_number` off
     /// cleanly).
     #[test]
-    fn fr_104_period_progresses_through_the_fixed_chaldean_order_across_the_year()
-    -> Result<(), time::error::ComponentRange> {
+    fn period_progresses_through_the_fixed_chaldean_order_across_the_year() -> Result<(), time::error::ComponentRange> {
         let birth_date = date(2000, time::Month::January, 1)?;
         let ephemeris = AstroEphemeris::new();
         let expected: [(u8, RulingPlanet); 7] = [
@@ -1573,18 +1525,14 @@ mod tests {
         for (period_number, planet) in expected {
             let midpoint_days = (f64::from(period_number) - 0.5) * (365.25 / 7.0);
             let offset = time::Duration::seconds_f64(midpoint_days * 86_400.0);
-            let as_of_datetime =
-                time::PrimitiveDateTime::new(birth_date, time::Time::MIDNIGHT) + offset;
+            let as_of_datetime = time::PrimitiveDateTime::new(birth_date, time::Time::MIDNIGHT) + offset;
             let result = ephemeris.personal_year_period(birth_date, as_of_datetime.date(), 2.0);
             assert_eq!(
                 result.period_number, period_number,
                 "at the midpoint of period {period_number}"
             );
             assert_eq!(result.ruling_planet, planet);
-            assert!(
-                !result.transition,
-                "a period's own midpoint is not near a boundary"
-            );
+            assert!(!result.transition, "a period's own midpoint is not near a boundary");
         }
         Ok(())
     }
@@ -1593,7 +1541,7 @@ mod tests {
     /// by age: the same number of days past two different birthdays,
     /// years apart, must report the same period.
     #[test]
-    fn fr_104_the_cycle_recurs_identically_every_year_of_life_not_progressing_by_age()
+    fn the_cycle_recurs_identically_every_year_of_life_not_progressing_by_age()
     -> Result<(), time::error::ComponentRange> {
         let birth_date = date(1985, time::Month::March, 10)?;
         let ephemeris = AstroEphemeris::new();
@@ -1604,19 +1552,13 @@ mod tests {
 
         let this_decade_result = ephemeris.personal_year_period(birth_date, this_decade, 2.0);
         let next_decade_result = ephemeris.personal_year_period(birth_date, next_decade, 2.0);
-        assert_eq!(
-            this_decade_result.period_number,
-            next_decade_result.period_number
-        );
-        assert_eq!(
-            this_decade_result.ruling_planet,
-            next_decade_result.ruling_planet
-        );
+        assert_eq!(this_decade_result.period_number, next_decade_result.period_number);
+        assert_eq!(this_decade_result.ruling_planet, next_decade_result.ruling_planet);
         Ok(())
     }
 
     #[test]
-    fn fr_104_transition_flag_is_set_within_tolerance_of_a_boundary_and_clear_well_inside_a_period()
+    fn transition_flag_is_set_within_tolerance_of_a_boundary_and_clear_well_inside_a_period()
     -> Result<(), time::error::ComponentRange> {
         let birth_date = date(2000, time::Month::January, 1)?;
         let ephemeris = AstroEphemeris::new();
@@ -1632,20 +1574,15 @@ mod tests {
 
         // Day 10 sits comfortably inside period 1, far from either edge.
         let mid_period = birth_date + time::Duration::days(10);
-        assert!(
-            !ephemeris
-                .personal_year_period(birth_date, mid_period, 2.0)
-                .transition
-        );
+        assert!(!ephemeris.personal_year_period(birth_date, mid_period, 2.0).transition);
         Ok(())
     }
 
-    /// `D-21`/`FR-104`: a 29 February birthday has no exact anniversary in
-    /// a non-leap year; observed on 28 February instead, this phase's own
-    /// documented resolution of that ambiguity.
+    /// A 29 February birthday has no exact anniversary in
+    /// a non-leap year; observed on 28 February instead.
     #[test]
-    fn fr_104_a_29_february_birthday_is_observed_on_28_february_in_a_non_leap_year()
-    -> Result<(), time::error::ComponentRange> {
+    fn a_29_february_birthday_is_observed_on_28_february_in_a_non_leap_year() -> Result<(), time::error::ComponentRange>
+    {
         let birth_date = date(2000, time::Month::February, 29)?; // 2000 is a leap year
         let as_of_date = date(2023, time::Month::February, 28)?; // 2023 is not
 
@@ -1656,17 +1593,15 @@ mod tests {
         Ok(())
     }
 
-    /// `D-22`: a single day is simply `start_date == end_date`, no
+    /// A single day is simply `start_date == end_date`, no
     /// separate single-date method. Uses the same Meeus-cited 1977 New
-    /// Moon fixture `FR-101`'s own tests verify (JD 2443192.65118,
+    /// Moon fixture the moon-phase tests verify elsewhere (JD 2443192.65118,
     /// 1977-02-18 ~03:38 UT): querying that exact calendar day should
     /// report it without needing any tolerance extension.
     #[test]
-    fn fr_105_single_day_range_is_the_degenerate_case_start_equals_end()
-    -> Result<(), time::error::ComponentRange> {
+    fn single_day_range_is_the_degenerate_case_start_equals_end() -> Result<(), time::error::ComponentRange> {
         let day = date(1977, time::Month::February, 18)?;
-        let events =
-            AstroEphemeris::new().boundaries(day, day, None, None, BoundariesConfig::default());
+        let events = AstroEphemeris::new().boundaries(day, day, None, None, BoundariesConfig::default());
         let Ok(events) = events else {
             unreachable!("a valid single-day range must not error");
         };
@@ -1688,12 +1623,10 @@ mod tests {
     /// or `birth_date` supplied; the other two categories must then be
     /// entirely absent, not defaulted or errored.
     #[test]
-    fn fr_105_moon_quarters_are_always_included_without_hemisphere_or_birth_date()
-    -> Result<(), time::error::ComponentRange> {
+    fn moon_quarters_are_always_included_without_hemisphere_or_birth_date() -> Result<(), time::error::ComponentRange> {
         let start = date(1977, time::Month::February, 17)?;
         let end = date(1977, time::Month::February, 27)?;
-        let events =
-            AstroEphemeris::new().boundaries(start, end, None, None, BoundariesConfig::default());
+        let events = AstroEphemeris::new().boundaries(start, end, None, None, BoundariesConfig::default());
         let Ok(events) = events else {
             unreachable!("a valid range must not error");
         };
@@ -1702,8 +1635,7 @@ mod tests {
             .iter()
             .filter_map(|event| match event {
                 HorizonEvent::MoonQuarter { phase, .. } => Some(*phase),
-                HorizonEvent::WheelOfYear { .. }
-                | HorizonEvent::PersonalYearPeriodChange { .. } => None,
+                HorizonEvent::WheelOfYear { .. } | HorizonEvent::PersonalYearPeriodChange { .. } => None,
             })
             .collect();
         assert!(
@@ -1731,14 +1663,12 @@ mod tests {
 
     /// Wheel-of-Year points appear only once `hemisphere` is supplied.
     #[test]
-    fn fr_105_wheel_of_year_points_included_only_when_hemisphere_supplied()
-    -> Result<(), time::error::ComponentRange> {
+    fn wheel_of_year_points_included_only_when_hemisphere_supplied() -> Result<(), time::error::ComponentRange> {
         let start = date(2024, time::Month::March, 15)?;
         let end = date(2024, time::Month::March, 25)?;
         let ephemeris = AstroEphemeris::new();
 
-        let without_hemisphere =
-            ephemeris.boundaries(start, end, None, None, BoundariesConfig::default());
+        let without_hemisphere = ephemeris.boundaries(start, end, None, None, BoundariesConfig::default());
         let Ok(without_hemisphere) = without_hemisphere else {
             unreachable!("a valid range must not error");
         };
@@ -1775,15 +1705,14 @@ mod tests {
     /// Personal-year period changes appear only once `birth_date` is
     /// supplied; period 1 always begins exactly at the birthday.
     #[test]
-    fn fr_105_personal_year_period_changes_included_only_when_birth_date_supplied()
-    -> Result<(), time::error::ComponentRange> {
+    fn personal_year_period_changes_included_only_when_birth_date_supplied() -> Result<(), time::error::ComponentRange>
+    {
         let birth_date = date(1990, time::Month::June, 15)?;
         let start = date(2024, time::Month::June, 10)?;
         let end = date(2024, time::Month::June, 20)?;
         let ephemeris = AstroEphemeris::new();
 
-        let without_birth_date =
-            ephemeris.boundaries(start, end, None, None, BoundariesConfig::default());
+        let without_birth_date = ephemeris.boundaries(start, end, None, None, BoundariesConfig::default());
         let Ok(without_birth_date) = without_birth_date else {
             unreachable!("a valid range must not error");
         };
@@ -1793,13 +1722,7 @@ mod tests {
                 .all(|event| !matches!(event, HorizonEvent::PersonalYearPeriodChange { .. })),
         );
 
-        let with_birth_date = ephemeris.boundaries(
-            start,
-            end,
-            Some(birth_date),
-            None,
-            BoundariesConfig::default(),
-        );
+        let with_birth_date = ephemeris.boundaries(start, end, Some(birth_date), None, BoundariesConfig::default());
         let Ok(with_birth_date) = with_birth_date else {
             unreachable!("a valid range must not error");
         };
@@ -1820,8 +1743,7 @@ mod tests {
     /// Events across all three categories, in one call, must come back in
     /// strict chronological order.
     #[test]
-    fn fr_105_events_are_returned_in_chronological_order() -> Result<(), time::error::ComponentRange>
-    {
+    fn events_are_returned_in_chronological_order() -> Result<(), time::error::ComponentRange> {
         let birth_date = date(1990, time::Month::June, 15)?;
         let start = date(2024, time::Month::March, 1)?;
         let end = date(2024, time::Month::April, 1)?;
@@ -1848,23 +1770,17 @@ mod tests {
         Ok(())
     }
 
-    /// `D-22`'s "computed once across the window" claim, checked directly:
+    /// The "computed once across the window" claim, checked directly:
     /// the verified 1977-02-18 ~03:38 UT New Moon is within the default
     /// ±12h `moon_phase_tolerance` of 1977-02-17's own midnight-to-
     /// midnight span end, even though it falls just outside that single
     /// day's strict boundaries. A tolerance-unaware "does the instant fall
     /// strictly within the day" check would miss it entirely.
     #[test]
-    fn fr_105_a_moon_quarter_just_outside_the_strict_range_is_still_reported_within_tolerance()
+    fn a_moon_quarter_just_outside_the_strict_range_is_still_reported_within_tolerance()
     -> Result<(), time::error::ComponentRange> {
         let day_before = date(1977, time::Month::February, 17)?;
-        let events = AstroEphemeris::new().boundaries(
-            day_before,
-            day_before,
-            None,
-            None,
-            BoundariesConfig::default(),
-        );
+        let events = AstroEphemeris::new().boundaries(day_before, day_before, None, None, BoundariesConfig::default());
         let Ok(events) = events else {
             unreachable!("a valid single-day range must not error");
         };
@@ -1884,7 +1800,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_105_an_inverted_date_range_is_a_typed_error() -> Result<(), time::error::ComponentRange> {
+    fn an_inverted_date_range_is_a_typed_error() -> Result<(), time::error::ComponentRange> {
         let start = date(2024, time::Month::June, 20)?;
         let end = date(2024, time::Month::June, 10)?;
         assert_eq!(

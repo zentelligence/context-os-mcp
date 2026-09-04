@@ -26,26 +26,25 @@ pub use chunk::{Chunk, ChunkSource, chunk_document, estimate_tokens};
 pub use document::{DocumentSource, IndexedDocument};
 pub use embedding::{EmbeddingProviderConfig, EmbedsText};
 pub use embedding_worker::{
-    EmbeddingWorker, EmbeddingWorkerConfig, EmbeddingWorkerStatus, FilesystemChunkSource,
-    PathEmbeddingOutcome, ReadsChunkSource,
+    EmbeddingWorker, EmbeddingWorkerConfig, EmbeddingWorkerStatus, FilesystemChunkSource, PathEmbeddingOutcome,
+    ReadsChunkSource,
 };
 pub use error::SearchError;
 pub use fake_embedder::FakeEmbedder;
 #[cfg(feature = "semantic-local")]
 pub use fastembed_embedder::{FastembedLocal, REQUIRED_MODEL_FILES};
 pub use graph::{
-    CatchUpKind, GraphBackend, GraphDirection, GraphEdge, GraphEdgeKind, GraphNode, GraphView,
-    LinkGraph, LinkGraphConfig, SyncStatus,
+    CatchUpKind, GraphBackend, GraphDirection, GraphEdge, GraphEdgeKind, GraphNode, GraphView, LinkGraph,
+    LinkGraphConfig, SyncStatus,
 };
 pub use openai_embedder::{OpenAiCompatible, OpenAiCompatibleConfig};
 pub use service::{
-    GraphIndexStatus, GraphRebuildReport, IndexStatusReport, RebuildProgress, RebuildReport,
-    RebuildTarget, SemanticConfig, SemanticHit, SemanticIndexStatus, SemanticQuery,
-    SemanticRebuildReport, TextIndexStatus, VaultSearchConfig, VaultSearchService,
+    GraphIndexStatus, GraphRebuildReport, IndexStatusReport, RebuildProgress, RebuildReport, RebuildTarget,
+    SemanticConfig, SemanticHit, SemanticIndexStatus, SemanticQuery, SemanticRebuildReport, TextIndexStatus,
+    VaultSearchConfig, VaultSearchService,
 };
 pub use sync::{FreshnessReport, TextSearchService, TextSyncConfig, is_markdown};
 pub use text::{IndexesText, TantivyIndex, TextHit, TextIndexConfig, TextQuery};
 pub use vector_store::{
-    SimilarityHit, SimilarityQuery, SqliteVecConfig, SqliteVecStore, StoresVectors, VectorRecord,
-    VectorStoreStats,
+    SimilarityHit, SimilarityQuery, SqliteVecConfig, SqliteVecStore, StoresVectors, VectorRecord, VectorStoreStats,
 };

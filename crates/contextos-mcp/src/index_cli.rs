@@ -19,9 +19,7 @@ impl IndexReport {
     /// Reports whether any vault requires operator action.
     #[must_use]
     pub fn has_failures(&self) -> bool {
-        self.checks
-            .iter()
-            .any(|check| check.status == IndexStatus::Fail)
+        self.checks.iter().any(|check| check.status == IndexStatus::Fail)
     }
 }
 
@@ -45,21 +43,21 @@ impl TryFrom<&Config> for IndexReport {
             }
 
             let root_id = VaultRootId::try_from(index)?;
-            let state_directory = match crate::state_dir::resolve_state_directory(
-                vault.state_directory.as_deref(),
-                root.path(),
-            ) {
-                Ok(state_directory) => state_directory,
-                Err(error) => {
-                    checks.push(IndexCheck {
-                        subject: format!("Vault {}", root.path().display()),
-                        status: IndexStatus::Fail,
-                        message: error.to_string(),
-                        action: Some("Set [[vault]] state_directory explicitly, and rerun `contextos index`.".to_owned()),
-                    });
-                    continue;
-                }
-            };
+            let state_directory =
+                match crate::state_dir::resolve_state_directory(vault.state_directory.as_deref(), root.path()) {
+                    Ok(state_directory) => state_directory,
+                    Err(error) => {
+                        checks.push(IndexCheck {
+                            subject: format!("Vault {}", root.path().display()),
+                            status: IndexStatus::Fail,
+                            message: error.to_string(),
+                            action: Some(
+                                "Set [[vault]] state_directory explicitly, and rerun `contextos index`.".to_owned(),
+                            ),
+                        });
+                        continue;
+                    }
+                };
             let service = semantic_config(vault, &state_directory).and_then(|semantic| {
                 VaultSearchService::try_from(VaultSearchConfig {
                     root_id,
@@ -79,10 +77,7 @@ impl TryFrom<&Config> for IndexReport {
                         subject: format!("Vault {}", root.path().display()),
                         status: IndexStatus::Fail,
                         message: error.to_string(),
-                        action: Some(
-                            "Correct the vault.search configuration, and rerun `contextos index`."
-                                .to_owned(),
-                        ),
+                        action: Some("Correct the vault.search configuration, and rerun `contextos index`.".to_owned()),
                     });
                     continue;
                 }
@@ -136,9 +131,7 @@ fn rebuild_check(root: &contextos_core::VaultRoot, service: &VaultSearchService)
             subject: format!("Vault {}", root.path().display()),
             status: IndexStatus::Fail,
             message: error.to_string(),
-            action: Some(
-                "Resolve the reported index error, and rerun `contextos index`.".to_owned(),
-            ),
+            action: Some("Resolve the reported index error, and rerun `contextos index`.".to_owned()),
         },
     }
 }
@@ -147,11 +140,7 @@ impl Display for IndexReport {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         writeln!(formatter, "ContextOS MCP index")?;
         for check in &self.checks {
-            writeln!(
-                formatter,
-                "{} | {} | {}",
-                check.subject, check.status, check.message
-            )?;
+            writeln!(formatter, "{} | {} | {}", check.subject, check.status, check.message)?;
             if let Some(action) = &check.action {
                 writeln!(formatter, "  Action: {action}")?;
             }

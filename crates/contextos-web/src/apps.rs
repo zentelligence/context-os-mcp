@@ -1,11 +1,11 @@
-//! App registration and manifest parsing (`web-apps.md`, FR-230 to FR-232):
+//! App registration and manifest parsing (`web-apps.md`):
 //! `registry/apps/{{slug}}/manifest.toml` discovery and validation.
 //!
 //! Every step here is an MCP tool call against an already-connected
 //! [`McpClient`] (`fs_list_directory`, `fs_read_text_file`,
-//! `fs_get_file_info`), never a direct filesystem read (FR-201, D-W03):
-//! app manifests live inside a vault, so discovering them is a vault
-//! operation like any other.
+//! `fs_get_file_info`), never a direct filesystem read: app manifests
+//! live inside a vault, so discovering them is a vault operation like any
+//! other.
 
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -13,7 +13,7 @@ use serde_json::{Map, Value};
 use crate::mcp_client::{McpCallError, McpClient};
 
 /// `manifest.toml`'s `kind` field (`web-apps.md` §2). `Htmx` is accepted by
-/// the schema now but not served until stage 2 (`FR-233a`, `D-W06`).
+/// the schema now but not served until a later stage.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum AppKind {
@@ -30,16 +30,16 @@ pub enum AppTarget {
     Embed,
 }
 
-/// Whether `contextos-web` v1 actually serves a registered app (`FR-233`)
-/// or merely lists it (`FR-233a`).
+/// Whether `contextos-web` v1 actually serves a registered app or merely
+/// lists it.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AppStatus {
     Supported,
     NotYetSupported,
 }
 
-/// One successfully validated app, ready to list (`FR-234`) and, if
-/// [`AppStatus::Supported`], serve (`FR-233`).
+/// One successfully validated app, ready to list and, if
+/// [`AppStatus::Supported`], serve.
 #[derive(Clone, Debug)]
 pub struct RegisteredApp {
     pub slug: String,
@@ -94,25 +94,20 @@ struct ReadTextResult {
 /// fails.
 pub async fn vault_exists(client: &McpClient, vault_name: &str) -> Result<bool, McpCallError> {
     let mut args = Map::new();
-    args.insert(
-        "path".to_owned(),
-        Value::String(format!("{vault_name}://.")),
-    );
-    let result = client
-        .call_tool("fs_get_file_info".to_owned(), args)
-        .await?;
+    args.insert("path".to_owned(), Value::String(format!("{vault_name}://.")));
+    let result = client.call_tool("fs_get_file_info".to_owned(), args).await?;
     Ok(result.is_error != Some(true))
 }
 
 /// Discovers and validates every app under `vault_name`'s
-/// `registry/apps/` (`FR-230` to `FR-232`).
+/// `registry/apps/`.
 ///
 /// A directory with no `manifest.toml`, a manifest failing schema
 /// validation, or one naming an `mcp_servers` entry absent from
 /// `known_mcp_servers` fails registration for that app specifically (a
 /// `tracing::warn!` diagnostic naming the app and the violation) without
-/// affecting any other app's registration (`FR-232`). `registry/apps/`
-/// itself not existing yet is not an error: it simply yields no apps.
+/// affecting any other app's registration. `registry/apps/` itself not
+/// existing yet is not an error: it simply yields no apps.
 ///
 /// # Errors
 ///
@@ -152,18 +147,13 @@ pub async fn discover_apps(
     Ok(apps)
 }
 
-async fn list_app_directories(
-    client: &McpClient,
-    vault_name: &str,
-) -> Result<Vec<String>, McpCallError> {
+async fn list_app_directories(client: &McpClient, vault_name: &str) -> Result<Vec<String>, McpCallError> {
     let mut args = Map::new();
     args.insert(
         "path".to_owned(),
         Value::String(format!("{vault_name}://registry/apps")),
     );
-    let result = client
-        .call_tool("fs_list_directory".to_owned(), args)
-        .await?;
+    let result = client.call_tool("fs_list_directory".to_owned(), args).await?;
     if result.is_error == Some(true) {
         return Ok(Vec::new());
     }
@@ -193,13 +183,9 @@ async fn load_app(
     let mut args = Map::new();
     args.insert(
         "path".to_owned(),
-        Value::String(format!(
-            "{vault_name}://registry/apps/{dir_name}/manifest.toml"
-        )),
+        Value::String(format!("{vault_name}://registry/apps/{dir_name}/manifest.toml")),
     );
-    let result = client
-        .call_tool("fs_read_text_file".to_owned(), args)
-        .await?;
+    let result = client.call_tool("fs_read_text_file".to_owned(), args).await?;
     if result.is_error == Some(true) {
         return Ok(LoadOutcome::NoManifest);
     }
@@ -256,20 +242,13 @@ async fn load_app(
     }))
 }
 
-async fn entry_exists(
-    client: &McpClient,
-    vault_name: &str,
-    dir_name: &str,
-    entry: &str,
-) -> Result<bool, McpCallError> {
+async fn entry_exists(client: &McpClient, vault_name: &str, dir_name: &str, entry: &str) -> Result<bool, McpCallError> {
     let mut args = Map::new();
     args.insert(
         "path".to_owned(),
         Value::String(format!("{vault_name}://registry/apps/{dir_name}/{entry}")),
     );
-    let result = client
-        .call_tool("fs_get_file_info".to_owned(), args)
-        .await?;
+    let result = client.call_tool("fs_get_file_info".to_owned(), args).await?;
     Ok(result.is_error != Some(true))
 }
 

@@ -50,12 +50,7 @@ fn a_stdio_mcp_server_entry_parses_command_and_args() -> Result<(), Box<dyn std:
 
     let config = load_web_config(&path)?;
 
-    let McpServerConfig::Stdio {
-        name,
-        command,
-        args,
-    } = &config.mcp_servers[0]
-    else {
+    let McpServerConfig::Stdio { name, command, args } = &config.mcp_servers[0] else {
         return Err("expected a stdio entry".into());
     };
     assert_eq!(name, "contextos");
@@ -65,8 +60,7 @@ fn a_stdio_mcp_server_entry_parses_command_and_args() -> Result<(), Box<dyn std:
 }
 
 #[test]
-fn an_http_mcp_server_entry_parses_endpoint_and_token_env() -> Result<(), Box<dyn std::error::Error>>
-{
+fn an_http_mcp_server_entry_parses_endpoint_and_token_env() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempdir()?;
     let path = write(
         dir.path(),
@@ -126,10 +120,7 @@ fn an_unknown_top_level_key_is_a_hard_error() -> Result<(), Box<dyn std::error::
 #[test]
 fn a_non_loopback_bind_is_rejected() {
     let result = validate_loopback_bind("0.0.0.0:7332");
-    assert!(matches!(
-        result,
-        Err(WebConfigError::NonLoopbackBind { .. })
-    ));
+    assert!(matches!(result, Err(WebConfigError::NonLoopbackBind { .. })));
 }
 
 #[test]
@@ -142,10 +133,7 @@ fn a_loopback_bind_is_accepted() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn an_unparseable_bind_is_rejected() {
     let result = validate_loopback_bind("not-a-socket-address");
-    assert!(matches!(
-        result,
-        Err(WebConfigError::InvalidBindAddress { .. })
-    ));
+    assert!(matches!(result, Err(WebConfigError::InvalidBindAddress { .. })));
 }
 
 #[test]
@@ -167,16 +155,12 @@ fn a_web_toml_with_a_non_loopback_bind_fails_to_load() -> Result<(), Box<dyn std
 
     let result = load_web_config(&path);
 
-    assert!(matches!(
-        result,
-        Err(WebConfigError::NonLoopbackBind { .. })
-    ));
+    assert!(matches!(result, Err(WebConfigError::NonLoopbackBind { .. })));
     Ok(())
 }
 
 #[test]
-fn duplicate_mcp_server_names_are_rejected_case_insensitively()
--> Result<(), Box<dyn std::error::Error>> {
+fn duplicate_mcp_server_names_are_rejected_case_insensitively() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempdir()?;
     let path = write(
         dir.path(),
@@ -196,10 +180,7 @@ fn duplicate_mcp_server_names_are_rejected_case_insensitively()
 
     let result = load_web_config(&path);
 
-    assert!(matches!(
-        result,
-        Err(WebConfigError::DuplicateMcpServerName { .. })
-    ));
+    assert!(matches!(result, Err(WebConfigError::DuplicateMcpServerName { .. })));
     Ok(())
 }
 
@@ -211,8 +192,7 @@ fn a_missing_web_toml_file_is_a_clear_read_error() {
 }
 
 #[test]
-fn load_vault_set_agrees_with_contextos_mcps_own_vault_set()
--> Result<(), Box<dyn std::error::Error>> {
+fn load_vault_set_agrees_with_contextos_mcps_own_vault_set() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempdir()?;
     let vault_a = dir.path().join("vault-a");
     let vault_b = dir.path().join("vault-b");
@@ -263,8 +243,7 @@ fn load_vault_set_rejects_a_config_with_no_vaults() -> Result<(), Box<dyn std::e
 }
 
 #[test]
-fn current_appearance_reads_theme_font_and_size_from_server_ui()
--> Result<(), Box<dyn std::error::Error>> {
+fn current_appearance_reads_theme_font_and_size_from_server_ui() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempdir()?;
     let path = write(
         dir.path(),
@@ -298,8 +277,7 @@ fn current_appearance_degrades_to_default_when_web_toml_is_unreadable() {
 }
 
 #[test]
-fn current_appearance_is_empty_when_no_server_ui_table_is_present()
--> Result<(), Box<dyn std::error::Error>> {
+fn current_appearance_is_empty_when_no_server_ui_table_is_present() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempdir()?;
     let path = write(dir.path(), "web.toml", "")?;
 

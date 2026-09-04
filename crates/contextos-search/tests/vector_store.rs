@@ -1,4 +1,4 @@
-//! FR-53, D-04: `SqliteVecStore` CRUD, similarity ranking, and persistence.
+//! `SqliteVecStore` CRUD, similarity ranking, and persistence.
 //!
 //! Test vectors are deliberately orthogonal or parallel so the expected
 //! cosine-distance ranking is unambiguous (module docs on
@@ -9,9 +9,7 @@
 use std::error::Error;
 
 use contextos_core::ContentHash;
-use contextos_search::{
-    SearchError, SimilarityQuery, SqliteVecConfig, SqliteVecStore, StoresVectors, VectorRecord,
-};
+use contextos_search::{SearchError, SimilarityQuery, SqliteVecConfig, SqliteVecStore, StoresVectors, VectorRecord};
 use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
 use tempfile::tempdir;
@@ -117,8 +115,7 @@ fn similar_ranks_by_cosine_distance_not_insertion_order() -> Result<(), Box<dyn 
 }
 
 #[test]
-fn upsert_of_existing_path_and_ordinal_replaces_rather_than_duplicates()
--> Result<(), Box<dyn Error>> {
+fn upsert_of_existing_path_and_ordinal_replaces_rather_than_duplicates() -> Result<(), Box<dyn Error>> {
     let (store, _directory) = store(4)?;
     let first = VectorRecord {
         path: "a/one.md",
@@ -198,8 +195,7 @@ fn delete_removes_only_the_given_paths_chunks() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn prune_ordinals_at_or_beyond_removes_only_trailing_ordinals_for_the_given_path()
--> Result<(), Box<dyn Error>> {
+fn prune_ordinals_at_or_beyond_removes_only_trailing_ordinals_for_the_given_path() -> Result<(), Box<dyn Error>> {
     let (store, _directory) = store(4)?;
     let (hash1, hash2, hash3, hash4) = (hash(1), hash(2), hash(3), hash(4));
     store.upsert(&[
@@ -245,8 +241,7 @@ fn prune_ordinals_at_or_beyond_removes_only_trailing_ordinals_for_the_given_path
 }
 
 #[test]
-fn prune_ordinals_at_or_beyond_a_path_with_no_stored_chunks_is_not_an_error()
--> Result<(), Box<dyn Error>> {
+fn prune_ordinals_at_or_beyond_a_path_with_no_stored_chunks_is_not_an_error() -> Result<(), Box<dyn Error>> {
     let (store, _directory) = store(4)?;
     store.prune_ordinals_at_or_beyond("missing.md", 0)?;
     Ok(())
@@ -304,7 +299,7 @@ fn path_prefix_filters_similar_results_to_matching_segments() -> Result<(), Box<
 }
 
 #[test]
-fn fr_116_exclude_paths_filters_out_matching_segments() -> Result<(), Box<dyn Error>> {
+fn exclude_paths_filters_out_matching_segments() -> Result<(), Box<dyn Error>> {
     let (store, _directory) = store(4)?;
     let (hash1, hash2, hash3, hash4) = (hash(1), hash(2), hash(3), hash(4));
     let records = vec![
@@ -355,7 +350,7 @@ fn fr_116_exclude_paths_filters_out_matching_segments() -> Result<(), Box<dyn Er
 }
 
 #[test]
-fn fr_116_exclude_paths_composes_with_path_prefix() -> Result<(), Box<dyn Error>> {
+fn exclude_paths_composes_with_path_prefix() -> Result<(), Box<dyn Error>> {
     let (store, _directory) = store(4)?;
     let (hash1, hash2) = (hash(1), hash(2));
     let records = vec![
@@ -467,8 +462,7 @@ fn data_persists_across_store_close_and_reopen() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn two_stores_in_one_process_both_work_after_extension_registration() -> Result<(), Box<dyn Error>>
-{
+fn two_stores_in_one_process_both_work_after_extension_registration() -> Result<(), Box<dyn Error>> {
     let (first, _first_dir) = store(3)?;
     let (second, _second_dir) = store(3)?;
 

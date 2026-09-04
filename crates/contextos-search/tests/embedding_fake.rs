@@ -1,4 +1,4 @@
-//! FR-54: `FakeEmbedder`, the deterministic in-repo stand-in for a real
+//! `FakeEmbedder`, the deterministic in-repo stand-in for a real
 //! embedding provider, used above this layer wherever a test only needs
 //! *a* provider (chunk-to-vector plumbing, a vector store, `query_semantic`
 //! in later stages).
@@ -13,20 +13,13 @@ fn chunks_for(
     content: &str,
 ) -> Result<Vec<Chunk>, Box<dyn std::error::Error>> {
     let (_roots, path) = vault_note(vault, relative, content)?;
-    Ok(chunk_document(ChunkSource {
-        path: &path,
-        content,
-    }))
+    Ok(chunk_document(ChunkSource { path: &path, content }))
 }
 
 #[test]
-fn fr_54_fake_embedder_is_deterministic_across_calls() -> Result<(), Box<dyn std::error::Error>> {
+fn fake_embedder_is_deterministic_across_calls() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
-    let chunks = chunks_for(
-        &vault,
-        "note.md",
-        "Some prose about ContextOS embeddings.\n",
-    )?;
+    let chunks = chunks_for(&vault, "note.md", "Some prose about ContextOS embeddings.\n")?;
     let embedder = FakeEmbedder::default();
 
     let first = embedder.embed(&chunks)?;
@@ -37,14 +30,9 @@ fn fr_54_fake_embedder_is_deterministic_across_calls() -> Result<(), Box<dyn std
 }
 
 #[test]
-fn fr_54_fake_embedder_is_deterministic_across_fresh_instances()
--> Result<(), Box<dyn std::error::Error>> {
+fn fake_embedder_is_deterministic_across_fresh_instances() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
-    let chunks = chunks_for(
-        &vault,
-        "note.md",
-        "Some prose about ContextOS embeddings.\n",
-    )?;
+    let chunks = chunks_for(&vault, "note.md", "Some prose about ContextOS embeddings.\n")?;
 
     let from_first_instance = FakeEmbedder::default().embed(&chunks)?;
     let from_second_instance = FakeEmbedder::default().embed(&chunks)?;
@@ -54,7 +42,7 @@ fn fr_54_fake_embedder_is_deterministic_across_fresh_instances()
 }
 
 #[test]
-fn fr_54_fake_embedder_distinguishes_different_text() -> Result<(), Box<dyn std::error::Error>> {
+fn fake_embedder_distinguishes_different_text() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let first_chunks = chunks_for(&vault, "one.md", "The quick brown fox.\n")?;
     let second_chunks = chunks_for(&vault, "two.md", "An entirely different sentence.\n")?;
@@ -68,8 +56,7 @@ fn fr_54_fake_embedder_distinguishes_different_text() -> Result<(), Box<dyn std:
 }
 
 #[test]
-fn fr_54_fake_embedder_every_vector_matches_reported_dimension()
--> Result<(), Box<dyn std::error::Error>> {
+fn fake_embedder_every_vector_matches_reported_dimension() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "# One\n\nFirst section prose.\n\n# Two\n\nSecond section prose.\n";
     let chunks = chunks_for(&vault, "sections.md", content)?;
@@ -86,8 +73,7 @@ fn fr_54_fake_embedder_every_vector_matches_reported_dimension()
 }
 
 #[test]
-fn fr_54_fake_embedder_empty_input_yields_empty_output_without_error()
--> Result<(), Box<dyn std::error::Error>> {
+fn fake_embedder_empty_input_yields_empty_output_without_error() -> Result<(), Box<dyn std::error::Error>> {
     let embedder = FakeEmbedder::default();
 
     let vectors = embedder.embed(&[])?;

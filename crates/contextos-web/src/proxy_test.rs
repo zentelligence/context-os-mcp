@@ -39,8 +39,7 @@ async fn an_unconfigured_server_name_is_a_404() -> Result<(), Box<dyn std::error
 }
 
 #[tokio::test]
-async fn a_malformed_json_body_is_a_400_before_any_server_lookup()
--> Result<(), Box<dyn std::error::Error>> {
+async fn a_malformed_json_body_is_a_400_before_any_server_lookup() -> Result<(), Box<dyn std::error::Error>> {
     let router = router_with_no_configured_servers().await?;
 
     let response = router
@@ -79,8 +78,7 @@ async fn a_json_body_that_is_not_an_object_is_a_400() -> Result<(), Box<dyn std:
 }
 
 #[tokio::test]
-async fn an_empty_body_is_treated_as_no_arguments_not_malformed()
--> Result<(), Box<dyn std::error::Error>> {
+async fn an_empty_body_is_treated_as_no_arguments_not_malformed() -> Result<(), Box<dyn std::error::Error>> {
     let router = router_with_no_configured_servers().await?;
 
     let response = router

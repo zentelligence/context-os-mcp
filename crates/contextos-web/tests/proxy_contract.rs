@@ -1,8 +1,8 @@
-//! FR-210 to FR-213: `POST /mcp/{server_name}/{tool_name}` against a real
+//! `POST /mcp/{server_name}/{tool_name}` against a real
 //! `contextos-mcp` stdio session. Covers success, an MCP-level tool error
 //! (still `200`), an unconfigured `server_name` (`404`), and a killed
-//! `contextos-mcp` process mid-session (`502`, NFR-W05), the delivery-plan
-//! Phase 14 gate's own enumeration of this contract test's required cases.
+//! `contextos-mcp` process mid-session (`502`), the required cases for a
+//! proxy that must never hang or silently swallow a downstream failure.
 
 mod support;
 

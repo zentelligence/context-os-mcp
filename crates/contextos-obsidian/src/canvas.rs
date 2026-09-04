@@ -65,12 +65,10 @@ impl TryFrom<&str> for CanvasDocument {
 
     fn try_from(source: &str) -> Result<Self, Self::Error> {
         let mut definition =
-            serde_json::from_str::<Map<String, Value>>(source).map_err(|source| {
-                CanvasError::InvalidJson {
-                    line: source.line(),
-                    column: source.column(),
-                    source,
-                }
+            serde_json::from_str::<Map<String, Value>>(source).map_err(|source| CanvasError::InvalidJson {
+                line: source.line(),
+                column: source.column(),
+                source,
             })?;
         let nodes = definition
             .shift_remove("nodes")
@@ -136,8 +134,8 @@ impl TryFrom<&CanvasDocument> for String {
         let mut definition = value.extensions.clone();
         definition.insert("nodes".to_owned(), Value::Array(value.nodes.clone()));
         definition.insert("edges".to_owned(), Value::Array(value.edges.clone()));
-        let mut rendered = serde_json::to_string_pretty(&definition)
-            .map_err(|source| CanvasError::Serialise { source })?;
+        let mut rendered =
+            serde_json::to_string_pretty(&definition).map_err(|source| CanvasError::Serialise { source })?;
         rendered.push('\n');
         Ok(rendered)
     }
@@ -165,11 +163,7 @@ impl CanvasDocument {
         for (index, node) in self.nodes.iter().enumerate() {
             let path = format!("nodes[{index}]");
             validate_node(node, &path, &mut diagnostics);
-            if let Some(id) = node
-                .as_object()
-                .and_then(|node| node.get("id"))
-                .and_then(Value::as_str)
-            {
+            if let Some(id) = node.as_object().and_then(|node| node.get("id")).and_then(Value::as_str) {
                 node_ids.insert(id);
                 if !all_ids.insert(id) {
                     push_diagnostic(
@@ -229,11 +223,7 @@ impl CanvasDocument {
         Ok(())
     }
 
-    fn apply_operation(
-        &mut self,
-        operation: CanvasOperation,
-        index: usize,
-    ) -> Result<(), CanvasError> {
+    fn apply_operation(&mut self, operation: CanvasOperation, index: usize) -> Result<(), CanvasError> {
         match operation {
             CanvasOperation::AddNode { mut node } => {
                 let has_x = node.contains_key("x");
@@ -256,9 +246,8 @@ impl CanvasDocument {
                 self.nodes.push(Value::Object(node));
             }
             CanvasOperation::UpdateNode { id, patch } => {
-                let node = object_by_id_mut(&mut self.nodes, &id).ok_or_else(|| {
-                    CanvasError::from((index, format!("nodes.{id}"), "node does not exist"))
-                })?;
+                let node = object_by_id_mut(&mut self.nodes, &id)
+                    .ok_or_else(|| CanvasError::from((index, format!("nodes.{id}"), "node does not exist")))?;
                 if patch.contains_key("id") {
                     return Err(CanvasError::from((
                         index,
@@ -271,11 +260,7 @@ impl CanvasDocument {
             }
             CanvasOperation::RemoveNode { id } => {
                 let Some(position) = value_index_by_id(&self.nodes, &id) else {
-                    return Err(CanvasError::from((
-                        index,
-                        format!("nodes.{id}"),
-                        "node does not exist",
-                    )));
+                    return Err(CanvasError::from((index, format!("nodes.{id}"), "node does not exist")));
                 };
                 self.nodes.remove(position);
                 self.edges.retain(|edge| {
@@ -290,9 +275,8 @@ impl CanvasDocument {
                 self.edges.push(Value::Object(edge));
             }
             CanvasOperation::UpdateEdge { id, patch } => {
-                let edge = object_by_id_mut(&mut self.edges, &id).ok_or_else(|| {
-                    CanvasError::from((index, format!("edges.{id}"), "edge does not exist"))
-                })?;
+                let edge = object_by_id_mut(&mut self.edges, &id)
+                    .ok_or_else(|| CanvasError::from((index, format!("edges.{id}"), "edge does not exist")))?;
                 if patch.contains_key("id") {
                     return Err(CanvasError::from((
                         index,
@@ -305,11 +289,7 @@ impl CanvasDocument {
             }
             CanvasOperation::RemoveEdge { id } => {
                 let Some(position) = value_index_by_id(&self.edges, &id) else {
-                    return Err(CanvasError::from((
-                        index,
-                        format!("edges.{id}"),
-                        "edge does not exist",
-                    )));
+                    return Err(CanvasError::from((index, format!("edges.{id}"), "edge does not exist")));
                 };
                 self.edges.remove(position);
             }
@@ -320,12 +300,7 @@ impl CanvasDocument {
         Ok(())
     }
 
-    fn group(
-        &mut self,
-        group: &mut Map<String, Value>,
-        members: &[String],
-        index: usize,
-    ) -> Result<(), CanvasError> {
+    fn group(&mut self, group: &mut Map<String, Value>, members: &[String], index: usize) -> Result<(), CanvasError> {
         if members.is_empty() {
             return Err(CanvasError::from((
                 index,
@@ -360,11 +335,7 @@ impl CanvasDocument {
                 )));
             };
             bounds.push(NodeBounds::try_from(node).map_err(|CanvasBoundsError| {
-                CanvasError::from((
-                    index,
-                    format!("nodes.{id}"),
-                    "group member must have integer geometry",
-                ))
+                CanvasError::from((index, format!("nodes.{id}"), "group member must have integer geometry"))
             })?);
         }
         let left = bounds.iter().map(|bounds| bounds.left).min().unwrap_or(0);
@@ -372,14 +343,8 @@ impl CanvasDocument {
         let right = bounds.iter().map(|bounds| bounds.right).max().unwrap_or(0);
         let bottom = bounds.iter().map(|bounds| bounds.bottom).max().unwrap_or(0);
         group.insert("type".to_owned(), Value::String("group".to_owned()));
-        group.insert(
-            "x".to_owned(),
-            Value::from(left.saturating_sub(GROUP_PADDING)),
-        );
-        group.insert(
-            "y".to_owned(),
-            Value::from(top.saturating_sub(GROUP_PADDING)),
-        );
+        group.insert("x".to_owned(), Value::from(left.saturating_sub(GROUP_PADDING)));
+        group.insert("y".to_owned(), Value::from(top.saturating_sub(GROUP_PADDING)));
         group.insert(
             "width".to_owned(),
             Value::from(
@@ -429,20 +394,10 @@ fn validate_node(value: &Value, path: &str, diagnostics: &mut Vec<CanvasDiagnost
     };
     validate_non_empty_string(node.get("id"), &format!("{path}.id"), diagnostics);
     for field in ["x", "y"] {
-        validate_integer(
-            node.get(field),
-            &format!("{path}.{field}"),
-            false,
-            diagnostics,
-        );
+        validate_integer(node.get(field), &format!("{path}.{field}"), false, diagnostics);
     }
     for field in ["width", "height"] {
-        validate_integer(
-            node.get(field),
-            &format!("{path}.{field}"),
-            true,
-            diagnostics,
-        );
+        validate_integer(node.get(field), &format!("{path}.{field}"), true, diagnostics);
     }
     validate_color(node.get("color"), &format!("{path}.color"), diagnostics);
     match node.get("type").and_then(Value::as_str) {
@@ -451,9 +406,10 @@ fn validate_node(value: &Value, path: &str, diagnostics: &mut Vec<CanvasDiagnost
         }
         Some("file") => {
             validate_non_empty_string(node.get("file"), &format!("{path}.file"), diagnostics);
-            if node.get("subpath").is_some_and(|subpath| {
-                !subpath.as_str().is_some_and(|value| value.starts_with('#'))
-            }) {
+            if node
+                .get("subpath")
+                .is_some_and(|subpath| !subpath.as_str().is_some_and(|value| value.starts_with('#')))
+            {
                 push_diagnostic(
                     diagnostics,
                     "canvas/schema",
@@ -554,27 +510,13 @@ fn validate_string(value: Option<&Value>, path: &str, diagnostics: &mut Vec<Canv
     }
 }
 
-fn validate_non_empty_string(
-    value: Option<&Value>,
-    path: &str,
-    diagnostics: &mut Vec<CanvasDiagnostic>,
-) {
+fn validate_non_empty_string(value: Option<&Value>, path: &str, diagnostics: &mut Vec<CanvasDiagnostic>) {
     if value.and_then(Value::as_str).is_none_or(str::is_empty) {
-        push_diagnostic(
-            diagnostics,
-            "canvas/schema",
-            path,
-            "value must be a non-empty string",
-        );
+        push_diagnostic(diagnostics, "canvas/schema", path, "value must be a non-empty string");
     }
 }
 
-fn validate_integer(
-    value: Option<&Value>,
-    path: &str,
-    positive: bool,
-    diagnostics: &mut Vec<CanvasDiagnostic>,
-) {
+fn validate_integer(value: Option<&Value>, path: &str, positive: bool, diagnostics: &mut Vec<CanvasDiagnostic>) {
     if !value
         .and_then(Value::as_i64)
         .is_some_and(|value| !positive || value > 0)
@@ -598,9 +540,9 @@ fn validate_color(value: Option<&Value>, path: &str, diagnostics: &mut Vec<Canva
     };
     let valid = value.as_str().is_some_and(|colour| {
         matches!(colour, "1" | "2" | "3" | "4" | "5" | "6")
-            || colour.strip_prefix('#').is_some_and(|hex| {
-                hex.len() == 6 && hex.chars().all(|character| character.is_ascii_hexdigit())
-            })
+            || colour
+                .strip_prefix('#')
+                .is_some_and(|hex| hex.len() == 6 && hex.chars().all(|character| character.is_ascii_hexdigit()))
     });
     if !valid {
         push_diagnostic(
@@ -641,9 +583,7 @@ fn ensure_generated_id(
             object.insert("id".to_owned(), Value::String(String::from(id)));
             return Ok(());
         }
-        nonce = nonce
-            .checked_add(1)
-            .ok_or(CanvasError::IdentifierGeneration)?;
+        nonce = nonce.checked_add(1).ok_or(CanvasError::IdentifierGeneration)?;
     }
 }
 
@@ -660,8 +600,7 @@ impl TryFrom<CanvasIdInput<'_>> for CanvasId {
     type Error = CanvasError;
 
     fn try_from(value: CanvasIdInput<'_>) -> Result<Self, Self::Error> {
-        let bytes =
-            serde_json::to_vec(value.object).map_err(|source| CanvasError::Serialise { source })?;
+        let bytes = serde_json::to_vec(value.object).map_err(|source| CanvasError::Serialise { source })?;
         let mut digest = Sha256::new();
         digest.update(value.namespace.as_bytes());
         digest.update(value.ordinal.to_le_bytes());
@@ -718,22 +657,10 @@ impl TryFrom<&Map<String, Value>> for NodeBounds {
     type Error = CanvasBoundsError;
 
     fn try_from(node: &Map<String, Value>) -> Result<Self, Self::Error> {
-        let left = node
-            .get("x")
-            .and_then(Value::as_i64)
-            .ok_or(CanvasBoundsError)?;
-        let top = node
-            .get("y")
-            .and_then(Value::as_i64)
-            .ok_or(CanvasBoundsError)?;
-        let width = node
-            .get("width")
-            .and_then(Value::as_i64)
-            .ok_or(CanvasBoundsError)?;
-        let height = node
-            .get("height")
-            .and_then(Value::as_i64)
-            .ok_or(CanvasBoundsError)?;
+        let left = node.get("x").and_then(Value::as_i64).ok_or(CanvasBoundsError)?;
+        let top = node.get("y").and_then(Value::as_i64).ok_or(CanvasBoundsError)?;
+        let width = node.get("width").and_then(Value::as_i64).ok_or(CanvasBoundsError)?;
+        let height = node.get("height").and_then(Value::as_i64).ok_or(CanvasBoundsError)?;
         Ok(Self {
             left,
             top,
@@ -750,9 +677,7 @@ fn merge_patch(target: &mut Map<String, Value>, patch: Map<String, Value>) {
                 target.shift_remove(&key);
             }
             Value::Object(nested_patch) => {
-                let nested = target
-                    .entry(key)
-                    .or_insert_with(|| Value::Object(Map::new()));
+                let nested = target.entry(key).or_insert_with(|| Value::Object(Map::new()));
                 if !nested.is_object() {
                     *nested = Value::Object(Map::new());
                 }

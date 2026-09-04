@@ -5,12 +5,12 @@ use std::path::Path;
 use std::time::{Duration, SystemTime};
 
 use contextos_core::{
-    OpKind, OperationEvent, Origin, UpdatesSearch, VaultPath, VaultPathInput, VaultRoot,
-    VaultRootId, VaultRootInput, VaultSet,
+    OpKind, OperationEvent, Origin, UpdatesSearch, VaultPath, VaultPathInput, VaultRoot, VaultRootId, VaultRootInput,
+    VaultSet,
 };
 use contextos_search::{
-    DocumentSource, FreshnessReport, IndexedDocument, IndexesText, TantivyIndex, TextIndexConfig,
-    TextQuery, TextSearchService, TextSyncConfig,
+    DocumentSource, FreshnessReport, IndexedDocument, IndexesText, TantivyIndex, TextIndexConfig, TextQuery,
+    TextSearchService, TextSyncConfig,
 };
 use serde_json::Map;
 use support::{document, timestamp, vault_note};
@@ -51,10 +51,7 @@ fn service_at(
 
 /// Builds a `VaultPath` for `relative` without writing or overwriting file
 /// content, unlike `support::vault_note`.
-fn vault_path(
-    vault: &tempfile::TempDir,
-    relative: &str,
-) -> Result<VaultPath, Box<dyn std::error::Error>> {
+fn vault_path(vault: &tempfile::TempDir, relative: &str) -> Result<VaultPath, Box<dyn std::error::Error>> {
     let roots = VaultSet::try_from(vec![VaultRoot::try_from(VaultRootInput {
         path: vault.path().to_path_buf(),
         managed: true,
@@ -78,10 +75,7 @@ fn write_event(kind: OpKind, paths: Vec<VaultPath>) -> OperationEvent {
 
 /// Applies an event and asserts the update succeeded, converting the
 /// non-`std::error::Error` `OperationWarning` into a boxed test error.
-fn apply(
-    service: &TextSearchService<TantivyIndex>,
-    event: &OperationEvent,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn apply(service: &TextSearchService<TantivyIndex>, event: &OperationEvent) -> Result<(), Box<dyn std::error::Error>> {
     let Ok(()) = service.update(event) else {
         return Err("expected the search update to succeed".into());
     };
@@ -100,7 +94,7 @@ fn plain_query<'a>(query: &'a str, fields: &'a Map<String, serde_json::Value>) -
 }
 
 #[test]
-fn fr_51_update_event_indexes_written_note() -> Result<(), Box<dyn std::error::Error>> {
+fn update_event_indexes_written_note() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, vec![])?;
     let (_roots, path) = vault_note(&vault, "notes/alpha.md", "# Alpha\n\nGadget prose.\n")?;
@@ -115,7 +109,7 @@ fn fr_51_update_event_indexes_written_note() -> Result<(), Box<dyn std::error::E
 }
 
 #[test]
-fn fr_51_update_handles_move_and_delete_events() -> Result<(), Box<dyn std::error::Error>> {
+fn update_handles_move_and_delete_events() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, vec![])?;
     let (_roots, a_path) = vault_note(&vault, "notes/a.md", "# A\n\nWidget prose.\n")?;
@@ -125,10 +119,7 @@ fn fr_51_update_handles_move_and_delete_events() -> Result<(), Box<dyn std::erro
     let absolute_b = vault.path().join("notes/b.md");
     fs::rename(&absolute_a, &absolute_b)?;
     let b_path = vault_path(&vault, "notes/b.md")?;
-    apply(
-        &service,
-        &write_event(OpKind::Move, vec![a_path, b_path.clone()]),
-    )?;
+    apply(&service, &write_event(OpKind::Move, vec![a_path, b_path.clone()]))?;
 
     let no_fields = Map::new();
     let hits = service.index().query(&plain_query("widget", &no_fields))?;
@@ -144,15 +135,10 @@ fn fr_51_update_handles_move_and_delete_events() -> Result<(), Box<dyn std::erro
 }
 
 #[test]
-fn fr_51_external_edit_bypassing_events_is_reindexed_on_refresh()
--> Result<(), Box<dyn std::error::Error>> {
+fn external_edit_bypassing_events_is_reindexed_on_refresh() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, vec![])?;
-    let (_roots, path) = vault_note(
-        &vault,
-        "notes/item.md",
-        "# Item\n\nOriginal gadget prose.\n",
-    )?;
+    let (_roots, path) = vault_note(&vault, "notes/item.md", "# Item\n\nOriginal gadget prose.\n")?;
     apply(&service, &write_event(OpKind::Create, vec![path]))?;
 
     let absolute = vault.path().join("notes/item.md");
@@ -174,7 +160,7 @@ fn fr_51_external_edit_bypassing_events_is_reindexed_on_refresh()
 }
 
 #[test]
-fn fr_51_refresh_reconciles_new_and_deleted_files() -> Result<(), Box<dyn std::error::Error>> {
+fn refresh_reconciles_new_and_deleted_files() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, vec![])?;
 
@@ -210,7 +196,7 @@ fn fr_51_refresh_reconciles_new_and_deleted_files() -> Result<(), Box<dyn std::e
 }
 
 #[test]
-fn fr_51_second_refresh_reindexes_nothing() -> Result<(), Box<dyn std::error::Error>> {
+fn second_refresh_reindexes_nothing() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, vec![])?;
     vault_note(&vault, "alpha.md", "# Alpha\n\nFirst note.\n")?;
@@ -229,30 +215,14 @@ fn fr_51_second_refresh_reindexes_nothing() -> Result<(), Box<dyn std::error::Er
 }
 
 #[test]
-fn fr_51_refresh_ignores_excluded_and_non_markdown() -> Result<(), Box<dyn std::error::Error>> {
+fn refresh_ignores_excluded_and_non_markdown() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
-    let excludes = vec![
-        ".obsidian".to_owned(),
-        ".contextos".to_owned(),
-        "memory/log".to_owned(),
-    ];
+    let excludes = vec![".obsidian".to_owned(), ".contextos".to_owned(), "memory/log".to_owned()];
     let service = service_at(&vault, excludes)?;
 
-    vault_note(
-        &vault,
-        "notes/keep.md",
-        "# Keep\n\nSearchable widget prose.\n",
-    )?;
-    vault_note(
-        &vault,
-        ".obsidian/plug.md",
-        "# Plugin\n\nHidden widget prose.\n",
-    )?;
-    vault_note(
-        &vault,
-        "memory/log/2026/07/19.md",
-        "# Log\n\nHidden widget prose.\n",
-    )?;
+    vault_note(&vault, "notes/keep.md", "# Keep\n\nSearchable widget prose.\n")?;
+    vault_note(&vault, ".obsidian/plug.md", "# Plugin\n\nHidden widget prose.\n")?;
+    vault_note(&vault, "memory/log/2026/07/19.md", "# Log\n\nHidden widget prose.\n")?;
     vault_note(&vault, "notes/data.txt", "Hidden widget prose.\n")?;
 
     let report = service.refresh()?;
@@ -268,15 +238,11 @@ fn fr_51_refresh_ignores_excluded_and_non_markdown() -> Result<(), Box<dyn std::
 }
 
 #[test]
-fn fr_51_unreadable_document_degrades_to_warning() -> Result<(), Box<dyn std::error::Error>> {
+fn unreadable_document_degrades_to_warning() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, vec![])?;
 
-    let good = document(
-        &vault,
-        "notes/good.md",
-        "# Good\n\nReadable widget prose.\n",
-    )?;
+    let good = document(&vault, "notes/good.md", "# Good\n\nReadable widget prose.\n")?;
     service.index().index(&[good])?;
 
     let bad_absolute = vault.path().join("notes/bad.md");

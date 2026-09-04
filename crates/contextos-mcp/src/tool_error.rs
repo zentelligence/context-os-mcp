@@ -10,9 +10,7 @@ use contextos_ephemeris::EphemerisError;
 use contextos_fs::FsError;
 use contextos_git::{GitError, GitWriteError};
 use contextos_index::IndexServiceError;
-use contextos_obsidian::{
-    BaseError, BaseQueryError, CanvasError, FrontmatterError, MarkdownError, NoteError,
-};
+use contextos_obsidian::{BaseError, BaseQueryError, CanvasError, FrontmatterError, MarkdownError, NoteError};
 use contextos_oplog::OperationLogError;
 use contextos_search::SearchError;
 use rmcp::handler::server::tool::IntoCallToolResult;
@@ -211,21 +209,13 @@ impl From<ToolError> for ToolFailure {
             ToolError::Base(error) => (error.code(), None, error.remediation()),
             ToolError::BaseQuery(error) => (error.code(), None, error.remediation()),
             ToolError::Canvas(error) => (error.code(), None, error.remediation()),
-            ToolError::GitDisabled => (
-                "git/disabled",
-                None,
-                "Enable Git for this managed vault, and retry.",
-            ),
+            ToolError::GitDisabled => ("git/disabled", None, "Enable Git for this managed vault, and retry."),
             ToolError::Git(error) => (
                 error.code(),
                 None,
                 "Initialise the repository or correct the Git request, and retry.",
             ),
-            ToolError::GitWrite(error) => (
-                error.code(),
-                None,
-                "Resolve the Git or vault write error, and retry.",
-            ),
+            ToolError::GitWrite(error) => (error.code(), None, "Resolve the Git or vault write error, and retry."),
             ToolError::SearchDisabled => (
                 "index/disabled",
                 None,
@@ -282,9 +272,7 @@ where
     T: Send + 'static,
     F: FnOnce() -> Result<T, ToolError> + Send + 'static,
 {
-    let result = tokio::task::spawn_blocking(operation)
-        .await
-        .map_err(ToolError::from)?;
+    let result = tokio::task::spawn_blocking(operation).await.map_err(ToolError::from)?;
     result.map_err(ToolFailure::from)
 }
 
@@ -293,8 +281,6 @@ where
     T: Serialize + schemars::JsonSchema + Send + 'static,
     F: FnOnce() -> T + Send + 'static,
 {
-    let value = tokio::task::spawn_blocking(operation)
-        .await
-        .map_err(ToolError::from)?;
+    let value = tokio::task::spawn_blocking(operation).await.map_err(ToolError::from)?;
     Ok(Json(value))
 }

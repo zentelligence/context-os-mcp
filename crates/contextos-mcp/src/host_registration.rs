@@ -75,18 +75,14 @@ pub struct SystemProcessDetector;
 
 impl DetectsRunningProcesses for SystemProcessDetector {
     fn is_running(&self, name_needle: &str) -> bool {
-        let mut system = System::new_with_specifics(
-            RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing()),
-        );
+        let mut system =
+            System::new_with_specifics(RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing()));
         system.refresh_processes(ProcessesToUpdate::All, true);
         let needle = name_needle.to_ascii_lowercase();
-        system.processes().values().any(|process| {
-            process
-                .name()
-                .to_string_lossy()
-                .to_ascii_lowercase()
-                .contains(&needle)
-        })
+        system
+            .processes()
+            .values()
+            .any(|process| process.name().to_string_lossy().to_ascii_lowercase().contains(&needle))
     }
 }
 
@@ -133,8 +129,7 @@ pub fn register(
     }
 
     let mut document = load_document(path)?;
-    let entry_value = serde_json::to_value(entry)
-        .map_err(|source| HostRegistrationError::SerialiseEntry { source })?;
+    let entry_value = serde_json::to_value(entry).map_err(|source| HostRegistrationError::SerialiseEntry { source })?;
     let servers = document
         .entry("mcpServers".to_owned())
         .or_insert_with(|| Value::Object(Map::new()));
@@ -223,11 +218,10 @@ fn load_document(path: &Path) -> Result<Map<String, Value>, HostRegistrationErro
             });
         }
     };
-    let value: Value =
-        serde_json::from_str(&text).map_err(|source| HostRegistrationError::InvalidJson {
-            path: path.to_path_buf(),
-            source,
-        })?;
+    let value: Value = serde_json::from_str(&text).map_err(|source| HostRegistrationError::InvalidJson {
+        path: path.to_path_buf(),
+        source,
+    })?;
     match value {
         Value::Object(object) => Ok(object),
         _ => Err(HostRegistrationError::MalformedStructure {
@@ -239,10 +233,7 @@ fn load_document(path: &Path) -> Result<Map<String, Value>, HostRegistrationErro
 
 /// Reads the `mcpServers.contextos` entry out of an already-loaded
 /// document, if present.
-fn server_entry(
-    path: &Path,
-    document: &Map<String, Value>,
-) -> Result<Option<RegisteredServer>, HostRegistrationError> {
+fn server_entry(path: &Path, document: &Map<String, Value>) -> Result<Option<RegisteredServer>, HostRegistrationError> {
     let Some(servers) = document.get("mcpServers") else {
         return Ok(None);
     };
@@ -255,8 +246,8 @@ fn server_entry(
     let Some(entry) = servers.get(SERVER_KEY) else {
         return Ok(None);
     };
-    let entry = serde_json::from_value(entry.clone())
-        .map_err(|source| HostRegistrationError::DeserialiseEntry { source })?;
+    let entry =
+        serde_json::from_value(entry.clone()).map_err(|source| HostRegistrationError::DeserialiseEntry { source })?;
     Ok(Some(entry))
 }
 
@@ -266,11 +257,9 @@ fn write_document(path: &Path, document: &Map<String, Value>) -> Result<(), Host
     if path.exists() {
         backup(path)?;
     }
-    let rendered = serde_json::to_vec_pretty(document).map_err(|source| {
-        HostRegistrationError::SerialiseDocument {
-            path: path.to_path_buf(),
-            source,
-        }
+    let rendered = serde_json::to_vec_pretty(document).map_err(|source| HostRegistrationError::SerialiseDocument {
+        path: path.to_path_buf(),
+        source,
     })?;
     write_file_atomically(path, &rendered).map_err(|source| HostRegistrationError::Write {
         path: path.to_path_buf(),

@@ -1,5 +1,5 @@
-//! FR-61 / FR-62: the authenticated streamable HTTP transport and its parity
-//! with the stdio transport.
+//! The authenticated streamable HTTP transport and its parity with the
+//! stdio transport.
 //!
 //! HTTP-client choice for the parity, soak, and shutdown-flush tests: these
 //! drive the server through the official rmcp streamable-HTTP reqwest client
@@ -66,21 +66,14 @@ async fn spawn_http_server(
     Ok((addr, url, handle, shutdown))
 }
 
-async fn stop_http_server(
-    handle: JoinHandle<()>,
-    shutdown: CancellationToken,
-) -> Result<(), BoxError> {
+async fn stop_http_server(handle: JoinHandle<()>, shutdown: CancellationToken) -> Result<(), BoxError> {
     shutdown.cancel();
     handle.await?;
     Ok(())
 }
 
-async fn http_client(
-    url: &str,
-    token: &str,
-) -> Result<rmcp::service::RunningService<rmcp::RoleClient, ()>, BoxError> {
-    let config =
-        StreamableHttpClientTransportConfig::with_uri(url.to_owned()).auth_header(token.to_owned());
+async fn http_client(url: &str, token: &str) -> Result<rmcp::service::RunningService<rmcp::RoleClient, ()>, BoxError> {
+    let config = StreamableHttpClientTransportConfig::with_uri(url.to_owned()).auth_header(token.to_owned());
     let transport = StreamableHttpClientTransport::from_config(config);
     Ok(().serve(transport).await?)
 }
@@ -98,11 +91,9 @@ async fn call_http_tool(
     client.cancel().await?;
     let result = result?;
     if result.is_error == Some(true) {
-        return Err(std::io::Error::other(format!(
-            "{name} returned a tool error: {:?}",
-            result.structured_content
-        ))
-        .into());
+        return Err(
+            std::io::Error::other(format!("{name} returned a tool error: {:?}", result.structured_content)).into(),
+        );
     }
     Ok(result)
 }
@@ -114,17 +105,12 @@ async fn call_http_list_tools(url: &str, token: &str) -> Result<Vec<Tool>, BoxEr
     Ok(tools?)
 }
 
-fn structured<'a>(
-    result: &'a CallToolResult,
-    context: &str,
-) -> Result<&'a serde_json::Map<String, Value>, BoxError> {
+fn structured<'a>(result: &'a CallToolResult, context: &str) -> Result<&'a serde_json::Map<String, Value>, BoxError> {
     result
         .structured_content
         .as_ref()
         .and_then(Value::as_object)
-        .ok_or_else(|| {
-            std::io::Error::other(format!("{context} omitted structured content")).into()
-        })
+        .ok_or_else(|| std::io::Error::other(format!("{context} omitted structured content")).into())
 }
 
 async fn assert_auth_rejected(router: Router, request: Request<Body>) -> Result<(), BoxError> {
@@ -144,7 +130,7 @@ async fn assert_auth_rejected(router: Router, request: Request<Body>) -> Result<
 }
 
 #[tokio::test]
-async fn fr_61_auth_rejection_matrix() -> Result<(), BoxError> {
+async fn auth_rejection_matrix() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
     let token = "matrix-token";
@@ -227,7 +213,7 @@ async fn fr_61_auth_rejection_matrix() -> Result<(), BoxError> {
     assert_eq!(
         result.get("protocolVersion"),
         Some(&json!("2026-07-28")),
-        "server did not negotiate the FR-61 required protocol revision"
+        "server did not negotiate the required protocol revision"
     );
 
     // Plus at least one real-socket positive case, over an actual TCP
@@ -244,17 +230,14 @@ async fn fr_61_auth_rejection_matrix() -> Result<(), BoxError> {
 /// a deliberate validate-then-bind seam, so this never asks the operating
 /// system to listen on `0.0.0.0`.
 #[test]
-fn fr_61_non_loopback_bind_without_token_is_refused() -> Result<(), BoxError> {
+fn non_loopback_bind_without_token_is_refused() -> Result<(), BoxError> {
     let refusal = contextos_mcp::validate_bind("0.0.0.0:7331", "");
     let Err(HttpTransportError::NonLoopbackBindWithoutToken { bind }) = refusal else {
         return Err(std::io::Error::other("expected a NonLoopbackBindWithoutToken refusal").into());
     };
     assert_eq!(bind, "0.0.0.0:7331");
     let message = HttpTransportError::NonLoopbackBindWithoutToken { bind }.to_string();
-    assert!(
-        message.contains("0.0.0.0:7331"),
-        "message omitted the bind: {message}"
-    );
+    assert!(message.contains("0.0.0.0:7331"), "message omitted the bind: {message}");
     assert!(
         message.to_lowercase().contains("token"),
         "message did not name a way to supply a token: {message}"
@@ -267,7 +250,7 @@ fn fr_61_non_loopback_bind_without_token_is_refused() -> Result<(), BoxError> {
 }
 
 #[tokio::test]
-async fn fr_61_body_cap_rejects_oversize_requests() -> Result<(), BoxError> {
+async fn body_cap_rejects_oversize_requests() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
     let token = "cap-token";
@@ -294,28 +277,22 @@ async fn fr_61_body_cap_rejects_oversize_requests() -> Result<(), BoxError> {
 }
 
 #[tokio::test]
-async fn fr_62_tool_catalogue_identical_across_transports() -> Result<(), BoxError> {
+async fn tool_catalogue_identical_across_transports() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
     let token = "parity-token";
     let http = http_config("127.0.0.1:0", token);
 
-    // This instance's actual dispatch router (`D-25`: varies with
-    // `[server] astro`, unlike the always-complete `ContextOsServer::catalogue()`),
-    // read before `server` moves into `spawn_http_server` below.
+    // This instance's actual dispatch router (varies with `[server] astro`,
+    // unlike the always-complete `ContextOsServer::catalogue()`), read
+    // before `server` moves into `spawn_http_server` below.
     let stdio_tools = server.effective_catalogue().list_all();
-    let mut stdio_names: Vec<String> = stdio_tools
-        .iter()
-        .map(|tool| tool.name.clone().into_owned())
-        .collect();
+    let mut stdio_names: Vec<String> = stdio_tools.iter().map(|tool| tool.name.clone().into_owned()).collect();
     stdio_names.sort_unstable();
 
     let (_addr, url, handle, shutdown) = spawn_http_server(server, &http).await?;
     let http_tools = call_http_list_tools(&url, token).await?;
-    let mut http_names: Vec<String> = http_tools
-        .iter()
-        .map(|tool| tool.name.clone().into_owned())
-        .collect();
+    let mut http_names: Vec<String> = http_tools.iter().map(|tool| tool.name.clone().into_owned()).collect();
     http_names.sort_unstable();
 
     assert_eq!(
@@ -327,9 +304,7 @@ async fn fr_62_tool_catalogue_identical_across_transports() -> Result<(), BoxErr
         let counterpart = http_tools
             .iter()
             .find(|candidate| candidate.name == tool.name)
-            .ok_or_else(|| {
-                std::io::Error::other(format!("HTTP catalogue omitted {}", tool.name))
-            })?;
+            .ok_or_else(|| std::io::Error::other(format!("HTTP catalogue omitted {}", tool.name)))?;
         assert_eq!(
             *counterpart.input_schema, *tool.input_schema,
             "{} input schema drifted between transports",
@@ -342,7 +317,7 @@ async fn fr_62_tool_catalogue_identical_across_transports() -> Result<(), BoxErr
 }
 
 #[tokio::test]
-async fn fr_62_mixed_readwrite_soak_across_ten_clients() -> Result<(), BoxError> {
+async fn mixed_readwrite_soak_across_ten_clients() -> Result<(), BoxError> {
     const WRITER_COUNT: usize = 10;
 
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
@@ -381,10 +356,9 @@ async fn fr_62_mixed_readwrite_soak_across_ten_clients() -> Result<(), BoxError>
                 .and_then(Value::as_str)
                 .ok_or_else(|| std::io::Error::other("fs_read_text_file omitted content"))?;
             if read_content != content {
-                return Err(std::io::Error::other(
-                    "fs_read_text_file returned content that did not match the write",
-                )
-                .into());
+                return Err(
+                    std::io::Error::other("fs_read_text_file returned content that did not match the write").into(),
+                );
             }
 
             call_http_tool(
@@ -408,10 +382,7 @@ async fn fr_62_mixed_readwrite_soak_across_ten_clients() -> Result<(), BoxError>
     for (path, marker) in &written {
         let on_disk = std::fs::read_to_string(vault_path.join(path))?;
         if !on_disk.contains(marker.as_str()) {
-            return Err(std::io::Error::other(format!(
-                "file on disk at {path} is missing its marker"
-            ))
-            .into());
+            return Err(std::io::Error::other(format!("file on disk at {path} is missing its marker")).into());
         }
     }
 
@@ -429,9 +400,7 @@ async fn fr_62_mixed_readwrite_soak_across_ten_clients() -> Result<(), BoxError>
             .map(Vec::len)
             .unwrap_or_default();
         if hit_count == 0 {
-            return Err(
-                std::io::Error::other(format!("query_text found no hit for {marker}")).into(),
-            );
+            return Err(std::io::Error::other(format!("query_text found no hit for {marker}")).into());
         }
     }
 
@@ -440,7 +409,7 @@ async fn fr_62_mixed_readwrite_soak_across_ten_clients() -> Result<(), BoxError>
 }
 
 #[tokio::test]
-async fn fr_61_shutdown_flushes_pending_commits() -> Result<(), BoxError> {
+async fn shutdown_flushes_pending_commits() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
     // A long debounce means only the explicit graceful-shutdown flush below

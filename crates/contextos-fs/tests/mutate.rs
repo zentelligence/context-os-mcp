@@ -4,14 +4,13 @@ use std::process::{Command, Stdio};
 use std::sync::Arc;
 
 use contextos_core::{
-    Clock, ContentHash, CreateDirectoryMutation, DeleteMode, DeleteMutation, MoveMutation, OpKind,
-    OperationEvent, OperationWarning, Origin, RoutesOperations, VaultPath, VaultPathInput,
-    VaultRoot, VaultRootInput, VaultSet, WriteMutation,
+    Clock, ContentHash, CreateDirectoryMutation, DeleteMode, DeleteMutation, MoveMutation, OpKind, OperationEvent,
+    OperationWarning, Origin, RoutesOperations, VaultPath, VaultPathInput, VaultRoot, VaultRootInput, VaultSet,
+    WriteMutation,
 };
 use contextos_fs::{
-    EditFileRequest, Filesystem, FilesystemConfig, FilesystemService, FilesystemServiceConfig,
-    FsError, FsLimits, GuardsAtomicWrites, RoutedFilesystemServiceConfig, TextEdit,
-    default_hidden_patterns,
+    EditFileRequest, Filesystem, FilesystemConfig, FilesystemService, FilesystemServiceConfig, FsError, FsLimits,
+    GuardsAtomicWrites, RoutedFilesystemServiceConfig, TextEdit, default_hidden_patterns,
 };
 use tempfile::tempdir;
 use time::OffsetDateTime;
@@ -27,8 +26,7 @@ impl Clock for FixedClock {
 }
 
 #[test]
-fn fr_14_hard_delete_removes_a_file_and_emits_one_delete_event()
--> Result<(), Box<dyn std::error::Error>> {
+fn hard_delete_removes_a_file_and_emits_one_delete_event() -> Result<(), Box<dyn std::error::Error>> {
     let root = tempdir()?;
     std::fs::write(root.path().join("obsolete.md"), "obsolete")?;
     let (service, roots) = fixture(root.path().to_path_buf())?;
@@ -42,47 +40,33 @@ fn fr_14_hard_delete_removes_a_file_and_emits_one_delete_event()
 
     assert!(!root.path().join("obsolete.md").exists());
     assert!(result.value.deleted);
-    assert_eq!(
-        result.event.as_ref().map(|event| event.kind),
-        Some(OpKind::Delete)
-    );
+    assert_eq!(result.event.as_ref().map(|event| event.kind), Some(OpKind::Delete));
     Ok(())
 }
 
 #[cfg(target_os = "linux")]
 #[test]
-fn fr_14_trash_delete_moves_the_file_to_an_isolated_freedesktop_trash()
--> Result<(), Box<dyn std::error::Error>> {
+fn trash_delete_moves_the_file_to_an_isolated_freedesktop_trash() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let data_home = tempdir()?;
     std::fs::write(vault.path().join("recoverable.md"), "recoverable")?;
 
     let status = Command::new(std::env::current_exe()?)
-        .args(["--exact", "fr_14_trash_delete_child"])
+        .args(["--exact", "trash_delete_child"])
         .env("CONTEXTOS_MCP_TRASH_TEST_VAULT", vault.path())
         .env("XDG_DATA_HOME", data_home.path())
         .status()?;
 
     assert!(status.success());
     assert!(!vault.path().join("recoverable.md").exists());
-    assert!(
-        data_home
-            .path()
-            .join("Trash/files/recoverable.md")
-            .is_file()
-    );
-    assert!(
-        data_home
-            .path()
-            .join("Trash/info/recoverable.md.trashinfo")
-            .is_file()
-    );
+    assert!(data_home.path().join("Trash/files/recoverable.md").is_file());
+    assert!(data_home.path().join("Trash/info/recoverable.md.trashinfo").is_file());
     Ok(())
 }
 
 #[cfg(target_os = "linux")]
 #[test]
-fn fr_14_trash_delete_child() -> Result<(), Box<dyn std::error::Error>> {
+fn trash_delete_child() -> Result<(), Box<dyn std::error::Error>> {
     let Some(vault) = std::env::var_os("CONTEXTOS_MCP_TRASH_TEST_VAULT") else {
         return Ok(());
     };
@@ -118,9 +102,7 @@ struct InterruptAfterFlush;
 
 impl GuardsAtomicWrites for InterruptAfterFlush {
     fn after_flush(&self, _target: &std::path::Path) -> Result<(), std::io::Error> {
-        Err(std::io::Error::other(
-            "deterministic interruption before atomic rename",
-        ))
+        Err(std::io::Error::other("deterministic interruption before atomic rename"))
     }
 }
 
@@ -138,9 +120,7 @@ impl GuardsAtomicWrites for ParkAfterFlush {
     }
 }
 
-fn fixture(
-    root: PathBuf,
-) -> Result<(FilesystemService<FixedClock>, VaultSet), Box<dyn std::error::Error>> {
+fn fixture(root: PathBuf) -> Result<(FilesystemService<FixedClock>, VaultSet), Box<dyn std::error::Error>> {
     let roots = VaultSet::try_from(vec![VaultRoot::try_from(VaultRootInput {
         path: root,
         managed: true,
@@ -167,8 +147,7 @@ fn path(roots: &VaultSet, raw: &str) -> Result<VaultPath, Box<dyn std::error::Er
 }
 
 #[test]
-fn fr_03_write_creates_parents_atomically_and_returns_hash()
--> Result<(), Box<dyn std::error::Error>> {
+fn write_creates_parents_atomically_and_returns_hash() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let (service, roots) = fixture(vault.path().to_path_buf())?;
     let note = path(&roots, "new/child/note.md")?;
@@ -196,8 +175,7 @@ fn fr_03_write_creates_parents_atomically_and_returns_hash()
 }
 
 #[test]
-fn phase_2_filesystem_service_returns_secondary_warnings_after_persistence()
--> Result<(), Box<dyn std::error::Error>> {
+fn phase_2_filesystem_service_returns_secondary_warnings_after_persistence() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let roots = VaultSet::try_from(vec![VaultRoot::try_from(VaultRootInput {
         path: vault.path().to_path_buf(),
@@ -227,17 +205,14 @@ fn phase_2_filesystem_service_returns_secondary_warnings_after_persistence()
         origin: Origin::Tool("fs_write_file".to_owned()),
     })?;
 
-    assert_eq!(
-        std::fs::read_to_string(vault.path().join("note.md"))?,
-        "persisted"
-    );
+    assert_eq!(std::fs::read_to_string(vault.path().join("note.md"))?, "persisted");
     assert_eq!(result.warnings.len(), 1);
     assert_eq!(result.warnings[0].code, "index/stale");
     Ok(())
 }
 
 #[test]
-fn nfr_04_conflict_preserves_existing_bytes_and_reports_current_hash_without_naming_force()
+fn conflict_preserves_existing_bytes_and_reports_current_hash_without_naming_force()
 -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let (service, roots) = fixture(vault.path().to_path_buf())?;
@@ -272,16 +247,12 @@ fn nfr_04_conflict_preserves_existing_bytes_and_reports_current_hash_without_nam
         }
         other => return Err(format!("expected FsError::Conflict, got {other:?}").into()),
     }
-    assert_eq!(
-        std::fs::read_to_string(vault.path().join("note.md"))?,
-        "original"
-    );
+    assert_eq!(std::fs::read_to_string(vault.path().join("note.md"))?, "original");
     Ok(())
 }
 
 #[test]
-fn nfr_03_interruption_after_temporary_flush_preserves_old_content()
--> Result<(), Box<dyn std::error::Error>> {
+fn interruption_after_temporary_flush_preserves_old_content() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let target = vault.path().join("note.md");
     std::fs::write(&target, "original")?;
@@ -312,23 +283,19 @@ fn nfr_03_interruption_after_temporary_flush_preserves_old_content()
         origin: Origin::Tool("fs_write_file".to_owned()),
     });
 
-    assert!(matches!(
-        result,
-        Err(FsError::AtomicWriteInterrupted { .. })
-    ));
+    assert!(matches!(result, Err(FsError::AtomicWriteInterrupted { .. })));
     assert_eq!(std::fs::read_to_string(target)?, "original");
     assert_eq!(std::fs::read_dir(vault.path())?.count(), 1);
     Ok(())
 }
 
 #[test]
-fn nfr_03_process_kill_mid_write_preserves_complete_content()
--> Result<(), Box<dyn std::error::Error>> {
+fn process_kill_mid_write_preserves_complete_content() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let target = vault.path().join("note.md");
     std::fs::write(&target, "original")?;
     let mut child = Command::new(std::env::current_exe()?)
-        .args(["--exact", "nfr_03_process_kill_child", "--nocapture"])
+        .args(["--exact", "process_kill_child", "--nocapture"])
         .env("CONTEXTOS_MCP_KILL_TEST_VAULT", vault.path())
         .stdout(Stdio::piped())
         .spawn()?;
@@ -362,7 +329,7 @@ fn nfr_03_process_kill_mid_write_preserves_complete_content()
 }
 
 #[test]
-fn nfr_03_process_kill_child() -> Result<(), Box<dyn std::error::Error>> {
+fn process_kill_child() -> Result<(), Box<dyn std::error::Error>> {
     let Some(vault) = std::env::var_os("CONTEXTOS_MCP_KILL_TEST_VAULT") else {
         return Ok(());
     };
@@ -398,8 +365,7 @@ fn nfr_03_process_kill_child() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn nfr_04_existing_file_requires_hash_or_explicit_force() -> Result<(), Box<dyn std::error::Error>>
-{
+fn existing_file_requires_hash_or_explicit_force() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let (service, roots) = fixture(vault.path().to_path_buf())?;
     let note = path(&roots, "note.md")?;
@@ -443,16 +409,12 @@ fn nfr_04_existing_file_requires_hash_or_explicit_force() -> Result<(), Box<dyn 
         }
     }
     assert!(!forced.value.created);
-    assert_eq!(
-        std::fs::read_to_string(vault.path().join("note.md"))?,
-        "forced"
-    );
+    assert_eq!(std::fs::read_to_string(vault.path().join("note.md"))?, "forced");
     Ok(())
 }
 
 #[test]
-fn fr_04_edit_dry_run_returns_unified_diff_without_writing()
--> Result<(), Box<dyn std::error::Error>> {
+fn edit_dry_run_returns_unified_diff_without_writing() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("note.md"), "old line\nkeep\n")?;
     let (service, roots) = fixture(vault.path().to_path_buf())?;
@@ -482,8 +444,7 @@ fn fr_04_edit_dry_run_returns_unified_diff_without_writing()
 }
 
 #[test]
-fn fr_04_rejects_missing_or_ambiguous_exact_edits_without_writing()
--> Result<(), Box<dyn std::error::Error>> {
+fn rejects_missing_or_ambiguous_exact_edits_without_writing() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("note.md"), "same same")?;
     let (service, roots) = fixture(vault.path().to_path_buf())?;
@@ -514,15 +475,12 @@ fn fr_04_rejects_missing_or_ambiguous_exact_edits_without_writing()
 
     assert!(matches!(missing, Err(FsError::EditNotFound { .. })));
     assert!(matches!(ambiguous, Err(FsError::EditAmbiguous { .. })));
-    assert_eq!(
-        std::fs::read_to_string(vault.path().join("note.md"))?,
-        "same same"
-    );
+    assert_eq!(std::fs::read_to_string(vault.path().join("note.md"))?, "same same");
     Ok(())
 }
 
 #[test]
-fn fr_05_directory_creation_is_idempotent() -> Result<(), Box<dyn std::error::Error>> {
+fn directory_creation_is_idempotent() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let (service, roots) = fixture(vault.path().to_path_buf())?;
     let directory = path(&roots, "nested/directory")?;
@@ -544,7 +502,7 @@ fn fr_05_directory_creation_is_idempotent() -> Result<(), Box<dyn std::error::Er
 }
 
 #[test]
-fn fr_09_move_fails_when_destination_exists() -> Result<(), Box<dyn std::error::Error>> {
+fn move_fails_when_destination_exists() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("source.md"), "source")?;
     std::fs::write(vault.path().join("destination.md"), "destination")?;
@@ -557,10 +515,7 @@ fn fr_09_move_fails_when_destination_exists() -> Result<(), Box<dyn std::error::
     });
 
     assert!(matches!(result, Err(FsError::DestinationExists { .. })));
-    assert_eq!(
-        std::fs::read_to_string(vault.path().join("source.md"))?,
-        "source"
-    );
+    assert_eq!(std::fs::read_to_string(vault.path().join("source.md"))?, "source");
     assert_eq!(
         std::fs::read_to_string(vault.path().join("destination.md"))?,
         "destination"
@@ -569,8 +524,7 @@ fn fr_09_move_fails_when_destination_exists() -> Result<(), Box<dyn std::error::
 }
 
 #[test]
-fn fr_09_move_creates_parent_and_emits_one_two_path_event() -> Result<(), Box<dyn std::error::Error>>
-{
+fn move_creates_parent_and_emits_one_two_path_event() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("source.md"), "source")?;
     let (service, roots) = fixture(vault.path().to_path_buf())?;

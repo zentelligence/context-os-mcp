@@ -1,6 +1,6 @@
 //! Vault content rendering pipeline (`web-rendering.md`): Markdown/OFM,
 //! triple-colon fences, wikilinks/embeds, callouts, `.base` HTMX views,
-//! `.canvas` SVG, and Mermaid SVG (FR-221 to FR-223, FR-240 to FR-244).
+//! `.canvas` SVG, and Mermaid SVG.
 //!
 //! Every stage that needs no MCP round trip (fence/callout/wikilink
 //! scanning, frontmatter strip, fence/callout HTML composition) is a pure

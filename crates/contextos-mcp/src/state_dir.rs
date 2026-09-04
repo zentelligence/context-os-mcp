@@ -58,9 +58,7 @@ fn default_state_directory(vault_root: &Path) -> Result<PathBuf, StateDirError> 
 /// depending on the operator's actual home directory (`AGENTS.md` test
 /// standards).
 fn vault_state_directory(app_data_root: &Path, vault_root: &Path) -> PathBuf {
-    app_data_root
-        .join("vaults")
-        .join(vault_state_key(vault_root))
+    app_data_root.join("vaults").join(vault_state_key(vault_root))
 }
 
 /// Deterministic, collision-resistant key for a vault's resolved root
@@ -69,12 +67,10 @@ fn vault_state_directory(app_data_root: &Path, vault_root: &Path) -> PathBuf {
 /// one.
 fn vault_state_key(vault_root: &Path) -> String {
     let digest = Sha256::digest(vault_root.to_string_lossy().as_bytes());
-    digest
-        .iter()
-        .fold(String::with_capacity(64), |mut key, byte| {
-            let _ = write!(key, "{byte:02x}");
-            key
-        })
+    digest.iter().fold(String::with_capacity(64), |mut key, byte| {
+        let _ = write!(key, "{byte:02x}");
+        key
+    })
 }
 
 #[cfg(test)]
@@ -99,10 +95,7 @@ mod tests {
     fn key_is_a_lowercase_sha256_hex_digest() {
         let key = vault_state_key(Path::new("vaults/vault"));
         assert_eq!(key.len(), 64);
-        assert!(
-            key.chars()
-                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
-        );
+        assert!(key.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
     }
 
     #[test]
@@ -124,8 +117,7 @@ mod tests {
     }
 
     #[test]
-    fn override_resolves_a_relative_path_against_the_vault_root()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn override_resolves_a_relative_path_against_the_vault_root() -> Result<(), Box<dyn std::error::Error>> {
         let vault_root = tempfile::tempdir()?;
 
         let resolved = resolve_state_directory(Some(Path::new(".contextos")), vault_root.path())?;

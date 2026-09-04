@@ -1,4 +1,4 @@
-//! FR-204: `contextos-web` refuses to serve any HTTP request until every
+//! `contextos-web` refuses to serve any HTTP request until every
 //! configured `[[mcp_server]]`'s `initialize` handshake has completed; a
 //! deliberately misconfigured entry is a startup error, never a
 //! request-time surprise.
@@ -11,8 +11,7 @@ use contextos_web::mcp_client::McpClientSet;
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 #[tokio::test]
-async fn a_misconfigured_command_fails_the_whole_connect_call_before_any_request_is_possible()
--> Result<(), BoxError> {
+async fn a_misconfigured_command_fails_the_whole_connect_call_before_any_request_is_possible() -> Result<(), BoxError> {
     let dir = tempfile::tempdir()?;
     let vault = dir.path().join("vault");
     std::fs::create_dir_all(&vault)?;
@@ -56,11 +55,7 @@ async fn an_unreachable_http_endpoint_fails_the_connect_call() -> Result<(), Box
         token_env: None,
     };
 
-    let Ok(result) = tokio::time::timeout(
-        std::time::Duration::from_secs(10),
-        McpClientSet::connect(&[entry]),
-    )
-    .await
+    let Ok(result) = tokio::time::timeout(std::time::Duration::from_secs(10), McpClientSet::connect(&[entry])).await
     else {
         return Err("an unreachable endpoint must fail fast, not hang the whole startup".into());
     };

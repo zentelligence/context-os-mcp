@@ -50,19 +50,9 @@ async fn catalogue_advertises_the_five_query_tools_with_object_schemas_and_outpu
     let expected = [
         (
             "query_text",
-            vec![
-                "code",
-                "hits",
-                "index_freshness",
-                "message",
-                "path",
-                "remediation",
-            ],
+            vec!["code", "hits", "index_freshness", "message", "path", "remediation"],
         ),
-        (
-            "query_semantic",
-            vec!["code", "hits", "message", "path", "remediation"],
-        ),
+        ("query_semantic", vec!["code", "hits", "message", "path", "remediation"]),
         (
             "query_graph",
             vec!["code", "edges", "message", "nodes", "path", "remediation"],
@@ -82,15 +72,7 @@ async fn catalogue_advertises_the_five_query_tools_with_object_schemas_and_outpu
         ),
         (
             "query_index_rebuild",
-            vec![
-                "code",
-                "graph",
-                "message",
-                "path",
-                "remediation",
-                "semantic",
-                "text",
-            ],
+            vec!["code", "graph", "message", "path", "remediation", "semantic", "text"],
         ),
     ];
 
@@ -99,9 +81,7 @@ async fn catalogue_advertises_the_five_query_tools_with_object_schemas_and_outpu
             .get(name)
             .ok_or_else(|| std::io::Error::other(format!("missing tool {name}")))?;
         assert_eq!(
-            tool.input_schema
-                .get("type")
-                .and_then(serde_json::Value::as_str),
+            tool.input_schema.get("type").and_then(serde_json::Value::as_str),
             Some("object")
         );
         assert!(tool.description.is_some());
@@ -121,8 +101,7 @@ async fn catalogue_advertises_the_five_query_tools_with_object_schemas_and_outpu
 }
 
 #[test]
-fn query_index_status_advertises_a_plain_string_state_directory_type()
--> Result<(), Box<dyn std::error::Error>> {
+fn query_index_status_advertises_a_plain_string_state_directory_type() -> Result<(), Box<dyn std::error::Error>> {
     // Same array-form-nullable failure class documented on
     // `optional_u64_schema` and `optional_path_schema`: schemars' default
     // schema for an `Option<String>` field is `"type": ["string", "null"]`,
@@ -143,9 +122,7 @@ fn query_index_status_advertises_a_plain_string_state_directory_type()
         .and_then(serde_json::Value::as_object)
         .ok_or("query_index_status omitted output properties")?;
     assert_eq!(
-        properties
-            .get("state_directory")
-            .and_then(|schema| schema.get("type")),
+        properties.get("state_directory").and_then(|schema| schema.get("type")),
         Some(&json!("string")),
         "state_directory schema should be a plain string type, not array-form nullable"
     );
@@ -170,8 +147,7 @@ fn query_index_status_advertises_a_plain_string_state_directory_type()
 }
 
 #[test]
-fn optional_numeric_input_fields_advertise_a_plain_integer_type()
--> Result<(), Box<dyn std::error::Error>> {
+fn optional_numeric_input_fields_advertise_a_plain_integer_type() -> Result<(), Box<dyn std::error::Error>> {
     // schemars' default schema for an `Option<u64>` field is `"type":
     // ["integer", "null"]` (JSON Schema 2020-12's array-form type, used to
     // express nullability). Several real-world MCP clients only recognise
@@ -212,10 +188,7 @@ fn optional_numeric_input_fields_advertise_a_plain_integer_type()
         .get("properties")
         .and_then(serde_json::Value::as_object)
         .ok_or("fs_read_text_file omitted input properties")?;
-    let read_required = read
-        .input_schema
-        .get("required")
-        .and_then(serde_json::Value::as_array);
+    let read_required = read.input_schema.get("required").and_then(serde_json::Value::as_array);
     for field in ["head", "tail"] {
         assert_eq!(
             read_props.get(field).and_then(|schema| schema.get("type")),
@@ -231,11 +204,11 @@ fn optional_numeric_input_fields_advertise_a_plain_integer_type()
 }
 
 #[tokio::test]
-async fn fr_50_query_text_finds_a_note_written_through_the_server_with_no_manual_indexing()
+async fn query_text_finds_a_note_written_through_the_server_with_no_manual_indexing()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     // Managed index.md generation is disabled so this test observes only
-    // the notes it wrote, not the derived index.md files FR-22 also
+    // the notes it wrote, not the derived index.md files this feature also
     // produces (which are themselves legitimately searchable content,
     // covered separately).
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
@@ -291,7 +264,7 @@ async fn query_text_scoping_is_governed_by_search_exclude_not_index_md_exclude()
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
     // Managed index.md generation is disabled so this test observes only
-    // the notes it wrote, not the derived index.md files FR-22 also
+    // the notes it wrote, not the derived index.md files this feature also
     // produces (which are themselves legitimately searchable content and
     // would otherwise add an extra "gadget" hit via the root index.md's
     // listing of private-notes/gadget.md, confounding the exact hit count
@@ -306,10 +279,7 @@ async fn query_text_scoping_is_governed_by_search_exclude_not_index_md_exclude()
     // searchable, which would add its own "gadget" hit (it records
     // "Created private-notes/gadget.md") and confound this test's exact
     // hit count.
-    config.vaults[0]
-        .search
-        .exclude
-        .push("not-searchable".to_owned());
+    config.vaults[0].search.exclude.push("not-searchable".to_owned());
     let server = ContextOsServer::try_from(config)?;
 
     call_tool(
@@ -347,10 +317,7 @@ async fn query_text_scoping_is_governed_by_search_exclude_not_index_md_exclude()
         1,
         "a directory excluded only from index_md must still be searchable"
     );
-    assert_eq!(
-        gadget_hits[0].get("path"),
-        Some(&json!("private-notes/gadget.md"))
-    );
+    assert_eq!(gadget_hits[0].get("path"), Some(&json!("private-notes/gadget.md")));
 
     let widget_result = call_tool(
         server,
@@ -372,8 +339,7 @@ async fn query_text_scoping_is_governed_by_search_exclude_not_index_md_exclude()
 }
 
 #[tokio::test]
-async fn fr_51_query_text_reindexes_a_direct_external_edit()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn query_text_reindexes_a_direct_external_edit() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
     call_tool(
@@ -418,8 +384,7 @@ async fn fr_51_query_text_reindexes_a_direct_external_edit()
 }
 
 #[tokio::test]
-async fn fr_50_path_prefix_and_tag_filters_scope_results()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn path_prefix_and_tag_filters_scope_results() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
     config.vaults[0].index_md.enabled = false;
@@ -454,10 +419,7 @@ async fn fr_50_path_prefix_and_tag_filters_scope_results()
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| std::io::Error::other("query_text omitted hits"))?;
     assert_eq!(prefix_hits.len(), 1);
-    assert_eq!(
-        prefix_hits[0].get("path"),
-        Some(&json!("projects/alpha.md"))
-    );
+    assert_eq!(prefix_hits[0].get("path"), Some(&json!("projects/alpha.md")));
 
     let by_tag = call_tool(
         server,
@@ -475,7 +437,7 @@ async fn fr_50_path_prefix_and_tag_filters_scope_results()
 }
 
 #[tokio::test]
-async fn fr_116_exclude_paths_omits_a_superseded_prefix_from_query_text_results()
+async fn exclude_paths_omits_a_superseded_prefix_from_query_text_results()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
@@ -523,16 +485,12 @@ async fn fr_116_exclude_paths_omits_a_superseded_prefix_from_query_text_results(
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| std::io::Error::other("query_text omitted hits"))?;
     assert_eq!(excluded_hits.len(), 1);
-    assert_eq!(
-        excluded_hits[0].get("path"),
-        Some(&json!("notes/current.md"))
-    );
+    assert_eq!(excluded_hits[0].get("path"), Some(&json!("notes/current.md")));
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_50_invalid_query_syntax_is_a_stable_tool_error()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn invalid_query_syntax_is_a_stable_tool_error() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
 
@@ -557,9 +515,9 @@ async fn fr_50_invalid_query_syntax_is_a_stable_tool_error()
 #[tokio::test]
 #[expect(
     clippy::too_many_lines,
-    reason = "one end-to-end walk through every query_graph operation keeps the FR-52 contract auditable in one place"
+    reason = "one end-to-end walk through every query_graph operation keeps the query_graph contract auditable in one place"
 )]
-async fn fr_52_query_graph_covers_neighbours_backlinks_path_and_orphans()
+async fn query_graph_covers_neighbours_backlinks_path_and_orphans()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -642,16 +600,8 @@ async fn fr_52_query_graph_covers_neighbours_backlinks_path_and_orphans()
         .get("nodes")
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| std::io::Error::other("query_graph omitted nodes"))?;
-    assert!(
-        orphan_nodes
-            .iter()
-            .any(|node| node.get("path") == Some(&json!("c.md")))
-    );
-    assert!(
-        !orphan_nodes
-            .iter()
-            .any(|node| node.get("path") == Some(&json!("a.md")))
-    );
+    assert!(orphan_nodes.iter().any(|node| node.get("path") == Some(&json!("c.md"))));
+    assert!(!orphan_nodes.iter().any(|node| node.get("path") == Some(&json!("a.md"))));
 
     let too_deep = call_tool(
         server.clone(),
@@ -660,10 +610,7 @@ async fn fr_52_query_graph_covers_neighbours_backlinks_path_and_orphans()
     )
     .await?;
     assert_eq!(too_deep.is_error, Some(true));
-    assert_eq!(
-        structured(&too_deep)?.get("code"),
-        Some(&json!("index/invalid-query"))
-    );
+    assert_eq!(structured(&too_deep)?.get("code"), Some(&json!("index/invalid-query")));
 
     let unknown_from = call_tool(
         server.clone(),
@@ -672,10 +619,7 @@ async fn fr_52_query_graph_covers_neighbours_backlinks_path_and_orphans()
     )
     .await?;
     assert_eq!(unknown_from.is_error, Some(true));
-    assert_eq!(
-        structured(&unknown_from)?.get("code"),
-        Some(&json!("path/not-found"))
-    );
+    assert_eq!(structured(&unknown_from)?.get("code"), Some(&json!("path/not-found")));
 
     let missing_from = call_tool(
         server,
@@ -715,7 +659,7 @@ impl ClientHandler for ProgressCapturingClient {
 }
 
 #[tokio::test]
-async fn fr_55_query_index_rebuild_streams_progress_notifications_when_requested()
+async fn query_index_rebuild_streams_progress_notifications_when_requested()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(vault.path().join("a.md"), "# A\n\nFirst note.\n")?;
@@ -776,7 +720,7 @@ async fn fr_55_query_index_rebuild_streams_progress_notifications_when_requested
 }
 
 #[tokio::test]
-async fn fr_55_status_and_rebuild_reflect_writes_and_report_zero_staleness_afterwards()
+async fn status_and_rebuild_reflect_writes_and_report_zero_staleness_afterwards()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
@@ -798,21 +742,15 @@ async fn fr_55_status_and_rebuild_reflect_writes_and_report_zero_staleness_after
     let status = call_tool(server.clone(), "query_index_status", Map::new()).await?;
     let status_content = structured(&status)?;
     assert_eq!(
-        status_content
-            .get("text")
-            .and_then(|text| text.get("documents")),
+        status_content.get("text").and_then(|text| text.get("documents")),
         Some(&json!(2))
     );
     assert_eq!(
-        status_content
-            .get("graph")
-            .and_then(|graph| graph.get("nodes")),
+        status_content.get("graph").and_then(|graph| graph.get("nodes")),
         Some(&json!(2))
     );
     assert_eq!(
-        status_content
-            .get("graph")
-            .and_then(|graph| graph.get("edges")),
+        status_content.get("graph").and_then(|graph| graph.get("edges")),
         Some(&json!(1))
     );
 
@@ -846,16 +784,13 @@ async fn fr_55_status_and_rebuild_reflect_writes_and_report_zero_staleness_after
     )
     .await?;
     assert_eq!(semantic.is_error, Some(true));
-    assert_eq!(
-        structured(&semantic)?.get("code"),
-        Some(&json!("index/disabled"))
-    );
+    assert_eq!(structured(&semantic)?.get("code"), Some(&json!("index/disabled")));
     Ok(())
 }
 
 #[tokio::test]
-async fn disabled_text_search_reports_the_stable_disabled_error()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn disabled_text_search_reports_the_stable_disabled_error() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
     config.vaults[0].search.text = false;
@@ -868,10 +803,7 @@ async fn disabled_text_search_reports_the_stable_disabled_error()
     )
     .await?;
     assert_eq!(result.is_error, Some(true));
-    assert_eq!(
-        structured(&result)?.get("code"),
-        Some(&json!("index/disabled"))
-    );
+    assert_eq!(structured(&result)?.get("code"), Some(&json!("index/disabled")));
     Ok(())
 }
 
@@ -890,10 +822,7 @@ async fn disabled_semantic_search_reports_the_stable_disabled_error()
     )
     .await?;
     assert_eq!(result.is_error, Some(true));
-    assert_eq!(
-        structured(&result)?.get("code"),
-        Some(&json!("index/disabled"))
-    );
+    assert_eq!(structured(&result)?.get("code"), Some(&json!("index/disabled")));
     Ok(())
 }
 
@@ -924,9 +853,7 @@ async fn unmanaged_vault_reports_search_disabled_rather_than_erroring_on_status(
     let status = call_tool(server.clone(), "query_index_status", Map::new()).await?;
     assert_eq!(status.is_error, Some(false));
     assert_eq!(
-        structured(&status)?
-            .get("text")
-            .and_then(|text| text.get("enabled")),
+        structured(&status)?.get("text").and_then(|text| text.get("enabled")),
         Some(&json!(false))
     );
 
@@ -937,9 +864,6 @@ async fn unmanaged_vault_reports_search_disabled_rather_than_erroring_on_status(
     )
     .await?;
     assert_eq!(query.is_error, Some(true));
-    assert_eq!(
-        structured(&query)?.get("code"),
-        Some(&json!("index/disabled"))
-    );
+    assert_eq!(structured(&query)?.get("code"), Some(&json!("index/disabled")));
     Ok(())
 }

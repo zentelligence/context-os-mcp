@@ -9,9 +9,9 @@ use askama::Template;
 use serde::Deserialize;
 
 /// One diagnostic entry, the same shape `base_read`/`canvas_read`/
-/// `mermaid_validate` already report at the tool layer (`D-31`), and the
-/// shape this module deserialises a tool's `structured_content` into
-/// directly (field names match verbatim).
+/// `mermaid_validate` already report at the tool layer, and the shape this
+/// module deserialises a tool's `structured_content` into directly (field
+/// names match verbatim).
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Diagnostic {
     pub code: String,

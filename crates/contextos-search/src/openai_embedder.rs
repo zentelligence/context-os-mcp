@@ -95,15 +95,10 @@ impl OpenAiCompatible {
     /// variable named by `config.api_key_env` is not set, and
     /// [`SearchError::EmbeddingTransport`] when the underlying HTTP client
     /// cannot be built. No network request is made by this constructor.
-    pub fn with_timeout(
-        config: OpenAiCompatibleConfig,
-        timeout: Duration,
-    ) -> Result<Self, SearchError> {
+    pub fn with_timeout(config: OpenAiCompatibleConfig, timeout: Duration) -> Result<Self, SearchError> {
         Self::reject_insecure_endpoint(&config.endpoint)?;
-        let key = std::env::var(&config.api_key_env).map_err(|_source| {
-            SearchError::EmbeddingApiKeyMissing {
-                variable: config.api_key_env.clone(),
-            }
+        let key = std::env::var(&config.api_key_env).map_err(|_source| SearchError::EmbeddingApiKeyMissing {
+            variable: config.api_key_env.clone(),
         })?;
         let client = Client::builder()
             .timeout(timeout)
@@ -129,10 +124,9 @@ impl OpenAiCompatible {
     /// startup-time error rather than a silent cleartext key leak
     /// (security.md network-boundary rule).
     fn reject_insecure_endpoint(endpoint: &str) -> Result<(), SearchError> {
-        let parsed =
-            reqwest::Url::parse(endpoint).map_err(|source| SearchError::EmbeddingConfig {
-                reason: format!("endpoint '{endpoint}' is not a valid URL: {source}"),
-            })?;
+        let parsed = reqwest::Url::parse(endpoint).map_err(|source| SearchError::EmbeddingConfig {
+            reason: format!("endpoint '{endpoint}' is not a valid URL: {source}"),
+        })?;
         if parsed.scheme() == "https" {
             return Ok(());
         }
@@ -225,20 +219,15 @@ impl EmbedsText for OpenAiCompatible {
             model: &self.model,
             input: inputs,
         };
-        let payload = serde_json::to_vec(&request_body).map_err(|source| {
-            SearchError::EmbeddingTransport {
-                endpoint: self.endpoint.clone(),
-                reason: format!("request body could not be serialised: {source}"),
-            }
+        let payload = serde_json::to_vec(&request_body).map_err(|source| SearchError::EmbeddingTransport {
+            endpoint: self.endpoint.clone(),
+            reason: format!("request body could not be serialised: {source}"),
         })?;
 
         let response = self
             .client
             .post(&self.endpoint)
-            .header(
-                reqwest::header::AUTHORIZATION,
-                format!("Bearer {}", self.api_key.0),
-            )
+            .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", self.api_key.0))
             .header(reqwest::header::CONTENT_TYPE, "application/json")
             .body(payload)
             .send()
@@ -279,10 +268,7 @@ impl EmbedsText for OpenAiCompatible {
         let Some(observed_dimension) = vectors.first().map(Vec::len) else {
             return Ok(vectors);
         };
-        if vectors
-            .iter()
-            .any(|vector| vector.len() != observed_dimension)
-        {
+        if vectors.iter().any(|vector| vector.len() != observed_dimension) {
             return Err(SearchError::EmbeddingShapeMismatch {
                 reason: "provider returned vectors of inconsistent length".to_owned(),
             });
@@ -290,9 +276,7 @@ impl EmbedsText for OpenAiCompatible {
         if let Some(existing) = self.dimension.get() {
             if *existing != observed_dimension {
                 return Err(SearchError::EmbeddingShapeMismatch {
-                    reason: format!(
-                        "provider dimension changed from {existing} to {observed_dimension}"
-                    ),
+                    reason: format!("provider dimension changed from {existing} to {observed_dimension}"),
                 });
             }
         } else {

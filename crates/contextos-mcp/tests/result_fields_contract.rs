@@ -12,8 +12,7 @@ use contextos_mcp::ContextOsServer;
     clippy::too_many_lines,
     reason = "one explicit schema matrix keeps the complete MCP contract auditable"
 )]
-fn every_delivered_tool_advertises_its_exact_result_fields()
--> Result<(), Box<dyn std::error::Error>> {
+fn every_delivered_tool_advertises_its_exact_result_fields() -> Result<(), Box<dyn std::error::Error>> {
     let expected = [
         (
             "fs_read_text_file",
@@ -66,25 +65,11 @@ fn every_delivered_tool_advertises_its_exact_result_fields()
         ),
         (
             "fs_create_directory",
-            vec![
-                "code",
-                "created",
-                "message",
-                "path",
-                "remediation",
-                "warnings",
-            ],
+            vec!["code", "created", "message", "path", "remediation", "warnings"],
         ),
         (
             "fs_list_directory",
-            vec![
-                "code",
-                "entries",
-                "message",
-                "path",
-                "remediation",
-                "rendered",
-            ],
+            vec!["code", "entries", "message", "path", "remediation", "rendered"],
         ),
         (
             "fs_move_file",
@@ -150,14 +135,7 @@ fn every_delivered_tool_advertises_its_exact_result_fields()
         ),
         (
             "vault_log_append",
-            vec![
-                "appended",
-                "code",
-                "message",
-                "path",
-                "remediation",
-                "warnings",
-            ],
+            vec!["appended", "code", "message", "path", "remediation", "warnings"],
         ),
         (
             "vault_info",
@@ -199,25 +177,11 @@ fn every_delivered_tool_advertises_its_exact_result_fields()
         ),
         (
             "frontmatter_update",
-            vec![
-                "code",
-                "content_hash",
-                "message",
-                "path",
-                "remediation",
-                "warnings",
-            ],
+            vec!["code", "content_hash", "message", "path", "remediation", "warnings"],
         ),
         (
             "base_create",
-            vec![
-                "code",
-                "content_hash",
-                "message",
-                "path",
-                "remediation",
-                "warnings",
-            ],
+            vec!["code", "content_hash", "message", "path", "remediation", "warnings"],
         ),
         (
             "base_read",
@@ -233,25 +197,11 @@ fn every_delivered_tool_advertises_its_exact_result_fields()
         ),
         (
             "base_apply",
-            vec![
-                "code",
-                "content_hash",
-                "message",
-                "path",
-                "remediation",
-                "warnings",
-            ],
+            vec!["code", "content_hash", "message", "path", "remediation", "warnings"],
         ),
         (
             "canvas_create",
-            vec![
-                "code",
-                "content_hash",
-                "message",
-                "path",
-                "remediation",
-                "warnings",
-            ],
+            vec!["code", "content_hash", "message", "path", "remediation", "warnings"],
         ),
         (
             "canvas_read",
@@ -268,36 +218,15 @@ fn every_delivered_tool_advertises_its_exact_result_fields()
         ),
         (
             "canvas_apply",
-            vec![
-                "code",
-                "content_hash",
-                "message",
-                "path",
-                "remediation",
-                "warnings",
-            ],
+            vec!["code", "content_hash", "message", "path", "remediation", "warnings"],
         ),
         (
             "links_read",
-            vec![
-                "code",
-                "message",
-                "outgoing",
-                "path",
-                "remediation",
-                "unresolved",
-            ],
+            vec!["code", "message", "outgoing", "path", "remediation", "unresolved"],
         ),
         (
             "git_init",
-            vec![
-                "code",
-                "commit_id",
-                "initialised",
-                "message",
-                "path",
-                "remediation",
-            ],
+            vec!["code", "commit_id", "initialised", "message", "path", "remediation"],
         ),
         (
             // `GitCommitToolResult.message` (the commit message) and
@@ -305,26 +234,11 @@ fn every_delivered_tool_advertises_its_exact_result_fields()
             // name: the merge collapses them into a single `message` key,
             // same as any other same-named success/failure field would.
             "git_commit",
-            vec![
-                "code",
-                "commit_id",
-                "committed_paths",
-                "message",
-                "path",
-                "remediation",
-            ],
+            vec!["code", "commit_id", "committed_paths", "message", "path", "remediation"],
         ),
         (
             "git_restore",
-            vec![
-                "applied",
-                "code",
-                "diff",
-                "message",
-                "path",
-                "remediation",
-                "warnings",
-            ],
+            vec!["applied", "code", "diff", "message", "path", "remediation", "warnings"],
         ),
         (
             "git_status",
@@ -343,20 +257,10 @@ fn every_delivered_tool_advertises_its_exact_result_fields()
                 "untracked",
             ],
         ),
-        (
-            "git_log",
-            vec!["code", "entries", "message", "path", "remediation"],
-        ),
+        ("git_log", vec!["code", "entries", "message", "path", "remediation"]),
         (
             "git_diff",
-            vec![
-                "code",
-                "content",
-                "message",
-                "path",
-                "remediation",
-                "truncated",
-            ],
+            vec!["code", "content", "message", "path", "remediation", "truncated"],
         ),
     ];
     let catalogue = ContextOsServer::catalogue();

@@ -89,11 +89,7 @@ impl TryFrom<ConfigLoadInput> for Config {
             config.server.log_level = log_level;
         }
         if !value.cli_vaults.is_empty() {
-            config.vaults = value
-                .cli_vaults
-                .into_iter()
-                .map(VaultConfig::from)
-                .collect();
+            config.vaults = value.cli_vaults.into_iter().map(VaultConfig::from).collect();
         }
 
         config.validate()?;
@@ -147,10 +143,7 @@ fn is_portable_relative_path(path: &std::path::Path) -> bool {
         && !path.is_absolute()
         && path.components().all(|component| {
             matches!(component, std::path::Component::Normal(_))
-                && !component
-                    .as_os_str()
-                    .to_string_lossy()
-                    .contains(['\\', ':'])
+                && !component.as_os_str().to_string_lossy().contains(['\\', ':'])
         })
 }
 
@@ -425,16 +418,10 @@ impl Default for IndexMdConfig {
 }
 
 fn default_content_excludes() -> Vec<String> {
-    [
-        ".contextos",
-        ".git",
-        ".obsidian",
-        "memory/log",
-        "memory/sessions",
-    ]
-    .into_iter()
-    .map(str::to_owned)
-    .collect()
+    [".contextos", ".git", ".obsidian", "memory/log", "memory/sessions"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -638,10 +625,7 @@ pub enum ConfigError {
         source: std::io::Error,
     },
     #[error("environment variable {variable} has an invalid value: {value}")]
-    InvalidEnvironmentValue {
-        variable: &'static str,
-        value: String,
-    },
+    InvalidEnvironmentValue { variable: &'static str, value: String },
     #[error("at least one allowed vault directory must be configured")]
     NoVaults,
     #[error("at least one transport (\"stdio\" or \"http\") must be configured")]

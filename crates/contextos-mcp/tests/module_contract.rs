@@ -1,4 +1,4 @@
-//! `FR-63` / `FR-64`: the `ServerModule` extension contract, covering namespaced
+//! The `ServerModule` extension contract, covering namespaced
 //! tools, startup collision rejection, injected core services with no
 //! bypass, and a feature-off catalogue that is byte-identical to the core
 //! catalogue. Exercised end to end through a test-only fixture module.
@@ -13,9 +13,8 @@ use std::sync::Arc;
 
 use contextos_core::{Origin, WriteMutation};
 use contextos_mcp::{
-    Config, ContextOsServer, ModuleCall, ModuleContext, ModuleManifest, ModuleNamespace,
-    ModuleRegistry, ModuleRegistryError, ServerBuildConfig, ServerBuildError, ServerModule,
-    ServerModuleFuture,
+    Config, ContextOsServer, ModuleCall, ModuleContext, ModuleManifest, ModuleNamespace, ModuleRegistry,
+    ModuleRegistryError, ServerBuildConfig, ServerBuildError, ServerModule, ServerModuleFuture,
 };
 use rmcp::ErrorData;
 use rmcp::ServiceExt;
@@ -117,9 +116,7 @@ async fn echo_write(call: ModuleCall, ctx: &ModuleContext) -> Result<CallToolRes
     let input: EchoWriteInput = match serde_json::from_value(Value::Object(call.arguments)) {
         Ok(input) => input,
         Err(error) => {
-            return Ok(invalid_arguments(&format!(
-                "failed to deserialize parameters: {error}"
-            )));
+            return Ok(invalid_arguments(&format!("failed to deserialize parameters: {error}")));
         }
     };
     let path = match ctx.resolve_path(&input.path).await {
@@ -155,9 +152,7 @@ async fn echo_read(call: ModuleCall, ctx: &ModuleContext) -> Result<CallToolResu
     let input: EchoReadInput = match serde_json::from_value(Value::Object(call.arguments)) {
         Ok(input) => input,
         Err(error) => {
-            return Ok(invalid_arguments(&format!(
-                "failed to deserialize parameters: {error}"
-            )));
+            return Ok(invalid_arguments(&format!("failed to deserialize parameters: {error}")));
         }
     };
     let path = match ctx.resolve_path(&input.path).await {
@@ -176,11 +171,7 @@ async fn echo_read(call: ModuleCall, ctx: &ModuleContext) -> Result<CallToolResu
         Ok(entries) => entries.into_iter().map(|entry| entry.name).collect(),
         Err(error) => return Ok(error.into_tool_result()),
     };
-    Json(EchoReadOutput {
-        content,
-        root_entries,
-    })
-    .into_call_tool_result()
+    Json(EchoReadOutput { content, root_entries }).into_call_tool_result()
 }
 
 fn registry_with_fixture() -> ModuleRegistry {
@@ -210,8 +201,7 @@ async fn call_tool(
 }
 
 #[test]
-fn a_module_registered_under_the_wrong_namespace_fails_server_construction() -> Result<(), BoxError>
-{
+fn a_module_registered_under_the_wrong_namespace_fails_server_construction() -> Result<(), BoxError> {
     struct MisnamedFixture;
     impl ServerModule for MisnamedFixture {
         fn manifest(&self) -> ModuleManifest {
@@ -224,11 +214,7 @@ fn a_module_registered_under_the_wrong_namespace_fails_server_construction() -> 
         fn tools(&self) -> Vec<Tool> {
             vec![Tool::new("pos_intruder", "wrong namespace", Map::new())]
         }
-        fn handle<'a>(
-            &'a self,
-            _call: ModuleCall,
-            _ctx: &'a ModuleContext,
-        ) -> ServerModuleFuture<'a> {
+        fn handle<'a>(&'a self, _call: ModuleCall, _ctx: &'a ModuleContext) -> ServerModuleFuture<'a> {
             Box::pin(async { unreachable!("rejected before dispatch") })
         }
     }
@@ -239,9 +225,7 @@ fn a_module_registered_under_the_wrong_namespace_fails_server_construction() -> 
     let result = ContextOsServer::try_from(ServerBuildConfig { config, modules });
     assert!(matches!(
         result,
-        Err(ServerBuildError::Module(
-            ModuleRegistryError::UnnamespacedTool { .. }
-        ))
+        Err(ServerBuildError::Module(ModuleRegistryError::UnnamespacedTool { .. }))
     ));
     Ok(())
 }
@@ -271,18 +255,16 @@ fn two_modules_contributing_the_same_tool_name_fail_server_construction() -> Res
 // tests, which pass a synthetic reserved set to exercise that branch.
 
 #[test]
-fn with_no_modules_registered_the_effective_catalogue_is_byte_identical_to_core()
--> Result<(), BoxError> {
+fn with_no_modules_registered_the_effective_catalogue_is_byte_identical_to_core() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let config = Config::try_from(vec![vault.path().to_path_buf()])?;
 
     // Two servers built from the same config, differing only in `modules`
     // (`ModuleRegistry::new()` explicitly on both, `ContextOsServer::try_from(Config)`
     // implicitly): isolates the variable this test actually checks
-    // (module registration) from `[server] astro` (`D-25`), which both
-    // sides share unchanged from `config`.
-    let without_module_registry_argument =
-        ContextOsServer::try_from(config.clone())?.effective_catalogue();
+    // (module registration) from `[server] astro`, which both sides share
+    // unchanged from `config`.
+    let without_module_registry_argument = ContextOsServer::try_from(config.clone())?.effective_catalogue();
     let with_an_empty_module_registry = ContextOsServer::try_from(ServerBuildConfig {
         config,
         modules: ModuleRegistry::new(),
@@ -311,15 +293,14 @@ fn with_no_modules_registered_the_effective_catalogue_is_byte_identical_to_core(
 }
 
 #[test]
-fn a_registered_module_adds_its_namespaced_tool_without_touching_the_core_catalogue()
--> Result<(), BoxError> {
+fn a_registered_module_adds_its_namespaced_tool_without_touching_the_core_catalogue() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let config = Config::try_from(vec![vault.path().to_path_buf()])?;
 
     // This instance's own effective catalogue with no modules registered
     // (`[server] astro` held constant from the same `config`, unlike
     // `ContextOsServer::catalogue()`, which always includes the
-    // `ephemeris_*` tools regardless of `D-25`'s runtime toggle). Built and
+    // `ephemeris_*` tools regardless of that runtime toggle). Built and
     // dropped (only its catalogue is kept) before `server` below opens the
     // same vault's derived-state directory: the link graph's `fjall` store
     // holds an exclusive lock while open, so two `ContextOsServer`
@@ -350,12 +331,8 @@ fn a_registered_module_adds_its_namespaced_tool_without_touching_the_core_catalo
         Some("Fixture: writes a note through the injected pipeline")
     );
     assert!(tool.input_schema.contains_key("properties"));
-    let properties = tool
-        .input_schema
-        .get("properties")
-        .and_then(Value::as_object);
-    let properties = properties
-        .ok_or_else(|| std::io::Error::other("fixture tool schema has no properties object"))?;
+    let properties = tool.input_schema.get("properties").and_then(Value::as_object);
+    let properties = properties.ok_or_else(|| std::io::Error::other("fixture tool schema has no properties object"))?;
     assert!(properties.contains_key("path"));
     assert!(properties.contains_key("content"));
 
@@ -374,8 +351,7 @@ fn a_registered_module_adds_its_namespaced_tool_without_touching_the_core_catalo
 }
 
 #[tokio::test]
-async fn a_module_write_flows_through_the_shared_pipeline_and_reaches_the_operation_log()
--> Result<(), BoxError> {
+async fn a_module_write_flows_through_the_shared_pipeline_and_reaches_the_operation_log() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let vault_path = vault.path().to_path_buf();
     let config = Config::try_from(vec![vault_path.clone()])?;
@@ -458,17 +434,12 @@ async fn a_module_read_and_list_use_the_injected_read_access() -> Result<(), Box
         .get("root_entries")
         .and_then(Value::as_array)
         .ok_or_else(|| std::io::Error::other("read tool did not return root_entries"))?;
-    assert!(
-        root_entries
-            .iter()
-            .any(|entry| entry.as_str() == Some("readable.md"))
-    );
+    assert!(root_entries.iter().any(|entry| entry.as_str() == Some("readable.md")));
     Ok(())
 }
 
 #[tokio::test]
-async fn a_module_write_outside_every_configured_root_is_rejected_before_any_write()
--> Result<(), BoxError> {
+async fn a_module_write_outside_every_configured_root_is_rejected_before_any_write() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let vault_path = vault.path().to_path_buf();
     let config = Config::try_from(vec![vault_path.clone()])?;
@@ -575,8 +546,7 @@ async fn a_registered_module_tool_is_reachable_and_dispatches_over_http() -> Res
     });
     let url = format!("http://{addr}{}", contextos_mcp::HTTP_MOUNT_PATH);
 
-    let client_config =
-        StreamableHttpClientTransportConfig::with_uri(url).auth_header(token.to_owned());
+    let client_config = StreamableHttpClientTransportConfig::with_uri(url).auth_header(token.to_owned());
     let transport = StreamableHttpClientTransport::from_config(client_config);
     let client = ().serve(transport).await?;
 
@@ -588,9 +558,11 @@ async fn a_registered_module_tool_is_reachable_and_dispatches_over_http() -> Res
     assert!(fixture_tool.input_schema.contains_key("properties"));
 
     let result = client
-        .call_tool(CallToolRequestParams::new("dos_echo_write").with_arguments(
-            serde_json::from_value(json!({"path": "http/note.md", "content": "# Over HTTP\n"}))?,
-        ))
+        .call_tool(
+            CallToolRequestParams::new("dos_echo_write").with_arguments(serde_json::from_value(
+                json!({"path": "http/note.md", "content": "# Over HTTP\n"}),
+            )?),
+        )
         .await?;
     client.cancel().await?;
     assert_eq!(result.is_error, Some(false));

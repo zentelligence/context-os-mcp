@@ -1,7 +1,7 @@
-//! Markdown/OFM rendering pipeline (`web-rendering.md` §1, FR-221, FR-240,
-//! FR-241, FR-242): frontmatter strip, Mermaid extraction, wikilink/embed
-//! extraction, triple-colon fence and callout resolution, then general
-//! Markdown, in that stage order.
+//! Markdown/OFM rendering pipeline (`web-rendering.md` §1): frontmatter
+//! strip, Mermaid extraction, wikilink/embed extraction, triple-colon
+//! fence and callout resolution, then general Markdown, in that stage
+//! order.
 //!
 //! [`compile`] is the pure half: it extracts every occurrence needing an
 //! MCP round trip (wikilink/embed target, Mermaid source) into a
@@ -30,9 +30,9 @@ use crate::rendering::diagnostics::{self, Diagnostic};
 use crate::rendering::wikilinks::{LinkOccurrence, LinkSyntax};
 use crate::rendering::{callouts, fences, frontmatter, wikilinks};
 
-/// An embed nests at most one level deep (FR-240): a target that is itself
-/// an embed of a third file renders as a plain link at that second level,
-/// never a second recursive inline.
+/// An embed nests at most one level deep: a target that is itself an embed
+/// of a third file renders as a plain link at that second level, never a
+/// second recursive inline.
 const MAX_EMBED_DEPTH: u8 = 1;
 
 /// Converts already OFM-extension-resolved text (frontmatter, fences,
@@ -75,10 +75,7 @@ fn extract_mermaid(text: &str) -> (String, Vec<String>) {
         let trimmed = lines[i].trim_start();
         if let Some(info) = trimmed.strip_prefix("```") {
             let is_mermaid = info.trim().eq_ignore_ascii_case("mermaid");
-            if let Some(close) = lines[i + 1..]
-                .iter()
-                .position(|l| l.trim_start().starts_with("```"))
-            {
+            if let Some(close) = lines[i + 1..].iter().position(|l| l.trim_start().starts_with("```")) {
                 let body_start = i + 1;
                 let body_end = body_start + close;
                 if is_mermaid {
@@ -166,15 +163,10 @@ pub struct RenderedMarkdown {
 }
 
 /// Resolves every placeholder [`compile`] left behind against a live
-/// [`McpClient`] and returns the final HTML (FR-244: a pure function of
-/// the tool calls' own results, so identical vault state renders
-/// byte-identical output).
-pub async fn render(
-    mcp: &McpClient,
-    vault_name: &str,
-    raw_source: &str,
-    embed_depth: u8,
-) -> RenderedMarkdown {
+/// [`McpClient`] and returns the final HTML: a pure function of the tool
+/// calls' own results, so identical vault state renders byte-identical
+/// output.
+pub async fn render(mcp: &McpClient, vault_name: &str, raw_source: &str, embed_depth: u8) -> RenderedMarkdown {
     let compiled = compile(raw_source);
     let mut html = compiled.html;
 
@@ -187,13 +179,12 @@ pub async fn render(
     // most once: a note repeating the same target many times (a heavily
     // cross-referenced index page) would otherwise cost one MCP round trip
     // per occurrence rather than per distinct target, the dominant cost
-    // `NFR-W03`'s performance budget actually measures.
+    // this crate's rendering performance budget actually measures.
     let mut href_cache: HashMap<String, Option<String>> = HashMap::new();
     for (index, occurrence) in compiled.occurrences.iter().enumerate() {
         match occurrence.syntax {
             LinkSyntax::Link => {
-                let href =
-                    resolve_href_cached(mcp, vault_name, &occurrence.target, &mut href_cache).await;
+                let href = resolve_href_cached(mcp, vault_name, &occurrence.target, &mut href_cache).await;
                 let rendered = match href {
                     Some(h) => wikilinks::render_link(occurrence, &h),
                     None => wikilinks::render_dead_link(occurrence),
@@ -201,19 +192,8 @@ pub async fn render(
                 html = html.replacen(&wikilinks::placeholder(index), &rendered, 1);
             }
             LinkSyntax::Embed => {
-                let rendered = render_embed_occurrence(
-                    mcp,
-                    vault_name,
-                    occurrence,
-                    embed_depth,
-                    &mut href_cache,
-                )
-                .await;
-                html = replace_block_placeholder(
-                    &html,
-                    &wikilinks::embed_placeholder(index),
-                    &rendered,
-                );
+                let rendered = render_embed_occurrence(mcp, vault_name, occurrence, embed_depth, &mut href_cache).await;
+                html = replace_block_placeholder(&html, &wikilinks::embed_placeholder(index), &rendered);
             }
         }
     }
@@ -242,14 +222,12 @@ async fn render_embed_occurrence(
     embed_depth: u8,
     href_cache: &mut HashMap<String, Option<String>>,
 ) -> String {
-    let Some(candidate) =
-        resolve_href_cached(mcp, vault_name, &occurrence.target, href_cache).await
-    else {
+    let Some(candidate) = resolve_href_cached(mcp, vault_name, &occurrence.target, href_cache).await else {
         return wikilinks::render_dead_link(occurrence);
     };
     if embed_depth >= MAX_EMBED_DEPTH {
         // A doubly-embedded file renders as a plain link at the second
-        // level, never a second recursive inline (FR-240).
+        // level, never a second recursive inline.
         return wikilinks::render_link(occurrence, &candidate);
     }
     let relative_path = candidate
@@ -290,8 +268,7 @@ struct SearchFilesResult {
 /// Resolves a wikilink target to its `/{{vault_name}}/{{relative-path}}`
 /// route: an exact relative-path match (with `.md` assumed when the target
 /// carries no extension) is tried first, falling back to a basename search
-/// across the vault when exactly one candidate matches. `None` means dead
-/// (FR-240).
+/// across the vault when exactly one candidate matches. `None` means dead.
 async fn resolve_href(mcp: &McpClient, vault_name: &str, target: &str) -> Option<String> {
     let candidate = normalise_target(target);
     let exact = format!("{vault_name}://{candidate}");
@@ -313,10 +290,7 @@ async fn resolve_href(mcp: &McpClient, vault_name: &str, target: &str) -> Option
         "pattern".to_owned(),
         serde_json::Value::String(format!("**/{basename}")),
     );
-    let result = mcp
-        .call_tool("fs_search_files".to_owned(), search_args)
-        .await
-        .ok()?;
+    let result = mcp.call_tool("fs_search_files".to_owned(), search_args).await.ok()?;
     if result.is_error == Some(true) {
         return None;
     }
@@ -347,10 +321,7 @@ pub async fn render_mermaid_source(mcp: &McpClient, source: &str) -> String {
 
 async fn render_mermaid_block(mcp: &McpClient, source: &str) -> String {
     let mut args = serde_json::Map::new();
-    args.insert(
-        "source".to_owned(),
-        serde_json::Value::String(source.to_owned()),
-    );
+    args.insert("source".to_owned(), serde_json::Value::String(source.to_owned()));
     let Ok(result) = mcp.call_tool("mermaid_render".to_owned(), args).await else {
         return diagnostics::render_diagnostic_panel(&[Diagnostic {
             code: "mcp/unreachable".to_owned(),

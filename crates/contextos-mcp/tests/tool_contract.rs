@@ -41,16 +41,13 @@ async fn assert_tool_success(
     let config = Config::try_from(vec![vault.to_path_buf()])?;
     let server = ContextOsServer::try_from(config)?;
     let result = call_tool(server, name, arguments).await?;
-    let structured = result.structured_content.ok_or_else(|| {
-        std::io::Error::other(format!("{name} did not return structured content"))
-    })?;
+    let structured = result
+        .structured_content
+        .ok_or_else(|| std::io::Error::other(format!("{name} did not return structured content")))?;
 
     assert_eq!(result.is_error, Some(false), "{name} returned a tool error");
     for field in expected_fields {
-        assert!(
-            structured.get(field).is_some(),
-            "{name} omitted result field {field}"
-        );
+        assert!(structured.get(field).is_some(), "{name} omitted result field {field}");
     }
     Ok(())
 }
@@ -64,9 +61,9 @@ async fn assert_tool_error(
     let config = Config::try_from(vec![vault.to_path_buf()])?;
     let server = ContextOsServer::try_from(config)?;
     let result = call_tool(server, name, arguments).await?;
-    let structured = result.structured_content.ok_or_else(|| {
-        std::io::Error::other(format!("{name} did not return structured error content"))
-    })?;
+    let structured = result
+        .structured_content
+        .ok_or_else(|| std::io::Error::other(format!("{name} did not return structured error content")))?;
     let remediation = structured
         .get("remediation")
         .and_then(serde_json::Value::as_str)
@@ -102,22 +99,20 @@ async fn missing_file_is_a_structured_tool_error_with_remediation()
     // unresolved tempdir path (e.g. under Windows 8.3 short names).
     assert_eq!(
         structured.get("path"),
-        Some(&json!(
-            dunce::canonicalize(vault.path())?.join("missing.md")
-        ))
+        Some(&json!(dunce::canonicalize(vault.path())?.join("missing.md")))
     );
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_06_fr_07_fs_list_directory_with_sizes_reports_entries_and_rejects_sort_by_without_it()
+async fn fs_list_directory_with_sizes_reports_entries_and_rejects_sort_by_without_it()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // FR-06/FR-07: `fs_list_directory_with_sizes` retired in favour of
-    // `fs_list_directory`'s own `with_sizes`/`sort_by` parameters, covering
-    // the three behaviours that split used to guarantee: the default call
-    // stays lightweight (no size/modified fields), `with_sizes: true`
-    // reports them and honours `sort_by`, and `sort_by` without
-    // `with_sizes` is rejected rather than silently ignored.
+    // `fs_list_directory_with_sizes` was retired in favour of
+    // `fs_list_directory`'s own `with_sizes`/`sort_by` parameters, so this
+    // test covers the three behaviours that split used to guarantee: the
+    // default call stays lightweight (no size/modified fields),
+    // `with_sizes: true` reports them and honours `sort_by`, and `sort_by`
+    // without `with_sizes` is rejected rather than silently ignored.
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(vault.path().join("small.md"), "a")?;
     std::fs::write(vault.path().join("large.md"), "a much longer file body")?;
@@ -135,10 +130,7 @@ async fn fr_06_fr_07_fs_list_directory_with_sizes_reports_entries_and_rejects_so
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| std::io::Error::other("fs_list_directory omitted entries"))?;
     assert!(
-        !plain_entries.is_empty()
-            && plain_entries
-                .iter()
-                .all(|entry| entry.get("size").is_none()),
+        !plain_entries.is_empty() && plain_entries.iter().all(|entry| entry.get("size").is_none()),
         "default fs_list_directory must not report sizes: {plain_entries:?}"
     );
 
@@ -175,18 +167,14 @@ async fn fr_06_fr_07_fs_list_directory_with_sizes_reports_entries_and_rejects_so
     assert_tool_error(
         vault.path(),
         "fs_list_directory",
-        Map::from_iter([
-            ("path".to_owned(), json!(".")),
-            ("sort_by".to_owned(), json!("size")),
-        ]),
+        Map::from_iter([("path".to_owned(), json!(".")), ("sort_by".to_owned(), json!("size"))]),
         "io/invalid-argument",
     )
     .await
 }
 
 #[tokio::test]
-async fn unknown_tool_arguments_are_rejected()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn unknown_tool_arguments_are_rejected() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(vault.path().join("note.md"), "content")?;
     let config = Config::try_from(vec![vault.path().to_path_buf()])?;
@@ -210,8 +198,8 @@ async fn unknown_tool_arguments_are_rejected()
 }
 
 #[tokio::test]
-async fn missing_and_incompatible_tool_arguments_are_rejected()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn missing_and_incompatible_tool_arguments_are_rejected() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(vault.path().join("note.md"), "content")?;
     let config = Config::try_from(vec![vault.path().to_path_buf()])?;
@@ -238,8 +226,8 @@ async fn missing_and_incompatible_tool_arguments_are_rejected()
 }
 
 #[tokio::test]
-async fn batch_path_validation_failures_are_isolated_per_item()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn batch_path_validation_failures_are_isolated_per_item() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let outside = tempdir()?;
     std::fs::write(vault.path().join("present.md"), "present")?;
@@ -267,16 +255,12 @@ async fn batch_path_validation_failures_are_isolated_per_item()
     Ok(())
 }
 
-// `fs_delete_file` contract tests (`FR-14` hard-delete gating, `D-30`'s
-// managed-`index.md` emptiness relaxation, and `FR-115` bulk delete via
-// `paths`/`pattern`) live in `tests/delete_contract.rs`, not here, to
-// keep this already-large file from growing further.
+// `fs_delete_file` contract tests (hard-delete gating, the managed
+// `index.md` emptiness relaxation, and bulk delete via `paths`/`pattern`)
+// live in `tests/delete_contract.rs`, not here, to keep this already-large
+// file from growing further.
 
 #[tokio::test]
-#[expect(
-    clippy::too_many_lines,
-    reason = "one ordered transport matrix makes coverage of all twelve Phase 1 tools auditable"
-)]
 async fn every_phase_1_tool_dispatches_with_representative_input_and_output()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
@@ -304,13 +288,7 @@ async fn every_phase_1_tool_dispatches_with_representative_input_and_output()
         vault.path(),
         "fs_write_file",
         serde_json::from_value(json!({"path": "written.md", "content": "written\n"}))?,
-        &[
-            "path",
-            "bytes_written",
-            "content_hash",
-            "created",
-            "warnings",
-        ],
+        &["path", "bytes_written", "content_hash", "created", "warnings"],
     )
     .await?;
     assert_tool_success(

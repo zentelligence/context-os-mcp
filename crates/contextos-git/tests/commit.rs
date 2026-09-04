@@ -7,8 +7,7 @@ use time::macros::datetime;
 mod support;
 
 #[test]
-fn fr_30_commit_contains_only_mcp_owned_paths_and_leaves_operator_staging_intact()
--> Result<(), Box<dyn std::error::Error>> {
+fn commit_contains_only_mcp_owned_paths_and_leaves_operator_staging_intact() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("managed.md"), "baseline\n")?;
     std::fs::write(vault.path().join("operator.md"), "baseline\n")?;
@@ -49,13 +48,9 @@ fn fr_30_commit_contains_only_mcp_owned_paths_and_leaves_operator_staging_intact
     let head = repository.head()?.peel_to_commit()?;
     let tree = head.tree()?;
     let managed = repository.find_blob(tree.get_path(std::path::Path::new("managed.md"))?.id())?;
-    let operator =
-        repository.find_blob(tree.get_path(std::path::Path::new("operator.md"))?.id())?;
+    let operator = repository.find_blob(tree.get_path(std::path::Path::new("operator.md"))?.id())?;
 
-    assert_eq!(
-        result.commit_id.as_deref(),
-        Some(head.id().to_string().as_str())
-    );
+    assert_eq!(result.commit_id.as_deref(), Some(head.id().to_string().as_str()));
     assert_eq!(managed.content(), b"MCP staged\n");
     assert_eq!(operator.content(), b"baseline\n");
     assert!(

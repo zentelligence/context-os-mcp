@@ -79,12 +79,7 @@ async fn get(router: &Router, path: &str) -> Result<(StatusCode, String), BoxErr
 async fn post(router: &Router, path: &str) -> Result<StatusCode, BoxError> {
     let response = router
         .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri(path)
-                .body(Body::empty())?,
-        )
+        .oneshot(Request::builder().method("POST").uri(path).body(Body::empty())?)
         .await?;
     Ok(response.status())
 }
@@ -120,7 +115,7 @@ fn write_app(
 }
 
 // ---------------------------------------------------------------------
-// Registration and serving (FR-230 to FR-233)
+// Registration and serving
 // ---------------------------------------------------------------------
 
 #[tokio::test]
@@ -155,8 +150,7 @@ async fn a_valid_spa_manifest_registers_and_serves() -> Result<(), BoxError> {
 }
 
 #[tokio::test]
-async fn a_spa_apps_sub_path_falls_back_to_its_own_entry_file_spa_routing() -> Result<(), BoxError>
-{
+async fn a_spa_apps_sub_path_falls_back_to_its_own_entry_file_spa_routing() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
@@ -174,19 +168,14 @@ async fn a_spa_apps_sub_path_falls_back_to_its_own_entry_file_spa_routing() -> R
     )?;
     let router = router_over(vault_dir.path(), config_dir.path()).await?;
 
-    let (status, body) = get(
-        &router,
-        &format!("/{VAULT_NAME}/apps/task-register/some/client/route"),
-    )
-    .await?;
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/apps/task-register/some/client/route")).await?;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("SPA shell"));
     Ok(())
 }
 
 #[tokio::test]
-async fn a_schema_violation_fails_registration_without_blocking_other_apps() -> Result<(), BoxError>
-{
+async fn a_schema_violation_fails_registration_without_blocking_other_apps() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
@@ -279,12 +268,10 @@ async fn a_missing_entry_file_fails_registration() -> Result<(), BoxError> {
 
 // ---------------------------------------------------------------------
 // `htmx`-kind: registers, listed as not-yet-supported, distinct 404
-// (FR-233a)
 // ---------------------------------------------------------------------
 
 #[tokio::test]
-async fn an_htmx_kind_app_is_listed_not_yet_supported_and_returns_a_distinct_404()
--> Result<(), BoxError> {
+async fn an_htmx_kind_app_is_listed_not_yet_supported_and_returns_a_distinct_404() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
@@ -319,7 +306,7 @@ async fn an_htmx_kind_app_is_listed_not_yet_supported_and_returns_a_distinct_404
 }
 
 // ---------------------------------------------------------------------
-// GET /{{vault_name}}/apps/ listing (FR-234)
+// GET /{{vault_name}}/apps/ listing
 // ---------------------------------------------------------------------
 
 #[tokio::test]
@@ -347,7 +334,7 @@ async fn an_unconfigured_vault_name_is_a_404_for_the_apps_listing() -> Result<()
 }
 
 // ---------------------------------------------------------------------
-// Cross-vault isolation (D-W07)
+// Cross-vault isolation
 // ---------------------------------------------------------------------
 
 #[tokio::test]
@@ -381,14 +368,8 @@ async fn two_vaults_registering_the_same_slug_serve_independently() -> Result<()
         "index.html",
         "<html><body>Widget from vault B</body></html>",
     )?;
-    let router = router_over_two_vaults(
-        vault_a.path(),
-        "vault-a",
-        vault_b.path(),
-        "vault-b",
-        config_dir.path(),
-    )
-    .await?;
+    let router =
+        router_over_two_vaults(vault_a.path(), "vault-a", vault_b.path(), "vault-b", config_dir.path()).await?;
 
     let (status, body) = get(&router, "/vault-a/apps/widget/").await?;
     assert_eq!(status, StatusCode::OK);

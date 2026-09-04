@@ -18,8 +18,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 
 use contextos_core::{
-    OpKind, OperationEvent, OperationWarning, PathError, SystemClock, UpdatesSearch, VaultPath,
-    VaultPathInput, VaultRoot, VaultRootId, VaultSet,
+    OpKind, OperationEvent, OperationWarning, PathError, SystemClock, UpdatesSearch, VaultPath, VaultPathInput,
+    VaultRoot, VaultRootId, VaultSet,
 };
 use contextos_obsidian::{LinkCollection, ObsidianLink};
 use serde::Serialize;
@@ -30,11 +30,10 @@ use crate::document::relative_display;
 use crate::text::IndexEntry;
 use crate::{
     CatchUpKind, ChunkSource, DocumentSource, EmbeddingWorker, EmbeddingWorkerConfig, EmbedsText,
-    FilesystemChunkSource, FreshnessReport, GraphBackend, GraphDirection, GraphView,
-    IndexedDocument, IndexesText, LinkGraph, LinkGraphConfig, PathEmbeddingOutcome,
-    ReadsChunkSource, SearchError, SimilarityQuery, SqliteVecConfig, SqliteVecStore, StoresVectors,
-    TantivyIndex, TextHit, TextIndexConfig, TextQuery, TextSearchService, TextSyncConfig,
-    chunk_document,
+    FilesystemChunkSource, FreshnessReport, GraphBackend, GraphDirection, GraphView, IndexedDocument, IndexesText,
+    LinkGraph, LinkGraphConfig, PathEmbeddingOutcome, ReadsChunkSource, SearchError, SimilarityQuery, SqliteVecConfig,
+    SqliteVecStore, StoresVectors, TantivyIndex, TextHit, TextIndexConfig, TextQuery, TextSearchService,
+    TextSyncConfig, chunk_document,
 };
 
 /// Construction input for one vault root's combined search service.
@@ -77,8 +76,7 @@ pub struct SemanticConfig {
 /// `EmbedsText` the composition root selected from configuration (boxed, so
 /// swapping providers is a value, not a type, change), content is read from
 /// the real filesystem, and timestamps come from the real clock.
-type SemanticWorker =
-    EmbeddingWorker<SqliteVecStore, Box<dyn EmbedsText>, FilesystemChunkSource, SystemClock>;
+type SemanticWorker = EmbeddingWorker<SqliteVecStore, Box<dyn EmbedsText>, FilesystemChunkSource, SystemClock>;
 
 /// Combined per-vault text index and link graph service.
 pub struct VaultSearchService {
@@ -184,10 +182,7 @@ impl TryFrom<VaultSearchConfig> for VaultSearchService {
 /// its dimension.
 const DIMENSION_PROBE_TEXT: &str = "contextos-dimension-probe";
 
-fn build_semantic_worker(
-    root: &Path,
-    config: SemanticConfig,
-) -> Result<SemanticWorker, SearchError> {
+fn build_semantic_worker(root: &Path, config: SemanticConfig) -> Result<SemanticWorker, SearchError> {
     let SemanticConfig {
         embedder,
         vector_store_path,
@@ -241,10 +236,7 @@ impl VaultSearchService {
     /// Returns [`SearchError::TextDisabled`] when text search is disabled
     /// for this vault, an invalid-query error for unparsable syntax or
     /// filter values, and a storage error when the index cannot be read.
-    pub fn query_text(
-        &self,
-        request: &TextQuery<'_>,
-    ) -> Result<(Vec<TextHit>, FreshnessReport), SearchError> {
+    pub fn query_text(&self, request: &TextQuery<'_>) -> Result<(Vec<TextHit>, FreshnessReport), SearchError> {
         let text = self.text.as_ref().ok_or(SearchError::TextDisabled)?;
         let freshness = text.refresh()?;
         let hits = text.index().query(request)?;
@@ -288,12 +280,7 @@ impl VaultSearchService {
     /// Returns [`SearchError::GraphDisabled`] when the link graph is
     /// disabled for this vault, and [`SearchError::UnknownNote`] when
     /// `from` or `to` is not in the graph.
-    pub fn graph_path(
-        &self,
-        from: &str,
-        to: &str,
-        direction: GraphDirection,
-    ) -> Result<GraphView, SearchError> {
+    pub fn graph_path(&self, from: &str, to: &str, direction: GraphDirection) -> Result<GraphView, SearchError> {
         let graph = self.graph.as_ref().ok_or(SearchError::GraphDisabled)?;
         Self::locked(graph).path_between(from, to, direction)
     }
@@ -324,25 +311,17 @@ impl VaultSearchService {
     /// Returns [`SearchError::SemanticUnavailable`] when semantic search is
     /// disabled for this vault, and a typed embedding or storage error when
     /// the query cannot be embedded or the vector store cannot be read.
-    pub fn query_semantic(
-        &self,
-        request: &SemanticQuery<'_>,
-    ) -> Result<Vec<SemanticHit>, SearchError> {
-        let semantic = self
-            .semantic
-            .as_ref()
-            .ok_or(SearchError::SemanticUnavailable)?;
+    pub fn query_semantic(&self, request: &SemanticQuery<'_>) -> Result<Vec<SemanticHit>, SearchError> {
+        let semantic = self.semantic.as_ref().ok_or(SearchError::SemanticUnavailable)?;
         if request.limit == 0 {
             return Ok(Vec::new());
         }
 
         let probe = Chunk::query(request.query);
         let vectors = semantic.embedder().embed(std::slice::from_ref(&probe))?;
-        let vector = vectors
-            .first()
-            .ok_or_else(|| SearchError::EmbeddingShapeMismatch {
-                reason: "embedding provider returned no vector for the query text".to_owned(),
-            })?;
+        let vector = vectors.first().ok_or_else(|| SearchError::EmbeddingShapeMismatch {
+            reason: "embedding provider returned no vector for the query text".to_owned(),
+        })?;
 
         let hits = semantic.store().similar(&SimilarityQuery {
             vector,
@@ -528,11 +507,7 @@ impl VaultSearchService {
                     Some(_) => Some(self.rebuild_semantic(budget, on_progress)?),
                     None => None,
                 };
-                Ok(RebuildReport {
-                    text,
-                    graph,
-                    semantic,
-                })
+                Ok(RebuildReport { text, graph, semantic })
             }
             RebuildTarget::Semantic => Ok(RebuildReport {
                 text: None,
@@ -583,11 +558,7 @@ impl VaultSearchService {
         Ok(())
     }
 
-    fn remove_graph_note(
-        &self,
-        graph: &Mutex<LinkGraph>,
-        path: &VaultPath,
-    ) -> Result<(), OperationWarning> {
+    fn remove_graph_note(&self, graph: &Mutex<LinkGraph>, path: &VaultPath) -> Result<(), OperationWarning> {
         let relative = relative_display(path);
         if !self.in_scope(&relative) {
             return Ok(());
@@ -597,11 +568,7 @@ impl VaultSearchService {
             .map_err(OperationWarning::from)
     }
 
-    fn sync_graph_note(
-        &self,
-        graph: &Mutex<LinkGraph>,
-        path: &VaultPath,
-    ) -> Result<(), OperationWarning> {
+    fn sync_graph_note(&self, graph: &Mutex<LinkGraph>, path: &VaultPath) -> Result<(), OperationWarning> {
         let relative = relative_display(path);
         if !self.in_scope(&relative) {
             return Ok(());
@@ -742,10 +709,7 @@ impl VaultSearchService {
     }
 
     fn rebuild_text(&self) -> Result<FreshnessReport, SearchError> {
-        self.text
-            .as_ref()
-            .ok_or(SearchError::TextDisabled)?
-            .refresh()
+        self.text.as_ref().ok_or(SearchError::TextDisabled)?.refresh()
     }
 
     fn rebuild_text_reporting(
@@ -806,10 +770,7 @@ impl VaultSearchService {
         budget: Option<time::Duration>,
         on_progress: &mut dyn FnMut(RebuildProgress),
     ) -> Result<SemanticRebuildReport, SearchError> {
-        let semantic = self
-            .semantic
-            .as_ref()
-            .ok_or(SearchError::SemanticUnavailable)?;
+        let semantic = self.semantic.as_ref().ok_or(SearchError::SemanticUnavailable)?;
         if semantic.status().pending == 0 {
             for (relative, _absolute) in self.collect_markdown_files()? {
                 semantic.enqueue(relative);
@@ -839,10 +800,7 @@ impl VaultSearchService {
     /// Returns [`SearchError::SemanticUnavailable`] when semantic search
     /// is disabled for this vault, and a storage error when the vector
     /// store or embedding provider fails.
-    pub fn drain_semantic_queue(
-        &self,
-        budget: Option<time::Duration>,
-    ) -> Result<SemanticRebuildReport, SearchError> {
+    pub fn drain_semantic_queue(&self, budget: Option<time::Duration>) -> Result<SemanticRebuildReport, SearchError> {
         self.drain_semantic_outcomes(budget, &mut |_| {})
     }
 
@@ -854,10 +812,7 @@ impl VaultSearchService {
         budget: Option<time::Duration>,
         on_progress: &mut dyn FnMut(RebuildProgress),
     ) -> Result<SemanticRebuildReport, SearchError> {
-        let semantic = self
-            .semantic
-            .as_ref()
-            .ok_or(SearchError::SemanticUnavailable)?;
+        let semantic = self.semantic.as_ref().ok_or(SearchError::SemanticUnavailable)?;
         let total = semantic.status().pending;
 
         let mut report = SemanticRebuildReport::default();
@@ -872,9 +827,7 @@ impl VaultSearchService {
                 total,
             });
             match outcome {
-                PathEmbeddingOutcome::Embedded {
-                    embedded, skipped, ..
-                } => {
+                PathEmbeddingOutcome::Embedded { embedded, skipped, .. } => {
                     report.embedded = report.embedded.saturating_add(embedded);
                     report.skipped = report.skipped.saturating_add(skipped);
                 }
@@ -899,22 +852,22 @@ impl VaultSearchService {
         let roots = resolve_single_root_set(&self.root)?;
         let mut notes = Vec::new();
         for (relative, absolute) in self.collect_markdown_files()? {
-            let content =
-                fs::read_to_string(&absolute).map_err(|source| SearchError::DocumentRead {
-                    path: relative.clone(),
-                    source,
-                })?;
+            let content = fs::read_to_string(&absolute).map_err(|source| SearchError::DocumentRead {
+                path: relative.clone(),
+                source,
+            })?;
             let metadata = fs::metadata(&absolute).map_err(|source| SearchError::DocumentRead {
                 path: relative.clone(),
                 source,
             })?;
-            let modified = metadata
-                .modified()
-                .map(OffsetDateTime::from)
-                .map_err(|source| SearchError::DocumentRead {
-                    path: relative.clone(),
-                    source,
-                })?;
+            let modified =
+                metadata
+                    .modified()
+                    .map(OffsetDateTime::from)
+                    .map_err(|source| SearchError::DocumentRead {
+                        path: relative.clone(),
+                        source,
+                    })?;
             let path = VaultPath::try_from(VaultPathInput {
                 roots: &roots,
                 raw: &relative,
@@ -1131,12 +1084,10 @@ fn walk_markdown(
         if is_excluded(excludes, &relative) {
             continue;
         }
-        let file_type = entry
-            .file_type()
-            .map_err(|source| SearchError::DocumentRead {
-                path: path.display().to_string(),
-                source,
-            })?;
+        let file_type = entry.file_type().map_err(|source| SearchError::DocumentRead {
+            path: path.display().to_string(),
+            source,
+        })?;
         if file_type.is_dir() {
             walk_markdown(root, &path, excludes, files)?;
         } else if file_type.is_file() && is_markdown(&relative) {
@@ -1150,8 +1101,7 @@ fn walk_markdown(
 /// used to construct throwaway `VaultPath`s for files discovered by the
 /// rebuild walk.
 fn resolve_single_root_set(root: &Path) -> Result<VaultSet, SearchError> {
-    let vault_root =
-        VaultRoot::try_from(root.to_path_buf()).map_err(|source| root_set_error(root, source))?;
+    let vault_root = VaultRoot::try_from(root.to_path_buf()).map_err(|source| root_set_error(root, source))?;
     VaultSet::try_from(vec![vault_root]).map_err(|source| root_set_error(root, source))
 }
 
@@ -1184,12 +1134,10 @@ fn newest_mtime_under(dir: &Path) -> Result<Option<OffsetDateTime>, SearchError>
                 source,
             })?;
             let path = entry.path();
-            let file_type = entry
-                .file_type()
-                .map_err(|source| SearchError::DocumentRead {
-                    path: path.display().to_string(),
-                    source,
-                })?;
+            let file_type = entry.file_type().map_err(|source| SearchError::DocumentRead {
+                path: path.display().to_string(),
+                source,
+            })?;
             if file_type.is_dir() {
                 stack.push(path);
                 continue;

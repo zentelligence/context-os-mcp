@@ -105,10 +105,7 @@ fn renders_an_edge_between_two_node_anchor_points() {
 
 #[test]
 fn an_edge_with_to_end_none_carries_no_arrowhead_marker() {
-    let nodes = vec![
-        text_node("a", 0.0, 0.0, "A"),
-        text_node("b", 300.0, 0.0, "B"),
-    ];
+    let nodes = vec![text_node("a", 0.0, 0.0, "A"), text_node("b", 300.0, 0.0, "B")];
     let edges = vec![CanvasEdge {
         id: "e1".to_owned(),
         from_node: "a".to_owned(),
@@ -144,10 +141,7 @@ fn an_edge_referencing_a_missing_node_is_skipped_not_a_panic() {
 
 #[test]
 fn rendering_is_deterministic_across_repeated_calls() {
-    let nodes = vec![
-        text_node("a", 0.0, 0.0, "A"),
-        text_node("b", 300.0, 0.0, "B"),
-    ];
+    let nodes = vec![text_node("a", 0.0, 0.0, "A"), text_node("b", 300.0, 0.0, "B")];
     let edges = vec![CanvasEdge {
         id: "e1".to_owned(),
         from_node: "a".to_owned(),

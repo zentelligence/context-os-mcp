@@ -7,9 +7,8 @@ use std::sync::Arc;
 
 use contextos_core::{VaultPath, VaultPathInput};
 use contextos_search::{
-    GraphDirection, GraphEdge, GraphEdgeKind, GraphNode, GraphRebuildReport, GraphView,
-    RebuildProgress, RebuildReport, RebuildTarget, SemanticHit, SemanticQuery,
-    SemanticRebuildReport, TextHit, TextQuery, VaultSearchService,
+    GraphDirection, GraphEdge, GraphEdgeKind, GraphNode, GraphRebuildReport, GraphView, RebuildProgress, RebuildReport,
+    RebuildTarget, SemanticHit, SemanticQuery, SemanticRebuildReport, TextHit, TextQuery, VaultSearchService,
 };
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{ProgressNotificationParam, ProgressToken};
@@ -93,24 +92,22 @@ impl ContextOsServer {
             let direction = GraphDirection::from(input.direction);
             let view = match input.operation {
                 GraphOperationInput::Neighbours => {
-                    let from = input.from.ok_or(ToolError::Invalid(
-                        "query_graph 'neighbours' requires 'from'",
-                    ))?;
+                    let from = input
+                        .from
+                        .ok_or(ToolError::Invalid("query_graph 'neighbours' requires 'from'"))?;
                     service.graph_neighbours(&from, input.depth, direction)?
                 }
                 GraphOperationInput::Backlinks => {
-                    let from = input.from.ok_or(ToolError::Invalid(
-                        "query_graph 'backlinks' requires 'from'",
-                    ))?;
+                    let from = input
+                        .from
+                        .ok_or(ToolError::Invalid("query_graph 'backlinks' requires 'from'"))?;
                     service.graph_backlinks(&from)?
                 }
                 GraphOperationInput::Path => {
                     let from = input
                         .from
                         .ok_or(ToolError::Invalid("query_graph 'path' requires 'from'"))?;
-                    let to = input
-                        .to
-                        .ok_or(ToolError::Invalid("query_graph 'path' requires 'to'"))?;
+                    let to = input.to.ok_or(ToolError::Invalid("query_graph 'path' requires 'to'"))?;
                     service.graph_path(&from, &to, direction)?
                 }
                 GraphOperationInput::Orphans => service.graph_orphans()?,
@@ -184,32 +181,24 @@ impl ContextOsServer {
             .unwrap_or(FALLBACK_REBUILD_BUDGET_SECONDS);
         let budget = resolve_rebuild_budget(input.budget_seconds, configured_default);
 
-        let (progress_tx, mut progress_rx) =
-            tokio::sync::mpsc::unbounded_channel::<RebuildProgress>();
+        let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel::<RebuildProgress>();
         let forwarder = tokio::spawn(async move {
             let mut sequence = 0.0_f64;
             while let Some(update) = progress_rx.recv().await {
                 sequence += 1.0;
                 if let Some(token) = &progress_token {
                     let _ = peer
-                        .notify_progress(rebuild_progress_notification(
-                            token.clone(),
-                            sequence,
-                            update,
-                        ))
+                        .notify_progress(rebuild_progress_notification(token.clone(), sequence, update))
                         .await;
                 }
             }
         });
 
         let result = execute(move || {
-            let report = service.rebuild_with_budget(
-                RebuildTarget::from(input.index),
-                Some(budget),
-                &mut |update| {
+            let report =
+                service.rebuild_with_budget(RebuildTarget::from(input.index), Some(budget), &mut |update| {
                     let _ = progress_tx.send(update);
-                },
-            )?;
+                })?;
             Ok(QueryIndexRebuildToolResult::from(report))
         })
         .await;
@@ -470,16 +459,8 @@ struct GraphViewToolResult {
 impl From<GraphView> for GraphViewToolResult {
     fn from(value: GraphView) -> Self {
         Self {
-            nodes: value
-                .nodes
-                .into_iter()
-                .map(GraphNodeToolResult::from)
-                .collect(),
-            edges: value
-                .edges
-                .into_iter()
-                .map(GraphEdgeToolResult::from)
-                .collect(),
+            nodes: value.nodes.into_iter().map(GraphNodeToolResult::from).collect(),
+            edges: value.edges.into_iter().map(GraphEdgeToolResult::from).collect(),
         }
     }
 }
@@ -678,18 +659,12 @@ mod tests {
 
     #[test]
     fn resolve_rebuild_budget_falls_back_to_the_configured_vault_default_when_omitted() {
-        assert_eq!(
-            resolve_rebuild_budget(None, 60),
-            time::Duration::seconds(60)
-        );
+        assert_eq!(resolve_rebuild_budget(None, 60), time::Duration::seconds(60));
     }
 
     #[test]
     fn resolve_rebuild_budget_prefers_an_explicit_per_call_override() {
-        assert_eq!(
-            resolve_rebuild_budget(Some(5), 60),
-            time::Duration::seconds(5)
-        );
+        assert_eq!(resolve_rebuild_budget(Some(5), 60), time::Duration::seconds(5));
     }
 
     #[test]

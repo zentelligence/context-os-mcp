@@ -1,6 +1,6 @@
 //! HTTP route handlers grouped by concern (`web-architecture.md` §2):
-//! `vault` (FR-220 to FR-225a, Phase 15), `apps` (FR-233 to FR-234, Phase
-//! 16), and `settings` (FR-251, FR-252, Phase 17).
+//! `vault` (vault content rendering), `apps` (registered app serving), and
+//! `settings` (the `/settings/` configuration UI).
 
 pub mod apps;
 pub mod settings;

@@ -3,9 +3,10 @@ name: Release
 # Packaging and release, delivery-plan.md: "Release artefacts: static
 # binaries per platform, checksummed; version scheme MAJOR.MINOR.PATCH."
 # Pushing a version tag (vMAJOR.MINOR.PATCH, matching workspace.package's
-# `version`) builds the `contextos` binary natively on Linux, Windows, and
-# Apple Silicon macOS, packages each as a checksummed archive, and
-# publishes them as assets on a GitHub Release for that tag.
+# `version`) builds both the `contextos` and `contextos-web` binaries
+# natively on Linux, Windows, and Apple Silicon macOS, packages each
+# platform's pair as one checksummed archive, and publishes them as assets
+# on a GitHub Release for that tag.
 #
 # No Intel macOS (x86_64-apple-darwin) leg: `ort` (via `fastembed`, used
 # for semantic search) no longer ships prebuilt ONNX Runtime binaries for
@@ -73,8 +74,10 @@ jobs:
         with:
           key: release-${{ matrix.target }}
 
-      - name: Build contextos (release)
-        run: cargo build --release --locked -p contextos-mcp --bin contextos --target ${{ matrix.target }}
+      - name: Build contextos and contextos-web (release)
+        run: |
+          cargo build --release --locked -p contextos-mcp --bin contextos --target ${{ matrix.target }}
+          cargo build --release --locked -p contextos-web --bin contextos-web --target ${{ matrix.target }}
 
       - name: Package (tar.gz)
         if: matrix.archive == 'tar.gz'
@@ -84,6 +87,7 @@ jobs:
           staging="contextos-${{ github.ref_name }}-${{ matrix.target }}"
           mkdir -p "${staging}"
           cp "target/${{ matrix.target }}/release/contextos" "${staging}/"
+          cp "target/${{ matrix.target }}/release/contextos-web" "${staging}/"
           cp README.md "${staging}/"
           tar -czf "${staging}.tar.gz" "${staging}"
           shasum -a 256 "${staging}.tar.gz" > "${staging}.tar.gz.sha256"
@@ -95,6 +99,7 @@ jobs:
           $staging = "contextos-${{ github.ref_name }}-${{ matrix.target }}"
           New-Item -ItemType Directory -Path $staging | Out-Null
           Copy-Item "target/${{ matrix.target }}/release/contextos.exe" "$staging/"
+          Copy-Item "target/${{ matrix.target }}/release/contextos-web.exe" "$staging/"
           Copy-Item README.md "$staging/"
           Compress-Archive -Path "$staging/*" -DestinationPath "$staging.zip"
           $hash = (Get-FileHash "$staging.zip" -Algorithm SHA256).Hash.ToLower()

@@ -246,15 +246,13 @@ fn split_section_words(words: &[&str]) -> Vec<(usize, usize)> {
         let separator = usize::from(start > 0);
         prefix[end] - prefix[start] - separator
     };
-    let tokens_between =
-        |start: usize, end: usize| -> usize { chars_between(start, end).div_ceil(CHARS_PER_TOKEN) };
+    let tokens_between = |start: usize, end: usize| -> usize { chars_between(start, end).div_ceil(CHARS_PER_TOKEN) };
 
     let mut ranges = Vec::new();
     let mut start = 0_usize;
     while start < words.len() {
         let mut end = start.saturating_add(1);
-        while end < words.len() && tokens_between(start, end.saturating_add(1)) <= TARGET_MAX_TOKENS
-        {
+        while end < words.len() && tokens_between(start, end.saturating_add(1)) <= TARGET_MAX_TOKENS {
             end = end.saturating_add(1);
         }
         ranges.push((start, end));
@@ -262,8 +260,7 @@ fn split_section_words(words: &[&str]) -> Vec<(usize, usize)> {
             break;
         }
         let mut new_start = end;
-        while new_start > start.saturating_add(1)
-            && tokens_between(new_start.saturating_sub(1), end) <= OVERLAP_TOKENS
+        while new_start > start.saturating_add(1) && tokens_between(new_start.saturating_sub(1), end) <= OVERLAP_TOKENS
         {
             new_start = new_start.saturating_sub(1);
         }
@@ -275,9 +272,7 @@ fn split_section_words(words: &[&str]) -> Vec<(usize, usize)> {
     // previous chunk grows beyond the target maximum in that case, which is
     // an accepted trade-off for the heuristic band (see module docs).
     if ranges.len() > 1 {
-        let last_tokens = ranges
-            .last()
-            .map_or(0, |&(start, end)| tokens_between(start, end));
+        let last_tokens = ranges.last().map_or(0, |&(start, end)| tokens_between(start, end));
         if last_tokens < TARGET_MIN_TOKENS
             && let Some((_, last_end)) = ranges.pop()
             && let Some(previous) = ranges.last_mut()
@@ -309,10 +304,7 @@ pub fn chunk_document(source: ChunkSource<'_>) -> Vec<Chunk> {
     let mut ordinal = 0_usize;
     for section in parse_sections(source.content) {
         let spans = word_spans(&section.body);
-        let words: Vec<&str> = spans
-            .iter()
-            .map(|&(start, end)| &section.body[start..end])
-            .collect();
+        let words: Vec<&str> = spans.iter().map(|&(start, end)| &section.body[start..end]).collect();
         for (start, end) in split_section_words(&words) {
             let text_start = spans[start].0;
             let text_end = spans[end.saturating_sub(1)].1;

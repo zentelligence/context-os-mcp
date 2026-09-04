@@ -8,7 +8,7 @@
 use contextos_mcp::ContextOsServer;
 
 /// `fs_read_text_file` and `fs_read_multiple_files` return `CallToolResult`
-/// directly rather than `Json<T>` (`FR-82`), so their error path (like
+/// directly rather than `Json<T>`, so their error path (like
 /// every tool's) populates `structured_content` with a `ToolFailure`
 /// (`code`/`message`/`path`/`remediation`), not their declared success
 /// shape. A `oneOf` union was tried and reverted: confirmed live against
@@ -59,18 +59,14 @@ fn fs_read_text_file_and_fs_read_multiple_files_advertise_a_flat_fallible_output
 /// neither is exposed to this bug. `mermaid_render` is absent for the
 /// same reason.
 #[test]
-fn every_remaining_tool_advertises_a_flat_fallible_output_schema()
--> Result<(), Box<dyn std::error::Error>> {
+fn every_remaining_tool_advertises_a_flat_fallible_output_schema() -> Result<(), Box<dyn std::error::Error>> {
     let catalogue = ContextOsServer::catalogue();
     let expected: &[(&str, &[&str])] = &[
         // query.rs
         ("query_text", &["hits", "index_freshness"]),
         ("query_semantic", &["hits"]),
         ("query_graph", &["nodes", "edges"]),
-        (
-            "query_index_status",
-            &["state_directory", "text", "graph", "semantic"],
-        ),
+        ("query_index_status", &["state_directory", "text", "graph", "semantic"]),
         ("query_index_rebuild", &["text", "graph", "semantic"]),
         // doctor.rs
         ("doctor", &["checks", "has_failures"]),
@@ -159,10 +155,7 @@ fn assert_flat_fallible_output_schema(
     expected_fields.sort_unstable();
     expected_fields.dedup();
 
-    assert_eq!(
-        actual_fields, expected_fields,
-        "{name} flat fallible schema drifted"
-    );
+    assert_eq!(actual_fields, expected_fields, "{name} flat fallible schema drifted");
 
     // `optional_u64_schema`'s own doc comment already documents this
     // class of problem for input schemas: real MCP clients (Cowork's
@@ -174,9 +167,7 @@ fn assert_flat_fallible_output_schema(
     // single value, never an array.
     for (field, property) in properties {
         assert!(
-            property
-                .get("type")
-                .is_none_or(serde_json::Value::is_string),
+            property.get("type").is_none_or(serde_json::Value::is_string),
             "{name} property {field:?} has a non-string (likely array-form nullable) \
              type: {property:?}"
         );
@@ -196,17 +187,10 @@ fn assert_flat_fallible_output_schema(
     let defined_names = schema
         .get("$defs")
         .and_then(serde_json::Value::as_object)
-        .map(|defs| {
-            defs.keys()
-                .cloned()
-                .collect::<std::collections::HashSet<_>>()
-        })
+        .map(|defs| defs.keys().cloned().collect::<std::collections::HashSet<_>>())
         .unwrap_or_default();
     let mut referenced_names = std::collections::HashSet::new();
-    collect_ref_names(
-        &serde_json::Value::Object(properties.clone()),
-        &mut referenced_names,
-    );
+    collect_ref_names(&serde_json::Value::Object(properties.clone()), &mut referenced_names);
     for referenced in &referenced_names {
         assert!(
             defined_names.contains(referenced),

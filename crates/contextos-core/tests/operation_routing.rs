@@ -2,9 +2,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use contextos_core::{
-    LogsOperations, MaintainsIndexes, OpKind, OperationEvent, OperationRoute, OperationRouter,
-    OperationRouterConfig, OperationService, OperationWarning, Origin, UpdatesSearch,
-    VersionsVault,
+    LogsOperations, MaintainsIndexes, OpKind, OperationEvent, OperationRoute, OperationRouter, OperationRouterConfig,
+    OperationService, OperationWarning, Origin, UpdatesSearch, VersionsVault,
 };
 use proptest::prelude::*;
 use time::OffsetDateTime;
@@ -88,7 +87,7 @@ impl LogsOperations for DerivingOperationLog {
 
 proptest! {
     #[test]
-    fn fr_25_internal_events_never_route_to_recursive_services(
+    fn internal_events_never_route_to_recursive_services(
         service_name in "[a-z][a-z0-9_-]{0,63}"
     ) {
         let origin = Origin::Internal(service_name);
@@ -124,7 +123,7 @@ proptest! {
 }
 
 #[test]
-fn fr_25_tool_events_route_to_every_substrate_service() {
+fn tool_events_route_to_every_substrate_service() {
     let route = OperationRoute::from(&Origin::Tool("fs_write_file".to_owned()));
 
     assert!(route.includes(OperationService::Index));
@@ -134,7 +133,7 @@ fn fr_25_tool_events_route_to_every_substrate_service() {
 }
 
 #[test]
-fn fr_25_derived_internal_events_are_staged_without_recursive_redispatch() {
+fn derived_internal_events_are_staged_without_recursive_redispatch() {
     let index_count = InvocationCount::default();
     let log_count = InvocationCount::default();
     let git_count = InvocationCount::default();

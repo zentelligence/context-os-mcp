@@ -16,8 +16,8 @@ use std::sync::{Mutex, PoisonError};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    GraphChange, GraphDelta, GraphEdge, GraphNode, GraphRecords, STORE_FORMAT, StoredGraphMetadata,
-    StoresGraph, graph_storage_error,
+    GraphChange, GraphDelta, GraphEdge, GraphNode, GraphRecords, STORE_FORMAT, StoredGraphMetadata, StoresGraph,
+    graph_storage_error,
 };
 use crate::SearchError;
 
@@ -211,8 +211,7 @@ impl StoresGraph for SerdeGraphStore {
 /// content is disposable, rebuildable derived state.
 fn write_atomically(path: &Path, document: &SerdeDocument) -> Result<(), SearchError> {
     let directory = path.parent().unwrap_or_else(|| Path::new("."));
-    let bytes =
-        serde_json::to_vec(document).map_err(|source| graph_storage_error(directory, source))?;
+    let bytes = serde_json::to_vec(document).map_err(|source| graph_storage_error(directory, source))?;
 
     let temp_path = path.with_extension("json.tmp");
     std::fs::write(&temp_path, &bytes).map_err(|source| SearchError::GraphStorage {

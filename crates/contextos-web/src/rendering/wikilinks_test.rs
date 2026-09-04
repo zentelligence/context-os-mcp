@@ -16,10 +16,7 @@ fn extracts_a_plain_wikilink() {
 fn extracts_a_wikilink_with_a_display_override() {
     let result = extract("[[target-note|Custom display]]");
     assert_eq!(result.occurrences[0].target, "target-note");
-    assert_eq!(
-        result.occurrences[0].display.as_deref(),
-        Some("Custom display")
-    );
+    assert_eq!(result.occurrences[0].display.as_deref(), Some("Custom display"));
 }
 
 #[test]

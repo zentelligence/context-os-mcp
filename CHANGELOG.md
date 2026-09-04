@@ -12,10 +12,12 @@ The record below starts at the current version - 0.20.1. From this point forward
 ### Added
 
 - `contextos-web`, a new crate and second binary in this workspace (Phase 14): an `mcp_client` module that spawns or connects to configured MCP servers (`web.toml`'s `[[mcp_server]]` list) and performs the `initialize` handshake before serving any request; a `POST /mcp/{server_name}/{tool_name}` proxy route giving any HTTP caller deterministic, non-model-mediated MCP tool calls; and `/static/` asset serving. Not yet a browsable web UI: vault content rendering, app registration, and a settings UI are later phases (15 to 17).
+- `contextos-web service install` / `uninstall` / `status`: registers (or removes, or reports on) `contextos-web` as an auto-starting, per-user background service, none of the three needing elevation, via `systemd --user` on Linux, a `launchd` `LaunchAgent` on macOS, or a Scheduled Task on Windows. The release archive for each platform now also includes the `contextos-web` binary alongside `contextos`.
 
 ### Changed
 
 - Renamed the `contextos-server` crate to `contextos-mcp` to disambiguate the MCP server from the web server planned for a future release. The installed binary name (`contextos`) and its CLI are unchanged.
+- `contextos-web`'s `--web-config` flag is now `--config` (the binary name already says "web"). `contextos-web`'s own `--help` description is now "ContextOS web UI", dropping "and MCP proxy" as an overstatement of what the CLI itself exposes. Both `contextos` and `contextos-web` now print a lowercase `v`-prefixed version (`v0.20.2`) for `--version`, matching the `vMAJOR.MINOR.PATCH` git tag convention releases already use.
 
 ## [0.20.2] - 2026-09-03
 

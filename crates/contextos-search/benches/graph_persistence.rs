@@ -109,9 +109,7 @@ fn build_vault(
 ) -> Vec<(String, String, Vec<ObsidianLink>)> {
     let mut rng = Xorshift64(0x2545_F491_4F6C_DD1D);
     let linked_range = note_count.saturating_sub(orphan_count);
-    let paths: Vec<String> = (0..note_count)
-        .map(|i| format!("area{}/note{i}.md", i % 20))
-        .collect();
+    let paths: Vec<String> = (0..note_count).map(|i| format!("area{}/note{i}.md", i % 20)).collect();
 
     let mut notes = Vec::with_capacity(note_count);
     for (i, path) in paths.iter().enumerate() {
@@ -198,9 +196,7 @@ fn bench_backend(
     for _ in 0..upsert_samples {
         let idx = (rng.next_u64() as usize) % linked_range;
         let (path, title, links) = &vault[idx];
-        reopened
-            .upsert_note(path, title, links)
-            .expect("upsert succeeds");
+        reopened.upsert_note(path, title, links).expect("upsert succeeds");
     }
     let incremental_upsert_total = started.elapsed();
 
@@ -292,10 +288,10 @@ fn print_result(result: &BackendResult) {
 }
 
 /// Sustained concurrent writes from two independent `sqlite`-backed
-/// instances against the same store directory, the real-world Cowork
-/// scenario D-26 names, rather than the correctness-only "both opens
-/// succeed" proof `fr_108_two_sqlite_backed_instances_open_concurrently`
-/// already covers. Measures actual throughput and confirms every write from
+/// instances against the same store directory, the real-world multi-writer
+/// scenario, rather than the correctness-only "both opens succeed" proof
+/// `fr_108_two_sqlite_backed_instances_open_concurrently` already covers.
+/// Measures actual throughput and confirms every write from
 /// both threads survives, then compares against a single-writer baseline
 /// performing the same total write count to quantify WAL/busy-timeout
 /// contention overhead.
@@ -355,9 +351,7 @@ fn bench_sqlite_concurrency(writes_per_thread: usize) {
             .expect("baseline upsert succeeds");
     }
     let baseline_elapsed = started.elapsed();
-    println!(
-        "single-writer baseline, same {total_writes} total upsert_note calls: {baseline_elapsed:?}"
-    );
+    println!("single-writer baseline, same {total_writes} total upsert_note calls: {baseline_elapsed:?}");
     println!(
         "concurrency overhead: {:.2}x versus single-writer baseline for the same total write \
          count (WAL mode plus a five-second busy_timeout absorbing lock contention as waiting, \
@@ -439,23 +433,10 @@ fn main() {
     let total_links: usize = vault.iter().map(|(_, _, links)| links.len()).sum();
     println!("total wikilinks generated: {total_links}");
 
-    let results: Vec<BackendResult> = [
-        GraphBackend::Serde,
-        GraphBackend::Fjall,
-        GraphBackend::Sqlite,
-    ]
-    .into_iter()
-    .map(|backend| {
-        bench_backend(
-            backend,
-            &vault,
-            note_count,
-            orphan_count,
-            query_samples,
-            upsert_samples,
-        )
-    })
-    .collect();
+    let results: Vec<BackendResult> = [GraphBackend::Serde, GraphBackend::Fjall, GraphBackend::Sqlite]
+        .into_iter()
+        .map(|backend| bench_backend(backend, &vault, note_count, orphan_count, query_samples, upsert_samples))
+        .collect();
 
     for result in &results {
         print_result(result);

@@ -9,10 +9,10 @@
 //! `--astro` on the CLI), in `server.rs`.
 
 use contextos_ephemeris::{
-    AstroEphemeris, BoundariesConfig, ComputesBoundaries, ComputesMoonPhase,
-    ComputesPersonalYearPeriod, ComputesSolarEvents, ComputesWheelOfYear, Hemisphere, HorizonEvent,
-    MoonPhaseName, MoonPhaseReport, PersonalYearPeriod, PrimaryMoonPhase, RulingPlanet, SolarEvent,
-    SolarEventKind, WheelOfYearName, WheelOfYearPoint, WheelOfYearRole,
+    AstroEphemeris, BoundariesConfig, ComputesBoundaries, ComputesMoonPhase, ComputesPersonalYearPeriod,
+    ComputesSolarEvents, ComputesWheelOfYear, Hemisphere, HorizonEvent, MoonPhaseName, MoonPhaseReport,
+    PersonalYearPeriod, PrimaryMoonPhase, RulingPlanet, SolarEvent, SolarEventKind, WheelOfYearName, WheelOfYearPoint,
+    WheelOfYearRole,
 };
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::{schemars, tool};
@@ -91,11 +91,7 @@ impl ContextOsServer {
             let birth_date = parse_date(&input.birth_date)?;
             let as_of_date = parse_date(&input.as_of_date)?;
             let ephemeris = AstroEphemeris::new();
-            let period = ephemeris.personal_year_period(
-                birth_date,
-                as_of_date,
-                input.transition_tolerance_days,
-            );
+            let period = ephemeris.personal_year_period(birth_date, as_of_date, input.transition_tolerance_days);
             Ok(PersonalYearPeriodToolResult::from(period))
         })
         .await
@@ -158,9 +154,7 @@ fn parse_date(raw: &str) -> Result<time::Date, ToolError> {
 /// programmatically, so a genuine, standard, unambiguous format matters
 /// here in a way it does not for a debug-only field.
 fn format_instant(instant: time::OffsetDateTime) -> Result<String, ToolError> {
-    instant
-        .format(&Rfc3339)
-        .map_err(ToolError::EphemerisInstantFormatting)
+    instant.format(&Rfc3339).map_err(ToolError::EphemerisInstantFormatting)
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]

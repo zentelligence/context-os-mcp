@@ -6,13 +6,13 @@
 use std::sync::Arc;
 
 use contextos_core::{
-    ContentHash, CreateDirectoryMutation, DeleteMode, DeleteMutation, DeleteOutcome, MoveMutation,
-    Origin, PipelineResult, VaultPath, VaultPathInput, VaultSet, WriteMutation,
+    ContentHash, CreateDirectoryMutation, DeleteMode, DeleteMutation, DeleteOutcome, MoveMutation, Origin,
+    PipelineResult, VaultPath, VaultPathInput, VaultSet, WriteMutation,
 };
 use contextos_fs::{
     AttachmentRequest, DirectoryTreeRequest, EditFileRequest, FileInfoRequest, Filesystem, FsError,
-    ListDirectoryRequest, ListDirectoryWithSizesRequest, ReadManyRequest, ReadTextRequest,
-    SearchFilesRequest, TextEdit,
+    ListDirectoryRequest, ListDirectoryWithSizesRequest, ReadManyRequest, ReadTextRequest, SearchFilesRequest,
+    TextEdit,
 };
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, ResourceContents};
@@ -24,12 +24,11 @@ use crate::resource_support::{
 use crate::server::{ContextOsServer, ManagedIndexService, PathInput, RoutedMutationService};
 use crate::tool_error::{ToolError, ToolFailure, evaluate, execute, execute_value};
 use crate::tools::fs_types::{
-    AllowedDirectoriesToolResult, AttachmentResource, BatchErrorToolResult,
-    CreateDirectoryToolResult, DeleteFailure, DeleteInput, DeleteToolResult,
-    DirectoryListingToolResult, EditInput, EditToolResult, FileInfoToolResult,
-    ListDirectoryToolInput, MoveInput, MoveToolResult, PathsInput, ReadManyItemToolResult,
-    ReadManyToolResult, ReadTextInput, ReadTextToolResult, SearchInput, SearchToolResult,
-    ToolReadLimit, TreeInput, TreeNodeToolResult, WriteInput, WriteToolResult,
+    AllowedDirectoriesToolResult, AttachmentResource, BatchErrorToolResult, CreateDirectoryToolResult, DeleteFailure,
+    DeleteInput, DeleteToolResult, DirectoryListingToolResult, EditInput, EditToolResult, FileInfoToolResult,
+    ListDirectoryToolInput, MoveInput, MoveToolResult, PathsInput, ReadManyItemToolResult, ReadManyToolResult,
+    ReadTextInput, ReadTextToolResult, SearchInput, SearchToolResult, ToolReadLimit, TreeInput, TreeNodeToolResult,
+    WriteInput, WriteToolResult,
 };
 
 #[tool_router(vis = "pub(crate)")]
@@ -39,10 +38,7 @@ impl ContextOsServer {
         description = "Read a UTF-8 file with an optional head, tail, or inclusive line range",
         output_schema = fallible_output_schema_for::<ReadTextToolResult>()
     )]
-    async fn read_text(
-        &self,
-        Parameters(input): Parameters<ReadTextInput>,
-    ) -> Result<CallToolResult, ToolFailure> {
+    async fn read_text(&self, Parameters(input): Parameters<ReadTextInput>) -> Result<CallToolResult, ToolFailure> {
         let ToolReadLimit(limit) = ToolReadLimit::try_from(&input)?;
         let roots = Arc::clone(&self.roots);
         let filesystem = Arc::clone(&self.filesystem);
@@ -86,10 +82,7 @@ impl ContextOsServer {
         description = "Read several UTF-8 files with isolated per-file failures",
         output_schema = fallible_output_schema_for::<ReadManyToolResult>()
     )]
-    async fn read_many(
-        &self,
-        Parameters(input): Parameters<PathsInput>,
-    ) -> Result<CallToolResult, ToolFailure> {
+    async fn read_many(&self, Parameters(input): Parameters<PathsInput>) -> Result<CallToolResult, ToolFailure> {
         let roots = Arc::clone(&self.roots);
         let filesystem = Arc::clone(&self.filesystem);
         let threshold_bytes = self.resource_link_threshold_bytes;
@@ -131,9 +124,7 @@ impl ContextOsServer {
             // one oversized file's link never affects another.
             let threshold = usize::try_from(threshold_bytes).unwrap_or(usize::MAX);
             let mut resource_links = Vec::new();
-            for ((index, path), result) in
-                std::iter::zip(std::iter::zip(valid_indices, paths_for_links), results)
-            {
+            for ((index, path), result) in std::iter::zip(std::iter::zip(valid_indices, paths_for_links), results) {
                 let mut item = ReadManyItemToolResult::from(result);
                 if let Some(content) = item.content.as_mut()
                     && content.len() >= threshold
@@ -152,8 +143,8 @@ impl ContextOsServer {
             Ok((files, resource_links))
         })
         .await?;
-        let value = serde_json::to_value(ReadManyToolResult { files })
-            .map_err(ToolError::CallToolResultSerialisation)?;
+        let value =
+            serde_json::to_value(ReadManyToolResult { files }).map_err(ToolError::CallToolResultSerialisation)?;
         let mut content = vec![ContentBlock::text(value.to_string())];
         content.extend(resource_links);
         let mut tool_result = CallToolResult::success(content);
@@ -165,10 +156,7 @@ impl ContextOsServer {
         name = "fs_attach_file",
         description = "Embed a text or base64 binary file as a size-capped MCP resource"
     )]
-    async fn attach_file(
-        &self,
-        Parameters(input): Parameters<PathInput>,
-    ) -> Result<CallToolResult, ToolFailure> {
+    async fn attach_file(&self, Parameters(input): Parameters<PathInput>) -> Result<CallToolResult, ToolFailure> {
         let roots = Arc::clone(&self.roots);
         let filesystem = Arc::clone(&self.filesystem);
         let roots_for_uri = Arc::clone(&roots);
@@ -229,10 +217,7 @@ impl ContextOsServer {
         description = "Apply exact-match edits transactionally, with optional dry-run unified diff",
         output_schema = fallible_output_schema_for::<EditToolResult>()
     )]
-    async fn edit_file(
-        &self,
-        Parameters(input): Parameters<EditInput>,
-    ) -> Result<Json<EditToolResult>, ToolFailure> {
+    async fn edit_file(&self, Parameters(input): Parameters<EditInput>) -> Result<Json<EditToolResult>, ToolFailure> {
         let roots = Arc::clone(&self.roots);
         let service = Arc::clone(&self.mutations);
         let request = evaluate(move || {
@@ -292,9 +277,7 @@ impl ContextOsServer {
             .map_err(ToolFailure::from)?;
         execute(move || {
             let _guards = guards;
-            Ok(CreateDirectoryToolResult::from(
-                service.create_directory(&request)?,
-            ))
+            Ok(CreateDirectoryToolResult::from(service.create_directory(&request)?))
         })
         .await
     }
@@ -325,12 +308,12 @@ impl ContextOsServer {
                     filesystem.list_directory(&ListDirectoryRequest { path })?,
                 ));
             }
-            Ok(DirectoryListingToolResult::from(
-                filesystem.list_directory_with_sizes(&ListDirectoryWithSizesRequest {
+            Ok(DirectoryListingToolResult::from(filesystem.list_directory_with_sizes(
+                &ListDirectoryWithSizesRequest {
                     path,
                     sort_by: input.sort_by.unwrap_or_default().into(),
-                })?,
-            ))
+                },
+            )?))
         })
         .await
     }
@@ -339,10 +322,7 @@ impl ContextOsServer {
         name = "fs_directory_tree",
         description = "Return a bounded recursive JSON directory tree with exclusions"
     )]
-    async fn directory_tree(
-        &self,
-        Parameters(input): Parameters<TreeInput>,
-    ) -> Result<CallToolResult, ToolFailure> {
+    async fn directory_tree(&self, Parameters(input): Parameters<TreeInput>) -> Result<CallToolResult, ToolFailure> {
         let max_depth = usize::try_from(input.max_depth).map_err(ToolError::from)?;
         let roots = Arc::clone(&self.roots);
         let filesystem = Arc::clone(&self.filesystem);
@@ -355,9 +335,7 @@ impl ContextOsServer {
                 exclude_patterns: input.exclude_patterns,
                 max_depth,
             };
-            Ok(TreeNodeToolResult::from(
-                filesystem.directory_tree(&request)?,
-            ))
+            Ok(TreeNodeToolResult::from(filesystem.directory_tree(&request)?))
         })
         .await?;
         // No `output_schema` is advertised for this tool (unlike every
@@ -384,10 +362,7 @@ impl ContextOsServer {
         description = "Move or rename a file or directory without replacing the destination",
         output_schema = fallible_output_schema_for::<MoveToolResult>()
     )]
-    async fn move_file(
-        &self,
-        Parameters(input): Parameters<MoveInput>,
-    ) -> Result<Json<MoveToolResult>, ToolFailure> {
+    async fn move_file(&self, Parameters(input): Parameters<MoveInput>) -> Result<Json<MoveToolResult>, ToolFailure> {
         let roots = Arc::clone(&self.roots);
         let service = Arc::clone(&self.mutations);
         let request = evaluate(move || {
@@ -431,18 +406,13 @@ impl ContextOsServer {
         let service = Arc::clone(&self.mutations);
         let destructive_delete = Arc::clone(&self.destructive_delete);
         let indexes = Arc::clone(&self.indexes);
-        let (is_single, plan) =
-            evaluate(move || plan_delete(&roots, &filesystem, &destructive_delete, input)).await?;
+        let (is_single, plan) = evaluate(move || plan_delete(&roots, &filesystem, &destructive_delete, input)).await?;
         let root_ids = plan
             .iter()
             .filter_map(|attempt| attempt.as_ref().ok())
             .map(|(mutation, _)| mutation.path.root_id())
             .collect::<Vec<_>>();
-        let guards = self
-            .writes
-            .lock_roots(&root_ids)
-            .await
-            .map_err(ToolFailure::from)?;
+        let guards = self.writes.lock_roots(&root_ids).await.map_err(ToolFailure::from)?;
         execute(move || {
             let _guards = guards;
             let attempts = plan
@@ -455,12 +425,7 @@ impl ContextOsServer {
                         root_index,
                         &mutation,
                     )
-                    .map_err(|error| {
-                        Box::new((
-                            mutation.path.relative().to_string_lossy().into_owned(),
-                            error,
-                        ))
-                    }),
+                    .map_err(|error| Box::new((mutation.path.relative().to_string_lossy().into_owned(), error))),
                     Err(failure) => Err(failure),
                 })
                 .collect::<Vec<_>>();
@@ -470,10 +435,7 @@ impl ContextOsServer {
             // batch forms are separate surface, free to adopt a
             // partial-success contract outright.
             if is_single {
-                let outcome = attempts
-                    .into_iter()
-                    .next()
-                    .ok_or(ToolError::BatchAssembly)?;
+                let outcome = attempts.into_iter().next().ok_or(ToolError::BatchAssembly)?;
                 return match outcome {
                     Ok(result) => Ok(DeleteToolResult::from(vec![Ok(result)])),
                     Err(failure) => Err(failure.1),
@@ -541,10 +503,7 @@ impl ContextOsServer {
     )]
     async fn allowed_directories(&self) -> Result<Json<AllowedDirectoriesToolResult>, ToolFailure> {
         let filesystem = Arc::clone(&self.filesystem);
-        execute_value(move || {
-            AllowedDirectoriesToolResult::from(filesystem.list_allowed_directories())
-        })
-        .await
+        execute_value(move || AllowedDirectoriesToolResult::from(filesystem.list_allowed_directories())).await
     }
 }
 
@@ -605,11 +564,7 @@ fn delete_honouring_managed_index(
 /// appending onto it directly would produce a leading-slash remainder
 /// that `VaultPath::try_from` resolves as an absolute filesystem path
 /// instead of a vault-relative one.
-fn child_path(
-    directory: &VaultPath,
-    roots: &VaultSet,
-    relative: &str,
-) -> Result<VaultPath, ToolError> {
+fn child_path(directory: &VaultPath, roots: &VaultSet, relative: &str) -> Result<VaultPath, ToolError> {
     let root = roots.root(directory.root_id()).ok_or_else(|| {
         ToolError::from(ResourceError::InvalidPath {
             path: <&std::path::Path>::from(directory).to_path_buf(),
@@ -644,16 +599,10 @@ fn resolve_delete_targets(
     input: DeleteInput,
 ) -> Result<(bool, Vec<DeleteTargetResult>), ToolError> {
     match (input.path, input.paths, input.pattern) {
-        (Some(path), paths, None) if paths.is_empty() => {
-            Ok((true, vec![resolve_one_target(roots, &path)]))
+        (Some(path), paths, None) if paths.is_empty() => Ok((true, vec![resolve_one_target(roots, &path)])),
+        (None, paths, None) if !paths.is_empty() => {
+            Ok((false, paths.iter().map(|raw| resolve_one_target(roots, raw)).collect()))
         }
-        (None, paths, None) if !paths.is_empty() => Ok((
-            false,
-            paths
-                .iter()
-                .map(|raw| resolve_one_target(roots, raw))
-                .collect(),
-        )),
         (Some(base), paths, Some(pattern)) if paths.is_empty() => {
             let base_path = VaultPath::try_from(VaultPathInput { roots, raw: &base })?;
             let capacity = filesystem.batch_capacity();

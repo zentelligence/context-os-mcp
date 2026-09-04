@@ -1,7 +1,7 @@
 use contextos_mermaid::{MermanParser, ParsesMermaid};
 
 #[test]
-fn fr_70_validate_accepts_a_well_formed_flowchart() {
+fn validate_accepts_a_well_formed_flowchart() {
     let parser = MermanParser::new();
     let diagnostics = parser.validate("flowchart TD\n  A[Start] --> B[End]\n");
 
@@ -9,7 +9,7 @@ fn fr_70_validate_accepts_a_well_formed_flowchart() {
 }
 
 #[test]
-fn fr_70_validate_rejects_a_dangling_flowchart_edge() {
+fn validate_rejects_a_dangling_flowchart_edge() {
     let parser = MermanParser::new();
     let diagnostics = parser.validate("flowchart TD\n  A[Start] -->\n");
 
@@ -19,7 +19,7 @@ fn fr_70_validate_rejects_a_dangling_flowchart_edge() {
 }
 
 #[test]
-fn fr_70_validate_rejects_oversized_source_before_parsing() {
+fn validate_rejects_oversized_source_before_parsing() {
     let parser = MermanParser::new();
     let oversized = "x".repeat(2 * 1024 * 1024 + 1);
 

@@ -157,8 +157,7 @@ pub trait StoresVectors: Send + Sync {
     /// # Errors
     ///
     /// Returns a storage error when the database cannot be read.
-    fn existing_hash(&self, path: &str, ordinal: usize)
-    -> Result<Option<ContentHash>, SearchError>;
+    fn existing_hash(&self, path: &str, ordinal: usize) -> Result<Option<ContentHash>, SearchError>;
 
     /// Removes every stored chunk for `path` whose ordinal is `keep_below`
     /// or greater. Called after re-chunking `path` produces fewer chunks
@@ -169,8 +168,7 @@ pub trait StoresVectors: Send + Sync {
     /// # Errors
     ///
     /// Returns a storage error when the database cannot be written.
-    fn prune_ordinals_at_or_beyond(&self, path: &str, keep_below: usize)
-    -> Result<(), SearchError>;
+    fn prune_ordinals_at_or_beyond(&self, path: &str, keep_below: usize) -> Result<(), SearchError>;
 
     /// Returns aggregate counts of currently stored chunks, for
     /// `query_index_status` reporting.
@@ -246,8 +244,7 @@ impl TryFrom<SqliteVecConfig> for SqliteVecStore {
                 source,
             })?;
         }
-        let connection =
-            Connection::open(&value.path).map_err(|source| storage_error(&db_path, source))?;
+        let connection = Connection::open(&value.path).map_err(|source| storage_error(&db_path, source))?;
 
         connection
             .execute(
@@ -263,10 +260,7 @@ impl TryFrom<SqliteVecConfig> for SqliteVecStore {
             )
             .map_err(|source| storage_error(&db_path, source))?;
         connection
-            .execute(
-                "CREATE INDEX IF NOT EXISTS chunks_path_idx ON chunks(path)",
-                [],
-            )
+            .execute("CREATE INDEX IF NOT EXISTS chunks_path_idx ON chunks(path)", [])
             .map_err(|source| storage_error(&db_path, source))?;
 
         // `vec0`'s column width is a virtual table module argument, parsed
@@ -316,18 +310,15 @@ impl StoresVectors for SqliteVecStore {
             .map_err(|source| storage_error(&self.db_path, source))?;
 
         for record in records {
-            let ordinal = i64::try_from(record.ordinal).map_err(|_| {
-                SearchError::VectorOrdinalOutOfRange {
-                    path: record.path.to_owned(),
-                    ordinal: record.ordinal,
-                }
+            let ordinal = i64::try_from(record.ordinal).map_err(|_| SearchError::VectorOrdinalOutOfRange {
+                path: record.path.to_owned(),
+                ordinal: record.ordinal,
             })?;
-            let heading_json = serde_json::to_string(record.heading_context).map_err(|source| {
-                SearchError::VectorRecordCorrupt {
+            let heading_json =
+                serde_json::to_string(record.heading_context).map_err(|source| SearchError::VectorRecordCorrupt {
                     path: self.db_path.clone(),
                     reason: format!("heading context could not be encoded: {source}"),
-                }
-            })?;
+                })?;
             let hash_text: &str = record.content_hash.into();
 
             let existing_rowid: Option<i64> = transaction
@@ -428,8 +419,7 @@ impl StoresVectors for SqliteVecStore {
         let mut statement = connection
             .prepare(&sql)
             .map_err(|source| storage_error(&self.db_path, source))?;
-        let bound_refs: Vec<&dyn rusqlite::ToSql> =
-            bound.iter().map(std::convert::AsRef::as_ref).collect();
+        let bound_refs: Vec<&dyn rusqlite::ToSql> = bound.iter().map(std::convert::AsRef::as_ref).collect();
         let mut rows = collect_hits(&mut statement, bound_refs.as_slice(), &self.db_path)?;
         rows.sort_by(|left, right| {
             right
@@ -440,11 +430,7 @@ impl StoresVectors for SqliteVecStore {
         Ok(rows)
     }
 
-    fn existing_hash(
-        &self,
-        path: &str,
-        ordinal: usize,
-    ) -> Result<Option<ContentHash>, SearchError> {
+    fn existing_hash(&self, path: &str, ordinal: usize) -> Result<Option<ContentHash>, SearchError> {
         let ordinal = i64::try_from(ordinal).map_err(|_| SearchError::VectorOrdinalOutOfRange {
             path: path.to_owned(),
             ordinal,
@@ -460,21 +446,15 @@ impl StoresVectors for SqliteVecStore {
             .map_err(|source| storage_error(&self.db_path, source))?;
         stored
             .map(|text| {
-                ContentHash::try_from(text.as_str()).map_err(|source| {
-                    SearchError::VectorRecordCorrupt {
-                        path: path.to_owned(),
-                        reason: format!("stored content hash is invalid: {source}"),
-                    }
+                ContentHash::try_from(text.as_str()).map_err(|source| SearchError::VectorRecordCorrupt {
+                    path: path.to_owned(),
+                    reason: format!("stored content hash is invalid: {source}"),
                 })
             })
             .transpose()
     }
 
-    fn prune_ordinals_at_or_beyond(
-        &self,
-        path: &str,
-        keep_below: usize,
-    ) -> Result<(), SearchError> {
+    fn prune_ordinals_at_or_beyond(&self, path: &str, keep_below: usize) -> Result<(), SearchError> {
         let keep_below = i64::try_from(keep_below).unwrap_or(i64::MAX);
         let mut connection = self.locked();
         let transaction = connection
@@ -502,11 +482,9 @@ impl StoresVectors for SqliteVecStore {
     fn stats(&self) -> Result<VectorStoreStats, SearchError> {
         let connection = self.locked();
         let (documents, chunks): (i64, i64) = connection
-            .query_row(
-                "SELECT COUNT(DISTINCT path), COUNT(*) FROM chunks",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
+            .query_row("SELECT COUNT(DISTINCT path), COUNT(*) FROM chunks", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
             .map_err(|source| storage_error(&self.db_path, source))?;
         Ok(VectorStoreStats {
             documents: usize::try_from(documents).unwrap_or(0),
@@ -517,9 +495,7 @@ impl StoresVectors for SqliteVecStore {
 
 impl SqliteVecStore {
     fn locked(&self) -> std::sync::MutexGuard<'_, Connection> {
-        self.connection
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
+        self.connection.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -551,18 +527,15 @@ fn collect_hits(
             reason: format!("stored ordinal {ordinal} is negative"),
         })?;
         let heading_context: Vec<String> =
-            serde_json::from_str(&heading_json).map_err(|source| {
-                SearchError::VectorRecordCorrupt {
-                    path: path.clone(),
-                    reason: format!("stored heading context is invalid: {source}"),
-                }
+            serde_json::from_str(&heading_json).map_err(|source| SearchError::VectorRecordCorrupt {
+                path: path.clone(),
+                reason: format!("stored heading context is invalid: {source}"),
             })?;
-        let content_hash = ContentHash::try_from(hash_text.as_str()).map_err(|source| {
-            SearchError::VectorRecordCorrupt {
+        let content_hash =
+            ContentHash::try_from(hash_text.as_str()).map_err(|source| SearchError::VectorRecordCorrupt {
                 path: path.clone(),
                 reason: format!("stored content hash is invalid: {source}"),
-            }
-        })?;
+            })?;
         hits.push(SimilarityHit {
             path,
             ordinal,
@@ -606,12 +579,7 @@ fn escape_like_special_characters(text: &str) -> String {
 /// (exact-match path, then the escaped `LIKE` suffix pattern) onto `bound`.
 /// Used for both `path_prefix` and each `exclude_paths` entry so the two
 /// filters share one matching rule and one query.
-fn push_segment_scope_clause(
-    sql: &mut String,
-    bound: &mut Vec<Box<dyn rusqlite::ToSql>>,
-    path: &str,
-    verb: &str,
-) {
+fn push_segment_scope_clause(sql: &mut String, bound: &mut Vec<Box<dyn rusqlite::ToSql>>, path: &str, verb: &str) {
     let escaped = escape_like_special_characters(path);
     let suffix_pattern = format!("{escaped}/%");
     let exact_placeholder = bound.len() + 1;
@@ -690,9 +658,7 @@ fn register_sqlite_vec() {
                     *mut *mut std::os::raw::c_char,
                     *const rusqlite::ffi::sqlite3_api_routines,
                 ) -> std::os::raw::c_int,
-            >(
-                sqlite_vec::sqlite3_vec_init as *const (),
-            )));
+            >(sqlite_vec::sqlite3_vec_init as *const ())));
         }
     });
 }

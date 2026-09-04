@@ -10,13 +10,10 @@ use thiserror::Error;
 
 pub use base::{BaseDiagnostic, BaseDocument, BaseError, BaseOperation};
 pub use base_query::{
-    BaseQueryError, ColumnValue, FileMetadata, QueryDefinition, QueryFormat, RowContext,
-    ScanRootHint, SortKey, compare_values, evaluate_filters, render, resolve_column,
-    resolve_property, resolve_row, scan_root_hint,
+    BaseQueryError, ColumnValue, FileMetadata, QueryDefinition, QueryFormat, RowContext, ScanRootHint, SortKey,
+    compare_values, evaluate_filters, render, resolve_column, resolve_property, resolve_row, scan_root_hint,
 };
-pub use canvas::{
-    CanvasCreateInput, CanvasDiagnostic, CanvasDocument, CanvasError, CanvasOperation,
-};
+pub use canvas::{CanvasCreateInput, CanvasDiagnostic, CanvasDocument, CanvasError, CanvasOperation};
 pub use markdown::{LinkCollection, MarkdownError, ObsidianLink, ValidatedMarkdown};
 
 /// Inputs for one validated Obsidian note document.
@@ -48,14 +45,8 @@ impl TryFrom<NoteCreateInput<'_>> for NoteDocument {
         frontmatter.insert("title".to_owned(), Value::String(value.title.to_owned()));
         frontmatter.insert("entity".to_owned(), Value::String("personal".to_owned()));
         frontmatter.insert("status".to_owned(), Value::String("new".to_owned()));
-        frontmatter.insert(
-            "created".to_owned(),
-            Value::String(value.timestamp.to_owned()),
-        );
-        frontmatter.insert(
-            "updated".to_owned(),
-            Value::String(value.timestamp.to_owned()),
-        );
+        frontmatter.insert("created".to_owned(), Value::String(value.timestamp.to_owned()));
+        frontmatter.insert("updated".to_owned(), Value::String(value.timestamp.to_owned()));
         frontmatter.insert("tags".to_owned(), Value::Array(Vec::new()));
         frontmatter.insert("aliases".to_owned(), Value::Array(Vec::new()));
         for (key, property) in value.frontmatter {
@@ -130,17 +121,12 @@ impl TryFrom<&str> for FrontmatterDocument {
             let content = line.trim_end_matches(['\r', '\n']);
             if content == "---" {
                 let yaml = &source[yaml_start..offset];
-                let frontmatter =
-                    yaml_serde::from_str::<Map<String, Value>>(yaml).map_err(|source| {
-                        let (line, column) = source.location().map_or((2, 1), |location| {
-                            (location.line().saturating_add(1), location.column())
-                        });
-                        FrontmatterError::InvalidYaml {
-                            line,
-                            column,
-                            source,
-                        }
-                    })?;
+                let frontmatter = yaml_serde::from_str::<Map<String, Value>>(yaml).map_err(|source| {
+                    let (line, column) = source.location().map_or((2, 1), |location| {
+                        (location.line().saturating_add(1), location.column())
+                    });
+                    FrontmatterError::InvalidYaml { line, column, source }
+                })?;
                 return Ok(Self {
                     frontmatter,
                     body: source[offset.saturating_add(line.len())..].to_owned(),
@@ -197,13 +183,9 @@ impl TryFrom<&FrontmatterDocument> for String {
     type Error = FrontmatterError;
 
     fn try_from(value: &FrontmatterDocument) -> Result<Self, Self::Error> {
-        let yaml = yaml_serde::to_string(&value.frontmatter)
-            .map_err(|source| FrontmatterError::Serialise { source })?;
-        let mut rendered = String::with_capacity(
-            yaml.len()
-                .saturating_add(value.body.len())
-                .saturating_add(8),
-        );
+        let yaml =
+            yaml_serde::to_string(&value.frontmatter).map_err(|source| FrontmatterError::Serialise { source })?;
+        let mut rendered = String::with_capacity(yaml.len().saturating_add(value.body.len()).saturating_add(8));
         rendered.push_str("---\n");
         rendered.push_str(&yaml);
         rendered.push_str("---\n");
@@ -219,9 +201,7 @@ fn apply_object_patch(target: &mut Map<String, Value>, patch: Map<String, Value>
                 target.shift_remove(&key);
             }
             Value::Object(nested_patch) => {
-                let target_value = target
-                    .entry(key)
-                    .or_insert_with(|| Value::Object(Map::new()));
+                let target_value = target.entry(key).or_insert_with(|| Value::Object(Map::new()));
                 if !target_value.is_object() {
                     *target_value = Value::Object(Map::new());
                 }

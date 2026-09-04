@@ -4,9 +4,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use contextos_core::{
-    ListsVault, MaintainsIndexes, MoveMutation, MovesVault, OperationEvent, OperationWarning,
-    Origin, ReadsVault, VaultEntry, VaultEntryKind, VaultPath, VaultPathInput, VaultRoot,
-    VaultRootId, VaultSet, WriteMutation, WritesVault,
+    ListsVault, MaintainsIndexes, MoveMutation, MovesVault, OperationEvent, OperationWarning, Origin, ReadsVault,
+    VaultEntry, VaultEntryKind, VaultPath, VaultPathInput, VaultRoot, VaultRootId, VaultSet, WriteMutation,
+    WritesVault,
 };
 use contextos_obsidian::{FrontmatterDocument, FrontmatterError};
 use thiserror::Error;
@@ -154,10 +154,7 @@ where
         &self,
         directory: &VaultPath,
         origin: Origin,
-    ) -> Result<
-        Vec<OperationEvent>,
-        IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>,
-    > {
+    ) -> Result<Vec<OperationEvent>, IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>> {
         Ok(self.rebuild_report(directory, origin, false)?.events)
     }
 
@@ -171,10 +168,7 @@ where
         directory: &VaultPath,
         _origin: Origin,
         dry_run: bool,
-    ) -> Result<
-        IndexRebuildResult,
-        IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>,
-    > {
+    ) -> Result<IndexRebuildResult, IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>> {
         if directory.root_id() != self.root_id {
             return Err(IndexServiceError::WrongRoot);
         }
@@ -190,17 +184,10 @@ where
         dry_run: bool,
     ) -> Result<(), IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>> {
         state.directories_scanned = state.directories_scanned.saturating_add(1);
-        let mut listing = self
-            .reader
-            .list(directory)
-            .map_err(IndexServiceError::Read)?;
-        let has_legacy =
-            self.migrate_legacy_index(directory, &listing, &mut state.events, dry_run)?;
+        let mut listing = self.reader.list(directory).map_err(IndexServiceError::Read)?;
+        let has_legacy = self.migrate_legacy_index(directory, &listing, &mut state.events, dry_run)?;
         if has_legacy && !dry_run {
-            listing = self
-                .reader
-                .list(directory)
-                .map_err(IndexServiceError::Read)?;
+            listing = self.reader.list(directory).map_err(IndexServiceError::Read)?;
         }
         state.skipped = state.skipped.saturating_add(
             listing
@@ -221,10 +208,7 @@ where
                 state.indexes_updated = state.indexes_updated.saturating_add(1);
             }
         }
-        for entry in visible
-            .iter()
-            .filter(|entry| entry.kind == VaultEntryKind::Directory)
-        {
+        for entry in visible.iter().filter(|entry| entry.kind == VaultEntryKind::Directory) {
             let child = self.child_path(directory, &entry.name)?;
             self.rebuild_directory(&child, state, dry_run)?;
         }
@@ -238,8 +222,7 @@ where
         events: &mut Vec<OperationEvent>,
         dry_run: bool,
         legacy_preview: bool,
-    ) -> Result<IndexWrite, IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>>
-    {
+    ) -> Result<IndexWrite, IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>> {
         let index_path = self.child_path(directory, "index.md")?;
         let existing_path = if legacy_preview && dry_run {
             self.child_path(directory, "_index.md")?
@@ -292,10 +275,7 @@ where
             entries: rows,
         })?;
         let content = String::from(document);
-        if existing
-            .as_ref()
-            .is_some_and(|text| text.content == content)
-        {
+        if existing.as_ref().is_some_and(|text| text.content == content) {
             return Ok(if dry_run && legacy_preview {
                 IndexWrite::Updated
             } else {
@@ -333,10 +313,7 @@ where
     fn reconcile_event(
         &self,
         event: &OperationEvent,
-    ) -> Result<
-        Vec<OperationEvent>,
-        IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>,
-    > {
+    ) -> Result<Vec<OperationEvent>, IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>> {
         let mut directories = Vec::new();
         for path in &event.paths {
             if path.root_id() != self.root_id {
@@ -350,9 +327,7 @@ where
             while let Some(relative) = ancestor {
                 let next = relative.parent().map(Path::to_path_buf);
                 let parent = self.path_from_relative(&relative)?;
-                if !self.is_excluded(parent.relative())
-                    && !directories.iter().any(|directory| directory == &parent)
-                {
+                if !self.is_excluded(parent.relative()) && !directories.iter().any(|directory| directory == &parent) {
                     directories.push(parent);
                 }
                 ancestor = next;
@@ -361,15 +336,9 @@ where
 
         let mut events = Vec::new();
         for directory in directories {
-            let mut listing = self
-                .reader
-                .list(&directory)
-                .map_err(IndexServiceError::Read)?;
+            let mut listing = self.reader.list(&directory).map_err(IndexServiceError::Read)?;
             if self.migrate_legacy_index(&directory, &listing, &mut events, false)? {
-                listing = self
-                    .reader
-                    .list(&directory)
-                    .map_err(IndexServiceError::Read)?;
+                listing = self.reader.list(&directory).map_err(IndexServiceError::Read)?;
             }
             let visible = listing
                 .into_iter()
@@ -403,15 +372,12 @@ where
         &self,
         directory: &VaultPath,
         name: &str,
-    ) -> Result<VaultPath, IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>>
-    {
+    ) -> Result<VaultPath, IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>> {
         let relative = directory.relative().join(name);
         let absolute = self.root.path().join(&relative);
         let raw = absolute
             .to_str()
-            .ok_or_else(|| IndexServiceError::NonUtf8Path {
-                path: absolute.clone(),
-            })?;
+            .ok_or_else(|| IndexServiceError::NonUtf8Path { path: absolute.clone() })?;
         VaultPath::try_from(VaultPathInput {
             roots: &self.roots,
             raw,
@@ -422,14 +388,11 @@ where
     fn path_from_relative(
         &self,
         relative: &Path,
-    ) -> Result<VaultPath, IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>>
-    {
+    ) -> Result<VaultPath, IndexServiceError<<R as ReadsVault>::Error, <W as WritesVault>::Error>> {
         let absolute = self.root.path().join(relative);
         let raw = absolute
             .to_str()
-            .ok_or_else(|| IndexServiceError::NonUtf8Path {
-                path: absolute.clone(),
-            })?;
+            .ok_or_else(|| IndexServiceError::NonUtf8Path { path: absolute.clone() })?;
         VaultPath::try_from(VaultPathInput {
             roots: &self.roots,
             raw,
@@ -523,9 +486,7 @@ where
     RootNotConfigured,
     #[error("managed index request selected a different vault root")]
     WrongRoot,
-    #[error(
-        "both _index.md and index.md exist in {directory}; merge or rename one before rebuilding"
-    )]
+    #[error("both _index.md and index.md exist in {directory}; merge or rename one before rebuilding")]
     LegacyIndexConflict { directory: std::path::PathBuf },
     #[error(transparent)]
     Index(#[from] IndexError),
@@ -543,9 +504,7 @@ where
             Self::Index(error) => error.code(),
             Self::LegacyIndexConflict { .. } => "index/legacy-conflict",
             Self::RootNotConfigured | Self::WrongRoot => "index/root",
-            Self::Read(_) | Self::Write(_) | Self::Path(_) | Self::NonUtf8Path { .. } => {
-                "index/reconcile"
-            }
+            Self::Read(_) | Self::Write(_) | Self::Path(_) | Self::NonUtf8Path { .. } => "index/reconcile",
         }
     }
 }
@@ -686,10 +645,7 @@ fn reconcile_existing(source: &str, entries: &[IndexEntry]) -> Result<IndexDocum
     }
 }
 
-fn existing_summaries(
-    block: &str,
-    first_line: usize,
-) -> Result<HashMap<String, String>, IndexError> {
+fn existing_summaries(block: &str, first_line: usize) -> Result<HashMap<String, String>, IndexError> {
     let mut summaries = HashMap::new();
     for (line_index, line) in block.lines().enumerate() {
         let trimmed = line.trim();
@@ -731,10 +687,7 @@ fn render_block(entries: &[IndexEntry], existing: &HashMap<String, String>) -> S
     for entry in entries {
         let summary = match existing.get(&entry.name) {
             Some(summary) => summary.clone(),
-            None => format!(
-                "{} <!-- auto -->",
-                single_line_summary(&entry.suggested_summary)
-            ),
+            None => format!("{} <!-- auto -->", single_line_summary(&entry.suggested_summary)),
         };
         block.push('\n');
         match entry.kind {
@@ -878,9 +831,7 @@ impl IndexError {
             Self::InvalidMarkers
             | Self::InvalidRow { .. }
             | Self::InvalidEntryName { .. }
-            | Self::DuplicateEntry { .. } => {
-                "Correct the managed index block or rebuild the affected subtree."
-            }
+            | Self::DuplicateEntry { .. } => "Correct the managed index block or rebuild the affected subtree.",
         }
     }
 }

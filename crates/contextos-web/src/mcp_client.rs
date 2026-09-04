@@ -1,7 +1,7 @@
-//! MCP client sessions to configured `[[mcp_server]]` entries (FR-204).
+//! MCP client sessions to configured `[[mcp_server]]` entries.
 //!
 //! `contextos-web` is a real MCP client, never an embedding of a service
-//! crate's trait implementations (`D-W03`, `architecture.md` §3 of
+//! crate's trait implementations (`architecture.md` §3 of
 //! `web-architecture.md`): every vault operation this crate performs is a
 //! `call_tool` on a session built here.
 
@@ -25,16 +25,16 @@ pub struct McpClient {
     running: RunningService<RoleClient, ()>,
     /// The spawned child process's OS PID, present only for a `stdio`
     /// transport. Exposed for operational diagnostics and so a test can
-    /// simulate a crashed `contextos-mcp` process (`NFR-W05`) without this
-    /// module needing to invent its own process-supervision API surface.
+    /// simulate a crashed `contextos-mcp` process without this module
+    /// needing to invent its own process-supervision API surface.
     pid: Option<u32>,
 }
 
 impl McpClient {
     /// Spawns (stdio) or connects (HTTP) to `entry`, performing the MCP
     /// `initialize` handshake before returning. A failed spawn or handshake
-    /// is returned as an error, never retried or silently degraded: FR-204
-    /// requires this to be a startup error, not a lazily-discovered one.
+    /// is returned as an error, never retried or silently degraded: this
+    /// must be a startup error, not a lazily-discovered one.
     ///
     /// # Errors
     ///
@@ -45,26 +45,18 @@ impl McpClient {
     /// endpoint connects) but the `initialize` handshake itself fails.
     pub async fn connect(entry: &McpServerConfig) -> Result<Self, McpConnectError> {
         match entry {
-            McpServerConfig::Stdio {
-                name,
-                command,
-                args,
-            } => {
+            McpServerConfig::Stdio { name, command, args } => {
                 let mut cmd = Command::new(command);
                 cmd.args(args);
-                let transport =
-                    TokioChildProcess::new(cmd).map_err(|source| McpConnectError::Spawn {
-                        server: name.clone(),
-                        source,
-                    })?;
+                let transport = TokioChildProcess::new(cmd).map_err(|source| McpConnectError::Spawn {
+                    server: name.clone(),
+                    source,
+                })?;
                 let pid = transport.id();
-                let running =
-                    ().serve(transport)
-                        .await
-                        .map_err(|source| McpConnectError::Handshake {
-                            server: name.clone(),
-                            source: Box::new(source),
-                        })?;
+                let running = ().serve(transport).await.map_err(|source| McpConnectError::Handshake {
+                    server: name.clone(),
+                    source: Box::new(source),
+                })?;
                 Ok(Self {
                     name: name.clone(),
                     running,
@@ -81,29 +73,24 @@ impl McpClient {
                 // the initial `initialize` request too, not just an
                 // already-established session's reconnects: against a
                 // genuinely unreachable endpoint it retries for minutes
-                // rather than failing, which would turn FR-204's "a failed
-                // handshake is a startup error, not a lazily-discovered
-                // one" into an indefinite hang instead. A single attempt is
-                // correct here: this is a startup connection, not a live
-                // session worth reconnecting.
+                // rather than failing, which would turn "a failed handshake
+                // is a startup error, not a lazily-discovered one" into an
+                // indefinite hang instead. A single attempt is correct
+                // here: this is a startup connection, not a live session
+                // worth reconnecting.
                 config.retry_config = Arc::new(NeverRetry::default());
                 if let Some(variable) = token_env {
-                    let token = std::env::var(variable).map_err(|_source| {
-                        McpConnectError::MissingTokenEnv {
-                            server: name.clone(),
-                            variable: variable.clone(),
-                        }
+                    let token = std::env::var(variable).map_err(|_source| McpConnectError::MissingTokenEnv {
+                        server: name.clone(),
+                        variable: variable.clone(),
                     })?;
                     config = config.auth_header(token);
                 }
                 let transport = StreamableHttpClientTransport::from_config(config);
-                let running =
-                    ().serve(transport)
-                        .await
-                        .map_err(|source| McpConnectError::Handshake {
-                            server: name.clone(),
-                            source: Box::new(source),
-                        })?;
+                let running = ().serve(transport).await.map_err(|source| McpConnectError::Handshake {
+                    server: name.clone(),
+                    source: Box::new(source),
+                })?;
                 Ok(Self {
                     name: name.clone(),
                     running,
@@ -125,7 +112,7 @@ impl McpClient {
 
     /// Calls `tool_name` on this session with `arguments`, relaying whatever
     /// the MCP server itself returns (including an MCP-level tool error
-    /// result, `FR-213`) unmodified.
+    /// result) unmodified.
     ///
     /// # Errors
     ///
@@ -154,8 +141,8 @@ pub struct McpClientSet(HashMap<String, Arc<McpClient>>);
 
 impl McpClientSet {
     /// Connects to every entry in `entries` in order, failing fast on the
-    /// first connection or handshake failure (FR-204: a startup error, not
-    /// a partially-live set).
+    /// first connection or handshake failure: a startup error, not a
+    /// partially-live set.
     ///
     /// # Errors
     ///
@@ -177,8 +164,8 @@ impl McpClientSet {
 
     /// Every configured `[[mcp_server]]` name, in no particular order.
     /// Used to validate a `manifest.toml`'s own `mcp_servers` allow-list
-    /// (`FR-232`) without a second copy of the configured name list
-    /// threaded separately through `build_router`.
+    /// without a second copy of the configured name list threaded
+    /// separately through `build_router`.
     #[must_use]
     pub fn names(&self) -> Vec<String> {
         self.0.keys().cloned().collect()
@@ -186,7 +173,7 @@ impl McpClientSet {
 }
 
 /// Failures constructing an MCP client session (`McpClient::connect`,
-/// `McpClientSet::connect`): always a startup-time concern (FR-204).
+/// `McpClientSet::connect`): always a startup-time concern.
 #[derive(Debug, Error)]
 pub enum McpConnectError {
     #[error("failed to spawn MCP server {server:?}")]
@@ -206,7 +193,7 @@ pub enum McpConnectError {
 }
 
 /// Failures making a `call_tool` request against an already-connected
-/// session: always a request-time concern (`NFR-W05`), never a startup one.
+/// session: always a request-time concern, never a startup one.
 /// Kept as its own type rather than sharing [`McpConnectError`] so the
 /// proxy route's error handling stays exhaustive without a catch-all arm
 /// for connect-only variants that can never occur here.

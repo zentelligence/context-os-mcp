@@ -1,4 +1,4 @@
-//! Vault content routes (`web-routes.md` §2, FR-220 to FR-225a):
+//! Vault content routes (`web-routes.md` §2):
 //! `GET /{{vault_name}}/{{relative-path}}` and its directory form, plus the
 //! `POST`/`PATCH`/`PUT`/`DELETE` mutation dispatch in
 //! [`mutate`](super::vault_mutations).
@@ -20,10 +20,10 @@ use crate::rendering::{base, canvas, markdown, page, shell};
 
 /// Shared state a vault content route needs: the connected MCP sessions,
 /// the name of the `[[mcp_server]]` entry every vault operation is issued
-/// against (`web.toml`'s first configured entry, `FR-203`: "the first
-/// entry always the local `contextos-mcp` instance"), and `web.toml`'s own
-/// path (read fresh per request for the nav shell's `[server.ui]`
-/// appearance, `FR-251`; this route never writes it).
+/// against (`web.toml`'s first configured entry is always the local
+/// `contextos-mcp` instance), and `web.toml`'s own path (read fresh per
+/// request for the nav shell's `[server.ui]` appearance; this route never
+/// writes it).
 #[derive(Clone)]
 pub struct VaultRoutesState {
     pub clients: Arc<McpClientSet>,
@@ -40,10 +40,7 @@ impl VaultRoutesState {
 }
 
 pub(crate) fn server_not_configured() -> Response {
-    error_response(
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "mcp/server-not-configured",
-    )
+    error_response(StatusCode::INTERNAL_SERVER_ERROR, "mcp/server-not-configured")
 }
 
 pub(crate) fn error_response(status: StatusCode, code: &'static str) -> Response {
@@ -80,11 +77,7 @@ enum Kind {
     Dir,
 }
 
-async fn resolve_kind(
-    client: &McpClient,
-    vault_name: &str,
-    trimmed: &str,
-) -> Result<Kind, Box<Response>> {
+async fn resolve_kind(client: &McpClient, vault_name: &str, trimmed: &str) -> Result<Kind, Box<Response>> {
     let target = if trimmed.is_empty() {
         format!("{vault_name}://.")
     } else {
@@ -131,22 +124,19 @@ pub(crate) enum Attached {
 
 /// Calls `fs_attach_file` on `vault_path` and converts the result into an
 /// HTTP response with the MCP-resolved content type, reusing
-/// `fs_attach_file`'s existing binary/text detection (`D-15`) rather than
-/// this crate inventing a second one. Shared by [`render_other_file`] (the
+/// `fs_attach_file`'s existing binary/text detection rather than this
+/// crate inventing a second one. Shared by [`render_other_file`] (the
 /// vault content route's "anything else" dispatch) and the app-serving
 /// route (`routes::apps`), which fetches a registered app's own bundle
 /// files the identical way, since both are "serve this vault file's bytes
-/// with its real content type" (FR-201: still an MCP tool call, never a
-/// direct filesystem read).
+/// with its real content type" (still an MCP tool call, never a direct
+/// filesystem read).
 ///
 /// # Errors
 ///
 /// Returns [`McpCallError::Unreachable`] when the MCP transport itself
 /// fails.
-pub(crate) async fn fetch_attached(
-    client: &McpClient,
-    vault_path: String,
-) -> Result<Attached, McpCallError> {
+pub(crate) async fn fetch_attached(client: &McpClient, vault_path: String) -> Result<Attached, McpCallError> {
     let mut args = Map::new();
     args.insert("path".to_owned(), Value::String(vault_path));
     let result = client.call_tool("fs_attach_file".to_owned(), args).await?;
@@ -158,24 +148,15 @@ pub(crate) async fn fetch_attached(
             continue;
         };
         match &embedded.resource {
-            rmcp::model::ResourceContents::TextResourceContents {
-                mime_type, text, ..
-            } => {
+            rmcp::model::ResourceContents::TextResourceContents { mime_type, text, .. } => {
                 let content_type = mime_type
                     .clone()
                     .unwrap_or_else(|| "text/plain; charset=utf-8".to_owned());
                 return Ok(Attached::Found(
-                    (
-                        StatusCode::OK,
-                        [("content-type", content_type)],
-                        text.clone(),
-                    )
-                        .into_response(),
+                    (StatusCode::OK, [("content-type", content_type)], text.clone()).into_response(),
                 ));
             }
-            rmcp::model::ResourceContents::BlobResourceContents {
-                mime_type, blob, ..
-            } => {
+            rmcp::model::ResourceContents::BlobResourceContents { mime_type, blob, .. } => {
                 use base64::Engine;
                 if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(blob) {
                     let content_type = mime_type
@@ -205,40 +186,23 @@ pub(crate) fn extension_of(relative_path: &str) -> &str {
 }
 
 pub(crate) fn html_response(html: String) -> Response {
-    (
-        StatusCode::OK,
-        [("content-type", "text/html; charset=utf-8")],
-        html,
-    )
-        .into_response()
+    (StatusCode::OK, [("content-type", "text/html; charset=utf-8")], html).into_response()
 }
 
 fn raw_response(content: String) -> Response {
-    (
-        StatusCode::OK,
-        [("content-type", "text/plain; charset=utf-8")],
-        content,
-    )
-        .into_response()
+    (StatusCode::OK, [("content-type", "text/plain; charset=utf-8")], content).into_response()
 }
 
-/// `GET /{{vault_name}}/` (root directory, `FR-224`).
+/// `GET /{{vault_name}}/` (root directory).
 pub async fn get_root(
     State(state): State<VaultRoutesState>,
     Path(vault_name): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    get_dispatch(
-        state,
-        vault_name,
-        String::new(),
-        VaultQuery::default(),
-        headers,
-    )
-    .await
+    get_dispatch(state, vault_name, String::new(), VaultQuery::default(), headers).await
 }
 
-/// `GET /{{vault_name}}/{{relative-path}}` (`FR-220` to `FR-224`).
+/// `GET /{{vault_name}}/{{relative-path}}`.
 pub async fn get_path(
     State(state): State<VaultRoutesState>,
     Path((vault_name, relative_path)): Path<(String, String)>,
@@ -337,17 +301,14 @@ async fn render_file(
             let nav = file_nav(client, vault_name, relative_path, appearance).await;
             html_response(page::render_page(&nav, relative_path, &rendered.html))
         }
-        "base" => {
-            match base::render_view(client, vault_name, relative_path, query.view.as_deref()).await
-            {
-                Ok(fragment) if is_hx_request => html_response(fragment),
-                Ok(fragment) => {
-                    let nav = file_nav(client, vault_name, relative_path, appearance).await;
-                    html_response(page::render_page(&nav, relative_path, &fragment))
-                }
-                Err(McpCallError::Unreachable { .. }) => unreachable(),
+        "base" => match base::render_view(client, vault_name, relative_path, query.view.as_deref()).await {
+            Ok(fragment) if is_hx_request => html_response(fragment),
+            Ok(fragment) => {
+                let nav = file_nav(client, vault_name, relative_path, appearance).await;
+                html_response(page::render_page(&nav, relative_path, &fragment))
             }
-        }
+            Err(McpCallError::Unreachable { .. }) => unreachable(),
+        },
         "canvas" => render_canvas(client, vault_name, relative_path, appearance).await,
         "mermaid" => render_standalone_mermaid(client, vault_name, relative_path, appearance).await,
         _ => render_other_file(client, vault_name, relative_path).await,
@@ -379,8 +340,8 @@ async fn file_nav(
 
 /// Any extension not otherwise dispatched (`web-routes.md` §2's dispatch
 /// table, "anything else"): served as the MCP-resolved MIME type, reusing
-/// `fs_attach_file`'s existing detection (`D-15`), never a 404 for a real
-/// file that simply has no dedicated rendering pipeline.
+/// `fs_attach_file`'s existing detection, never a 404 for a real file that
+/// simply has no dedicated rendering pipeline.
 async fn render_other_file(client: &McpClient, vault_name: &str, relative_path: &str) -> Response {
     match fetch_attached(client, format!("{vault_name}://{relative_path}")).await {
         Ok(Attached::Found(response)) => response,

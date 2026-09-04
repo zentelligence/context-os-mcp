@@ -1,8 +1,6 @@
 mod support;
 
-use contextos_search::{
-    DocumentSource, IndexedDocument, IndexesText, TantivyIndex, TextIndexConfig, TextQuery,
-};
+use contextos_search::{DocumentSource, IndexedDocument, IndexesText, TantivyIndex, TextIndexConfig, TextQuery};
 use serde_json::{Map, Value};
 use support::{document, timestamp, vault_note};
 
@@ -24,8 +22,7 @@ fn plain_query<'a>(query: &'a str, fields: &'a Map<String, Value>) -> TextQuery<
 }
 
 #[test]
-fn fr_50_plain_term_query_returns_ranked_hit_with_heading_snippet()
--> Result<(), Box<dyn std::error::Error>> {
+fn plain_term_query_returns_ranked_hit_with_heading_snippet() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let index = index_at(vault.path())?;
     index.index(&[
@@ -53,7 +50,7 @@ fn fr_50_plain_term_query_returns_ranked_hit_with_heading_snippet()
 }
 
 #[test]
-fn fr_50_title_match_outranks_single_body_mention() -> Result<(), Box<dyn std::error::Error>> {
+fn title_match_outranks_single_body_mention() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let index = index_at(vault.path())?;
     index.index(&[
@@ -79,21 +76,12 @@ fn fr_50_title_match_outranks_single_body_mention() -> Result<(), Box<dyn std::e
 }
 
 #[test]
-fn fr_50_path_prefix_filter_scopes_to_component_boundaries()
--> Result<(), Box<dyn std::error::Error>> {
+fn path_prefix_filter_scopes_to_component_boundaries() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let index = index_at(vault.path())?;
     index.index(&[
-        document(
-            &vault,
-            "notes/widget.md",
-            "# Widget\n\nThe gadget register.\n",
-        )?,
-        document(
-            &vault,
-            "archive/widget.md",
-            "# Old Widget\n\nThe gadget register.\n",
-        )?,
+        document(&vault, "notes/widget.md", "# Widget\n\nThe gadget register.\n")?,
+        document(&vault, "archive/widget.md", "# Old Widget\n\nThe gadget register.\n")?,
     ])?;
     let no_fields = Map::new();
 
@@ -121,21 +109,12 @@ fn fr_50_path_prefix_filter_scopes_to_component_boundaries()
 }
 
 #[test]
-fn fr_116_exclude_paths_filter_scopes_out_matching_segments()
--> Result<(), Box<dyn std::error::Error>> {
+fn exclude_paths_filter_scopes_out_matching_segments() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let index = index_at(vault.path())?;
     index.index(&[
-        document(
-            &vault,
-            "notes/widget.md",
-            "# Widget\n\nThe gadget register.\n",
-        )?,
-        document(
-            &vault,
-            "archive/widget.md",
-            "# Old Widget\n\nThe gadget register.\n",
-        )?,
+        document(&vault, "notes/widget.md", "# Widget\n\nThe gadget register.\n")?,
+        document(&vault, "archive/widget.md", "# Old Widget\n\nThe gadget register.\n")?,
         // Merely starts with the same characters as the excluded segment,
         // but is not that segment itself: must NOT be excluded.
         document(
@@ -154,10 +133,7 @@ fn fr_116_exclude_paths_filter_scopes_out_matching_segments()
         fields: &no_fields,
         limit: 20,
     })?;
-    let mut paths: Vec<&str> = excluding_archive
-        .iter()
-        .map(|hit| hit.path.as_str())
-        .collect();
+    let mut paths: Vec<&str> = excluding_archive.iter().map(|hit| hit.path.as_str()).collect();
     paths.sort_unstable();
     assert_eq!(paths, vec!["archived-notes/widget.md", "notes/widget.md"]);
 
@@ -188,7 +164,7 @@ fn fr_116_exclude_paths_filter_scopes_out_matching_segments()
 }
 
 #[test]
-fn fr_50_tag_filter_matches_nested_tags_hierarchically() -> Result<(), Box<dyn std::error::Error>> {
+fn tag_filter_matches_nested_tags_hierarchically() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let index = index_at(vault.path())?;
     index.index(&[
@@ -232,8 +208,7 @@ fn fr_50_tag_filter_matches_nested_tags_hierarchically() -> Result<(), Box<dyn s
 }
 
 #[test]
-fn fr_50_frontmatter_field_filter_requires_exact_equality() -> Result<(), Box<dyn std::error::Error>>
-{
+fn frontmatter_field_filter_requires_exact_equality() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let index = index_at(vault.path())?;
     index.index(&[
@@ -250,19 +225,13 @@ fn fr_50_frontmatter_field_filter_requires_exact_equality() -> Result<(), Box<dy
     ])?;
 
     let mut entity_filter = Map::new();
-    entity_filter.insert(
-        "entity".to_owned(),
-        Value::String("zentelligence".to_owned()),
-    );
+    entity_filter.insert("entity".to_owned(), Value::String("zentelligence".to_owned()));
     let by_entity = index.query(&plain_query("budget", &entity_filter))?;
     assert_eq!(by_entity.len(), 1);
     assert_eq!(by_entity[0].path, "zentelligence/plan.md");
 
     let mut region_filter = Map::new();
-    region_filter.insert(
-        "region".to_owned(),
-        Value::String("New South Wales".to_owned()),
-    );
+    region_filter.insert("region".to_owned(), Value::String("New South Wales".to_owned()));
     let by_region = index.query(&plain_query("budget", &region_filter))?;
     assert_eq!(by_region.len(), 1);
     assert_eq!(by_region[0].path, "zentelligence/plan.md");
@@ -275,7 +244,7 @@ fn fr_50_frontmatter_field_filter_requires_exact_equality() -> Result<(), Box<dy
 }
 
 #[test]
-fn fr_50_invalid_query_syntax_returns_stable_error() -> Result<(), Box<dyn std::error::Error>> {
+fn invalid_query_syntax_returns_stable_error() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let index = index_at(vault.path())?;
     index.index(&[document(&vault, "notes/a.md", "# A\n\nProse.\n")?])?;
@@ -289,14 +258,10 @@ fn fr_50_invalid_query_syntax_returns_stable_error() -> Result<(), Box<dyn std::
 }
 
 #[test]
-fn fr_50_remove_deletes_the_stored_document() -> Result<(), Box<dyn std::error::Error>> {
+fn remove_deletes_the_stored_document() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let index = index_at(vault.path())?;
-    index.index(&[document(
-        &vault,
-        "notes/gone.md",
-        "# Gone\n\nEphemeral gadget.\n",
-    )?])?;
+    index.index(&[document(&vault, "notes/gone.md", "# Gone\n\nEphemeral gadget.\n")?])?;
 
     index.remove("notes/gone.md")?;
 
@@ -307,20 +272,11 @@ fn fr_50_remove_deletes_the_stored_document() -> Result<(), Box<dyn std::error::
 }
 
 #[test]
-fn fr_51_reindexing_a_path_replaces_the_previous_document() -> Result<(), Box<dyn std::error::Error>>
-{
+fn reindexing_a_path_replaces_the_previous_document() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let index = index_at(vault.path())?;
-    index.index(&[document(
-        &vault,
-        "notes/item.md",
-        "# Item\n\nOriginal gadget.\n",
-    )?])?;
-    index.index(&[document(
-        &vault,
-        "notes/item.md",
-        "# Item\n\nReplacement widget.\n",
-    )?])?;
+    index.index(&[document(&vault, "notes/item.md", "# Item\n\nOriginal gadget.\n")?])?;
+    index.index(&[document(&vault, "notes/item.md", "# Item\n\nReplacement widget.\n")?])?;
 
     let no_fields = Map::new();
     let stale = index.query(&plain_query("gadget", &no_fields))?;
@@ -332,7 +288,7 @@ fn fr_51_reindexing_a_path_replaces_the_previous_document() -> Result<(), Box<dy
 }
 
 #[test]
-fn fr_50_limit_caps_the_result_count() -> Result<(), Box<dyn std::error::Error>> {
+fn limit_caps_the_result_count() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let index = index_at(vault.path())?;
     index.index(&[
@@ -355,8 +311,7 @@ fn fr_50_limit_caps_the_result_count() -> Result<(), Box<dyn std::error::Error>>
 }
 
 #[test]
-fn fr_50_second_instance_opens_for_reads_while_first_stays_alive()
--> Result<(), Box<dyn std::error::Error>> {
+fn second_instance_opens_for_reads_while_first_stays_alive() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let first = index_at(vault.path())?;
     first.index(&[document(&vault, "notes/a.md", "# A\n\nGadget prose.\n")?])?;
@@ -364,8 +319,8 @@ fn fr_50_second_instance_opens_for_reads_while_first_stays_alive()
     // Opening a second handle onto the same directory must not require the
     // exclusive tantivy IndexWriter lock: that lock is only needed for the
     // duration of an actual write, not for the lifetime of a connection
-    // (D-09 follow-up: a second server process against the same vault must
-    // not fail outright just because a first process is already open).
+    // (a second server process against the same vault must not fail
+    // outright just because a first process is already open).
     let second = index_at(vault.path())?;
     let no_fields = Map::new();
     let hits = second.query(&plain_query("gadget", &no_fields))?;
@@ -375,8 +330,7 @@ fn fr_50_second_instance_opens_for_reads_while_first_stays_alive()
 }
 
 #[test]
-fn fr_50_second_instance_can_write_while_first_instance_is_idle()
--> Result<(), Box<dyn std::error::Error>> {
+fn second_instance_can_write_while_first_instance_is_idle() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let first = index_at(vault.path())?;
     let second = index_at(vault.path())?;
@@ -391,7 +345,7 @@ fn fr_50_second_instance_can_write_while_first_instance_is_idle()
 }
 
 #[test]
-fn fr_50_index_persists_across_reopen() -> Result<(), Box<dyn std::error::Error>> {
+fn index_persists_across_reopen() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let content = "# Durable\n\nPersistent gadget entry.\n";
     let (_roots, path) = vault_note(&vault, "notes/durable.md", content)?;

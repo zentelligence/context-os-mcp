@@ -83,11 +83,7 @@ impl TryFrom<&str> for BaseDocument {
             let (line, column) = source
                 .location()
                 .map_or((1, 1), |location| (location.line(), location.column()));
-            BaseError::InvalidYaml {
-                line,
-                column,
-                source,
-            }
+            BaseError::InvalidYaml { line, column, source }
         })?;
         Ok(Self { definition })
     }
@@ -144,21 +140,9 @@ impl BaseDocument {
             );
         }
         validate_filters(self.definition.get("filters"), "filters", &mut diagnostics);
-        validate_named_expressions(
-            self.definition.get("formulas"),
-            "formulas",
-            &mut diagnostics,
-        );
-        validate_properties(
-            self.definition.get("properties"),
-            "properties",
-            &mut diagnostics,
-        );
-        validate_named_expressions(
-            self.definition.get("summaries"),
-            "summaries",
-            &mut diagnostics,
-        );
+        validate_named_expressions(self.definition.get("formulas"), "formulas", &mut diagnostics);
+        validate_properties(self.definition.get("properties"), "properties", &mut diagnostics);
+        validate_named_expressions(self.definition.get("summaries"), "summaries", &mut diagnostics);
         validate_views(self.definition.get("views"), &mut diagnostics);
         validate_formula_references(&self.definition, &mut diagnostics);
         validate_summary_references(&self.definition, &mut diagnostics);
@@ -176,9 +160,7 @@ impl BaseDocument {
         for (index, operation) in operations.into_iter().enumerate() {
             apply_operation(&mut candidate, operation, index)?;
         }
-        let candidate = Self {
-            definition: candidate,
-        };
+        let candidate = Self { definition: candidate };
         candidate.ensure_valid()?;
         *self = candidate;
         Ok(())
@@ -347,11 +329,7 @@ fn require_name(name: &str, index: usize, label: &'static str) -> Result<(), Bas
     Ok(())
 }
 
-fn require_expression(
-    expression: &str,
-    index: usize,
-    label: &'static str,
-) -> Result<(), BaseError> {
+fn require_expression(expression: &str, index: usize, label: &'static str) -> Result<(), BaseError> {
     if expression.trim().is_empty() {
         return Err(BaseError::Operation {
             index,
@@ -378,9 +356,7 @@ fn merge_patch(target: &mut Map<String, Value>, patch: Map<String, Value>) {
                 target.shift_remove(&key);
             }
             Value::Object(nested_patch) => {
-                let nested = target
-                    .entry(key)
-                    .or_insert_with(|| Value::Object(Map::new()));
+                let nested = target.entry(key).or_insert_with(|| Value::Object(Map::new()));
                 if !nested.is_object() {
                     *nested = Value::Object(Map::new());
                 }
@@ -425,11 +401,7 @@ fn validate_filters(value: Option<&Value>, path: &str, diagnostics: &mut Vec<Bas
         return;
     };
     if !matches!(operator.as_str(), "and" | "or" | "not") {
-        push_diagnostic(
-            diagnostics,
-            path,
-            "filter object key must be and, or, or not",
-        );
+        push_diagnostic(diagnostics, path, "filter object key must be and, or, or not");
         return;
     }
     let Some(operands) = operands.as_array() else {
@@ -441,19 +413,11 @@ fn validate_filters(value: Option<&Value>, path: &str, diagnostics: &mut Vec<Bas
         return;
     };
     for (index, operand) in operands.iter().enumerate() {
-        validate_filters(
-            Some(operand),
-            &format!("{path}.{operator}[{index}]"),
-            diagnostics,
-        );
+        validate_filters(Some(operand), &format!("{path}.{operator}[{index}]"), diagnostics);
     }
 }
 
-fn validate_named_expressions(
-    value: Option<&Value>,
-    path: &str,
-    diagnostics: &mut Vec<BaseDiagnostic>,
-) {
+fn validate_named_expressions(value: Option<&Value>, path: &str, diagnostics: &mut Vec<BaseDiagnostic>) {
     let Some(value) = value else {
         return;
     };
@@ -486,17 +450,10 @@ fn validate_properties(value: Option<&Value>, path: &str, diagnostics: &mut Vec<
     for (name, property) in properties {
         let property_path = format!("{path}.{name}");
         let Some(property) = property.as_object() else {
-            push_diagnostic(
-                diagnostics,
-                &property_path,
-                "property configuration must be an object",
-            );
+            push_diagnostic(diagnostics, &property_path, "property configuration must be an object");
             continue;
         };
-        if property
-            .get("displayName")
-            .is_some_and(|display| !display.is_string())
-        {
+        if property.get("displayName").is_some_and(|display| !display.is_string()) {
             push_diagnostic(
                 diagnostics,
                 &format!("{property_path}.displayName"),
@@ -551,11 +508,7 @@ fn validate_views(value: Option<&Value>, diagnostics: &mut Vec<BaseDiagnostic>) 
         if let Some(name) = view.get("name").and_then(Value::as_str)
             && !names.insert(name)
         {
-            push_diagnostic(
-                diagnostics,
-                &format!("{path}.name"),
-                "view names must be unique",
-            );
+            push_diagnostic(diagnostics, &format!("{path}.name"), "view names must be unique");
         }
         if view
             .get("limit")
@@ -571,10 +524,7 @@ fn validate_views(value: Option<&Value>, diagnostics: &mut Vec<BaseDiagnostic>) 
         validate_string_array(view.get("order"), &format!("{path}.order"), diagnostics);
         validate_group_by(view.get("groupBy"), &format!("{path}.groupBy"), diagnostics);
         validate_sort(view.get("sort"), &format!("{path}.sort"), diagnostics);
-        if view
-            .get("summaries")
-            .is_some_and(|summaries| !summaries.is_object())
-        {
+        if view.get("summaries").is_some_and(|summaries| !summaries.is_object()) {
             push_diagnostic(
                 diagnostics,
                 &format!("{path}.summaries"),
@@ -594,11 +544,7 @@ fn validate_string_array(value: Option<&Value>, path: &str, diagnostics: &mut Ve
     };
     for (index, value) in values.iter().enumerate() {
         if !value.is_string() {
-            push_diagnostic(
-                diagnostics,
-                &format!("{path}[{index}]"),
-                "value must be a string",
-            );
+            push_diagnostic(diagnostics, &format!("{path}[{index}]"), "value must be a string");
         }
     }
 }
@@ -618,11 +564,7 @@ fn validate_group_by(value: Option<&Value>, path: &str, diagnostics: &mut Vec<Ba
             "groupBy property must be a string",
         );
     }
-    validate_direction(
-        group.get("direction"),
-        &format!("{path}.direction"),
-        diagnostics,
-    );
+    validate_direction(group.get("direction"), &format!("{path}.direction"), diagnostics);
 }
 
 fn validate_sort(value: Option<&Value>, path: &str, diagnostics: &mut Vec<BaseDiagnostic>) {
@@ -646,11 +588,7 @@ fn validate_sort(value: Option<&Value>, path: &str, diagnostics: &mut Vec<BaseDi
                 "sort property must be a string",
             );
         }
-        validate_direction(
-            entry.get("direction"),
-            &format!("{entry_path}.direction"),
-            diagnostics,
-        );
+        validate_direction(entry.get("direction"), &format!("{entry_path}.direction"), diagnostics);
     }
 }
 
@@ -660,10 +598,7 @@ fn validate_direction(value: Option<&Value>, path: &str, diagnostics: &mut Vec<B
     }
 }
 
-fn validate_formula_references(
-    definition: &Map<String, Value>,
-    diagnostics: &mut Vec<BaseDiagnostic>,
-) {
+fn validate_formula_references(definition: &Map<String, Value>, diagnostics: &mut Vec<BaseDiagnostic>) {
     let formulas = definition
         .get("formulas")
         .and_then(Value::as_object)
@@ -676,11 +611,7 @@ fn validate_formula_references(
     for section in ["formulas", "summaries"] {
         if let Some(expressions) = definition.get(section).and_then(Value::as_object) {
             for (name, expression) in expressions {
-                collect_formula_references(
-                    expression,
-                    &format!("$.{section}.{name}"),
-                    &mut references,
-                );
+                collect_formula_references(expression, &format!("$.{section}.{name}"), &mut references);
             }
         }
     }
@@ -691,11 +622,7 @@ fn validate_formula_references(
             };
             for field in ["filters", "order", "groupBy", "sort"] {
                 if let Some(value) = view.get(field) {
-                    collect_formula_references(
-                        value,
-                        &format!("$.views[{index}].{field}"),
-                        &mut references,
-                    );
+                    collect_formula_references(value, &format!("$.views[{index}].{field}"), &mut references);
                 }
             }
             if let Some(summaries) = view.get("summaries").and_then(Value::as_object) {
@@ -711,10 +638,7 @@ fn validate_formula_references(
         }
     }
     if let Some(properties) = definition.get("properties").and_then(Value::as_object) {
-        for name in properties
-            .keys()
-            .filter_map(|name| name.strip_prefix("formula."))
-        {
+        for name in properties.keys().filter_map(|name| name.strip_prefix("formula.")) {
             references
                 .entry(format!("properties.formula.{name}"))
                 .or_default()
@@ -724,21 +648,13 @@ fn validate_formula_references(
     for (path, names) in references {
         for name in names {
             if !formulas.contains(name.as_str()) {
-                push_diagnostic(
-                    diagnostics,
-                    &path,
-                    &format!("formula.{name} is not defined"),
-                );
+                push_diagnostic(diagnostics, &path, &format!("formula.{name} is not defined"));
             }
         }
     }
 }
 
-fn collect_formula_references(
-    value: &Value,
-    path: &str,
-    references: &mut BTreeMap<String, BTreeSet<String>>,
-) {
+fn collect_formula_references(value: &Value, path: &str, references: &mut BTreeMap<String, BTreeSet<String>>) {
     match value {
         Value::String(expression) => {
             let FormulaReferences(names) = FormulaReferences::from(expression.as_str());
@@ -771,9 +687,7 @@ impl From<&str> for FormulaReferences {
             if let Some(identifier) = after_formula.strip_prefix('.') {
                 let length = identifier
                     .chars()
-                    .take_while(|character| {
-                        character.is_alphanumeric() || matches!(character, '_' | '-')
-                    })
+                    .take_while(|character| character.is_alphanumeric() || matches!(character, '_' | '-'))
                     .map(char::len_utf8)
                     .sum::<usize>();
                 if length > 0 {
@@ -830,19 +744,11 @@ impl From<&str> for FormulaReferences {
     }
 }
 
-fn validate_summary_references(
-    definition: &Map<String, Value>,
-    diagnostics: &mut Vec<BaseDiagnostic>,
-) {
+fn validate_summary_references(definition: &Map<String, Value>, diagnostics: &mut Vec<BaseDiagnostic>) {
     let custom = definition
         .get("summaries")
         .and_then(Value::as_object)
-        .map(|summaries| {
-            summaries
-                .keys()
-                .map(String::as_str)
-                .collect::<BTreeSet<_>>()
-        })
+        .map(|summaries| summaries.keys().map(String::as_str).collect::<BTreeSet<_>>())
         .unwrap_or_default();
     let Some(views) = definition.get("views").and_then(Value::as_array) else {
         return;

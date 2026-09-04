@@ -34,20 +34,12 @@ fn structured(
 
 fn outcomes(
     result: &CallToolResult,
-) -> Result<
-    Vec<&serde_json::Map<String, serde_json::Value>>,
-    Box<dyn std::error::Error + Send + Sync>,
-> {
+) -> Result<Vec<&serde_json::Map<String, serde_json::Value>>, Box<dyn std::error::Error + Send + Sync>> {
     structured(result)?
         .get("outcomes")
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| std::io::Error::other("doctor_resolve result omitted outcomes").into())
-        .map(|outcomes| {
-            outcomes
-                .iter()
-                .filter_map(serde_json::Value::as_object)
-                .collect()
-        })
+        .map(|outcomes| outcomes.iter().filter_map(serde_json::Value::as_object).collect())
 }
 
 #[tokio::test]
@@ -59,9 +51,7 @@ async fn catalogue_advertises_doctor_resolve_with_an_object_schema()
         .get("doctor_resolve")
         .ok_or_else(|| std::io::Error::other("missing tool doctor_resolve"))?;
     assert_eq!(
-        tool.input_schema
-            .get("type")
-            .and_then(serde_json::Value::as_str),
+        tool.input_schema.get("type").and_then(serde_json::Value::as_str),
         Some("object")
     );
     assert!(tool.description.is_some());
@@ -84,21 +74,14 @@ async fn catalogue_advertises_doctor_resolve_with_an_object_schema()
     // path populates `structured_content` with that shape too.
     assert_eq!(
         fields,
-        vec![
-            "code",
-            "message",
-            "outcomes",
-            "path",
-            "remediation",
-            "report"
-        ]
+        vec!["code", "message", "outcomes", "path", "remediation", "report"]
     );
 
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_92_doctor_resolve_rebuilds_a_stale_index_and_reports_it_resolved()
+async fn doctor_resolve_rebuilds_a_stale_index_and_reports_it_resolved()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
@@ -123,7 +106,7 @@ async fn fr_92_doctor_resolve_rebuilds_a_stale_index_and_reports_it_resolved()
 }
 
 #[tokio::test]
-async fn fr_92_doctor_resolve_initialises_git_for_a_repository_free_vault()
+async fn doctor_resolve_initialises_git_for_a_repository_free_vault()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
@@ -143,7 +126,7 @@ async fn fr_92_doctor_resolve_initialises_git_for_a_repository_free_vault()
 }
 
 #[tokio::test]
-async fn fr_92_doctor_resolve_never_acts_on_a_non_auto_fixable_finding()
+async fn doctor_resolve_never_acts_on_a_non_auto_fixable_finding()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // A legacy `_index.md` alongside a real `index.md` is an index conflict
     // (`index/legacy-conflict`) that `contextos-index` deliberately refuses
@@ -167,10 +150,7 @@ async fn fr_92_doctor_resolve_never_acts_on_a_non_auto_fixable_finding()
             .into_iter()
             .all(|outcome| outcome.get("subject") != Some(&json!("Managed indexes")))
     );
-    assert_eq!(
-        std::fs::read(vault.path().join("_index.md"))?,
-        b"legacy bytes\n"
-    );
+    assert_eq!(std::fs::read(vault.path().join("_index.md"))?, b"legacy bytes\n");
     let report = structured(&result)?
         .get("report")
         .and_then(serde_json::Value::as_object)
@@ -180,8 +160,7 @@ async fn fr_92_doctor_resolve_never_acts_on_a_non_auto_fixable_finding()
 }
 
 #[tokio::test]
-async fn fr_93_dry_run_reports_without_writing()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn dry_run_reports_without_writing() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
     config.vaults[0].git.enabled = false;
@@ -236,14 +215,10 @@ async fn doctor_resolve_run_twice_on_an_already_healthy_vault_writes_nothing_the
 }
 
 #[tokio::test]
-async fn fr_92_path_scopes_resolution_to_one_configured_vault()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn path_scopes_resolution_to_one_configured_vault() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let first = tempfile::Builder::new().prefix("first").tempdir()?;
     let second = tempfile::Builder::new().prefix("second").tempdir()?;
-    let mut config = Config::try_from(vec![
-        first.path().to_path_buf(),
-        second.path().to_path_buf(),
-    ])?;
+    let mut config = Config::try_from(vec![first.path().to_path_buf(), second.path().to_path_buf()])?;
     for vault in &mut config.vaults {
         vault.git.enabled = false;
     }

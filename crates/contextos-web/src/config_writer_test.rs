@@ -46,8 +46,7 @@ fn add_mcp_server_appends_a_new_entry_and_preserves_existing_comments() -> Resul
 }
 
 #[test]
-fn add_mcp_server_rejects_a_duplicate_name_and_leaves_the_document_unchanged()
--> Result<(), BoxError> {
+fn add_mcp_server_rejects_a_duplicate_name_and_leaves_the_document_unchanged() -> Result<(), BoxError> {
     let mut document = WebConfigDocument::parse(BASE)?;
     let before = document.render();
 
@@ -81,10 +80,7 @@ fn add_mcp_server_rejects_a_null_value() -> Result<(), BoxError> {
 
     let result = document.add_mcp_server(&malformed);
 
-    assert!(matches!(
-        result,
-        Err(WebConfigWriterError::UnsupportedValue)
-    ));
+    assert!(matches!(result, Err(WebConfigWriterError::UnsupportedValue)));
     assert_eq!(document.render(), before);
     Ok(())
 }
@@ -159,8 +155,7 @@ fn remove_mcp_server_drops_the_named_entry() -> Result<(), BoxError> {
 }
 
 #[test]
-fn remove_mcp_server_on_an_unknown_name_is_rejected_and_leaves_the_document_unchanged()
--> Result<(), BoxError> {
+fn remove_mcp_server_on_an_unknown_name_is_rejected_and_leaves_the_document_unchanged() -> Result<(), BoxError> {
     let mut document = WebConfigDocument::parse(BASE)?;
     let before = document.render();
 
@@ -178,10 +173,7 @@ fn remove_mcp_server_on_an_unknown_name_is_rejected_and_leaves_the_document_unch
 fn patch_ui_creates_and_merges_the_server_ui_table() -> Result<(), BoxError> {
     let mut document = WebConfigDocument::parse(BASE)?;
     let mut patch = serde_json::Map::new();
-    patch.insert(
-        "theme".to_owned(),
-        serde_json::Value::String("dark".to_owned()),
-    );
+    patch.insert("theme".to_owned(), serde_json::Value::String("dark".to_owned()));
 
     document.patch_ui(&patch)?;
 
@@ -194,12 +186,8 @@ fn patch_ui_creates_and_merges_the_server_ui_table() -> Result<(), BoxError> {
 }
 
 #[test]
-fn an_edit_is_rejected_when_the_document_already_carries_an_invalid_bind_address()
--> Result<(), BoxError> {
-    let corrupt = BASE.replace(
-        r#"bind = "127.0.0.1:7332""#,
-        r#"bind = "not-a-socket-address""#,
-    );
+fn an_edit_is_rejected_when_the_document_already_carries_an_invalid_bind_address() -> Result<(), BoxError> {
+    let corrupt = BASE.replace(r#"bind = "127.0.0.1:7332""#, r#"bind = "not-a-socket-address""#);
     let mut document = WebConfigDocument::parse(&corrupt)?;
     let before = document.render();
 

@@ -50,8 +50,8 @@ pub struct NavData {
     /// Vault-scoped `POST .../apps/rescan` target for the shell footer's
     /// "Rescan apps" link; `None` for a vault-independent page.
     pub rescan_href: Option<String>,
-    /// `web.toml`'s `[server.ui]` theme/font/size (`FR-251`'s Appearance
-    /// pane): applied as `<html data-theme="..." data-font="..."
+    /// `web.toml`'s `[server.ui]` theme/font/size (the `/settings/`
+    /// Appearance pane): applied as `<html data-theme="..." data-font="..."
     /// data-size="...">` so `contextos-web.css`'s corresponding attribute
     /// selectors take effect on the very next page render after a save.
     /// Each field absent (the key unset, non-string, or `web.toml`

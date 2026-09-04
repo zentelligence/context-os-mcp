@@ -38,11 +38,7 @@ pub fn parse_open_line(line: &str) -> Option<CalloutOpen> {
     let title = after.trim();
     Some(CalloutOpen {
         kind: kind.to_ascii_lowercase(),
-        title: if title.is_empty() {
-            None
-        } else {
-            Some(title.to_owned())
-        },
+        title: if title.is_empty() { None } else { Some(title.to_owned()) },
     })
 }
 

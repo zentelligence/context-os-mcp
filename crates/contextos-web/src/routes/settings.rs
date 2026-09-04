@@ -1,14 +1,14 @@
-//! `/settings/` (`web-routes.md` §5, FR-251, FR-252): a `web.toml`-scoped
-//! configuration UI. `GET` renders the current effective configuration;
-//! `POST` adds an `[[mcp_server]]` entry; `PATCH` partially updates an
-//! entry or `[server.ui]`; `PUT` fully replaces an entry; `DELETE` removes
-//! one. Every writing method validates the resulting document (`FR-251`,
-//! [`crate::config_writer::WebConfigDocument`]) and checks that no
+//! `/settings/` (`web-routes.md` §5): a `web.toml`-scoped configuration
+//! UI. `GET` renders the current effective configuration; `POST` adds an
+//! `[[mcp_server]]` entry; `PATCH` partially updates an entry or
+//! `[server.ui]`; `PUT` fully replaces an entry; `DELETE` removes one.
+//! Every writing method validates the resulting document
+//! ([`crate::config_writer::WebConfigDocument`]) and checks that no
 //! currently-registered app's manifest still names a server the edit would
 //! remove, before persisting anything; a rejected edit leaves `web.toml`
-//! byte-for-byte unchanged. No method here ever opens `config.toml`
-//! (`FR-252`): the vault list it holds is exclusively a `contextos-mcp`
-//! CLI or hand-edit concern.
+//! byte-for-byte unchanged. No method here ever opens `config.toml`: the
+//! vault list it holds is exclusively a `contextos-mcp` CLI or hand-edit
+//! concern.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::apps::{self, RegisteredApp};
+use crate::atomic_write::write_atomically;
 use crate::config::{McpServerConfig, WebConfig, current_appearance};
 use crate::config_writer::{WebConfigDocument, WebConfigWriterError};
 use crate::mcp_client::{McpCallError, McpClient, McpClientSet};
@@ -29,8 +30,8 @@ use crate::rendering::page;
 use crate::rendering::shell::{self, ActiveScreen};
 
 /// Shared state the settings route needs: the connected MCP sessions (to
-/// run the registered-app-dependency check FR-251 requires before removing
-/// an `[[mcp_server]]` entry), the `[[mcp_server]]` name every such check is
+/// run the registered-app-dependency check required before removing an
+/// `[[mcp_server]]` entry), the `[[mcp_server]]` name every such check is
 /// issued against, and the on-disk path of the `web.toml` this route reads
 /// and writes.
 #[derive(Clone)]
@@ -42,11 +43,7 @@ pub struct SettingsRoutesState {
 
 impl SettingsRoutesState {
     #[must_use]
-    pub fn new(
-        clients: Arc<McpClientSet>,
-        primary_server: String,
-        web_config_path: PathBuf,
-    ) -> Self {
+    pub fn new(clients: Arc<McpClientSet>, primary_server: String, web_config_path: PathBuf) -> Self {
         Self {
             clients,
             primary_server,
@@ -131,10 +128,7 @@ fn unreachable() -> Response {
 }
 
 fn server_not_configured() -> Response {
-    error(
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "mcp/server-not-configured",
-    )
+    error(StatusCode::INTERNAL_SERVER_ERROR, "mcp/server-not-configured")
 }
 
 fn read_failure(source: &std::io::Error) -> Response {
@@ -142,16 +136,15 @@ fn read_failure(source: &std::io::Error) -> Response {
 }
 
 // ---------------------------------------------------------------------
-// GET /settings/ (FR-251)
+// GET /settings/
 // ---------------------------------------------------------------------
 
 /// One `[[mcp_server]]` entry as the settings page renders it: `detail` is
 /// the read-only summary line; the remaining fields are structured so the
-/// per-entry edit form (`FR-251`'s `PATCH ... target: "mcp_server"`) can
-/// pre-fill exactly the fields its own transport has, `token_env` included
-/// (the "auth for an MCP server" case the original requirement's "MCP
-/// servers and auth" line names, distinct from `D-W02`'s deferred auth for
-/// `contextos-web`'s own HTTP surface).
+/// per-entry edit form (`PATCH ... target: "mcp_server"`) can pre-fill
+/// exactly the fields its own transport has, `token_env` included (the
+/// "auth for an MCP server" case, distinct from `contextos-web`'s own,
+/// deliberately deferred, HTTP surface auth).
 struct McpServerRow {
     name: String,
     transport: &'static str,
@@ -178,11 +171,7 @@ fn render(config: &WebConfig) -> String {
         .mcp_servers
         .iter()
         .map(|entry| match entry {
-            McpServerConfig::Stdio {
-                name,
-                command,
-                args,
-            } => McpServerRow {
+            McpServerConfig::Stdio { name, command, args } => McpServerRow {
                 name: name.clone(),
                 transport: "stdio",
                 detail: format!("{command} {}", args.join(" ")),
@@ -243,19 +232,14 @@ fn ui_value_display(value: &toml::Value) -> String {
 }
 
 fn html_response(html: String) -> Response {
-    (
-        StatusCode::OK,
-        [("content-type", "text/html; charset=utf-8")],
-        html,
-    )
-        .into_response()
+    (StatusCode::OK, [("content-type", "text/html; charset=utf-8")], html).into_response()
 }
 
-/// `GET /settings/`: renders the current effective `web.toml` (`FR-251`).
-/// Follows `standards/http-routing-response-contract-standard.md`'s
-/// `HX-Request` convention (`web-architecture.md` §6, `NFR-W02`): a plain
-/// browser navigation (no `HX-Request` header) gets the full page, chrome
-/// and all; an HTMX-driven request gets the bare fragment it will swap in.
+/// `GET /settings/`: renders the current effective `web.toml`. Follows
+/// `standards/http-routing-response-contract-standard.md`'s `HX-Request`
+/// convention (`web-architecture.md` §6): a plain browser navigation (no
+/// `HX-Request` header) gets the full page, chrome and all; an
+/// HTMX-driven request gets the bare fragment it will swap in.
 pub async fn get(State(state): State<SettingsRoutesState>, headers: HeaderMap) -> Response {
     match read_current(&state.web_config_path) {
         Ok(config) => {
@@ -297,28 +281,20 @@ async fn settings_nav(state: &SettingsRoutesState) -> page::NavData {
 
 fn read_current(path: &Path) -> Result<WebConfig, Box<Response>> {
     let source = std::fs::read_to_string(path).map_err(|source| Box::new(read_failure(&source)))?;
-    let config: WebConfig = toml::from_str(&source).map_err(|source| {
-        Box::new(invalid_configuration(format!(
-            "web.toml is invalid: {source}"
-        )))
-    })?;
+    let config: WebConfig = toml::from_str(&source)
+        .map_err(|source| Box::new(invalid_configuration(format!("web.toml is invalid: {source}"))))?;
     Ok(config)
 }
 
 // ---------------------------------------------------------------------
-// POST / PATCH / PUT / DELETE /settings/ (FR-251, FR-252)
+// POST / PATCH / PUT / DELETE /settings/
 // ---------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "target", rename_all = "snake_case", deny_unknown_fields)]
 enum PatchBody {
-    McpServer {
-        name: String,
-        patch: Map<String, Value>,
-    },
-    Ui {
-        patch: Map<String, Value>,
-    },
+    McpServer { name: String, patch: Map<String, Value> },
+    Ui { patch: Map<String, Value> },
 }
 
 #[derive(Debug, Deserialize)]
@@ -344,13 +320,11 @@ enum Edit {
 fn parse_edit(method: &Method, body: &[u8]) -> Result<Edit, Box<Response>> {
     match *method {
         Method::POST => {
-            let entry: McpServerConfig =
-                serde_json::from_slice(body).map_err(|_source| Box::new(malformed_body()))?;
+            let entry: McpServerConfig = serde_json::from_slice(body).map_err(|_source| Box::new(malformed_body()))?;
             Ok(Edit::AddMcpServer(entry))
         }
         Method::PATCH => {
-            let parsed: PatchBody =
-                serde_json::from_slice(body).map_err(|_source| Box::new(malformed_body()))?;
+            let parsed: PatchBody = serde_json::from_slice(body).map_err(|_source| Box::new(malformed_body()))?;
             Ok(match parsed {
                 PatchBody::McpServer { name, patch } => Edit::PatchMcpServer { name, patch },
                 PatchBody::Ui { patch } => Edit::PatchUi(patch),
@@ -362,16 +336,12 @@ fn parse_edit(method: &Method, body: &[u8]) -> Result<Edit, Box<Response>> {
             let Some(Value::String(current_name)) = map.remove("current_name") else {
                 return Err(Box::new(malformed_body()));
             };
-            let entry: McpServerConfig = serde_json::from_value(Value::Object(map))
-                .map_err(|_source| Box::new(malformed_body()))?;
-            Ok(Edit::ReplaceMcpServer {
-                current_name,
-                entry,
-            })
+            let entry: McpServerConfig =
+                serde_json::from_value(Value::Object(map)).map_err(|_source| Box::new(malformed_body()))?;
+            Ok(Edit::ReplaceMcpServer { current_name, entry })
         }
         Method::DELETE => {
-            let parsed: DeleteBody =
-                serde_json::from_slice(body).map_err(|_source| Box::new(malformed_body()))?;
+            let parsed: DeleteBody = serde_json::from_slice(body).map_err(|_source| Box::new(malformed_body()))?;
             Ok(Edit::RemoveMcpServer(parsed.name))
         }
         _ => Err(Box::new(method_not_allowed())),
@@ -400,27 +370,20 @@ fn apply_edit(document: &mut WebConfigDocument, edit: &Edit) -> ApplyOutcome {
         Edit::AddMcpServer(entry) => document.add_mcp_server(&json_object(entry)),
         Edit::PatchMcpServer { name, patch } => document.patch_mcp_server(name, patch),
         Edit::PatchUi(patch) => document.patch_ui(patch),
-        Edit::ReplaceMcpServer {
-            current_name,
-            entry,
-        } => document.replace_mcp_server(current_name, &json_object(entry)),
+        Edit::ReplaceMcpServer { current_name, entry } => {
+            document.replace_mcp_server(current_name, &json_object(entry))
+        }
         Edit::RemoveMcpServer(name) => document.remove_mcp_server(name),
     };
     match result {
         Ok(()) => ApplyOutcome::Ok,
-        Err(WebConfigWriterError::UnknownMcpServerName { name }) => {
-            ApplyOutcome::UnknownMcpServer(name)
-        }
+        Err(WebConfigWriterError::UnknownMcpServerName { name }) => ApplyOutcome::UnknownMcpServer(name),
         Err(other) => ApplyOutcome::Invalid(other),
     }
 }
 
 /// `POST`/`PATCH`/`PUT`/`DELETE /settings/`.
-pub async fn mutate(
-    State(state): State<SettingsRoutesState>,
-    method: Method,
-    body: axum::body::Bytes,
-) -> Response {
+pub async fn mutate(State(state): State<SettingsRoutesState>, method: Method, body: axum::body::Bytes) -> Response {
     let edit = match parse_edit(&method, &body) {
         Ok(edit) => edit,
         Err(response) => return *response,
@@ -479,7 +442,7 @@ pub async fn mutate(
     }
 
     let rendered = document.render();
-    if let Err(source) = write_atomically(&state.web_config_path, &rendered) {
+    if let Err(source) = write_atomically(&state.web_config_path, rendered.as_bytes()) {
         return read_failure(&source);
     }
 
@@ -487,31 +450,6 @@ pub async fn mutate(
         Ok(config) => html_response(render(&config)),
         Err(response) => *response,
     }
-}
-
-/// Writes `contents` to `path` via a uniquely named temporary file in the
-/// same directory, replaced atomically, matching this project's own
-/// persistence discipline (`security.md`) for a config file `contextos-web`
-/// owns exclusively.
-fn write_atomically(path: &Path, contents: &str) -> std::io::Result<()> {
-    let directory = path.parent().unwrap_or_else(|| Path::new("."));
-    let mut temp_path = directory.to_path_buf();
-    temp_path.push(format!(
-        ".web.toml.tmp-{}-{}",
-        std::process::id(),
-        uniqueness_token()
-    ));
-    std::fs::write(&temp_path, contents)?;
-    std::fs::rename(&temp_path, path)
-}
-
-fn uniqueness_token() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()
-        .and_then(|duration| u64::try_from(duration.as_nanos()).ok())
-        .unwrap_or_default()
 }
 
 struct DependencyConflict {
@@ -532,12 +470,11 @@ struct VaultInfoResult {
 
 /// Lists every configured vault's `name` via `vault_info`, the same MCP
 /// tool call an operator would use, rather than `contextos-web` maintaining
-/// a second, locally pre-loaded vault registry (`D-W05`'s established
-/// precedent, extended here from vault content routes to this check).
+/// a second, locally pre-loaded vault registry (the same established
+/// precedent the vault content routes already follow, extended here to
+/// this check).
 async fn configured_vault_names(client: &McpClient) -> Result<Vec<String>, McpCallError> {
-    let result = client
-        .call_tool("vault_info".to_owned(), Map::new())
-        .await?;
+    let result = client.call_tool("vault_info".to_owned(), Map::new()).await?;
     let Ok(parsed) = result.into_typed::<VaultInfoResult>() else {
         return Ok(Vec::new());
     };
@@ -557,8 +494,7 @@ async fn dependent_apps(
     let vault_names = configured_vault_names(client).await?;
     let mut conflicts = Vec::new();
     for vault_name in vault_names {
-        let apps: Vec<RegisteredApp> =
-            apps::discover_apps(client, &vault_name, known_before).await?;
+        let apps: Vec<RegisteredApp> = apps::discover_apps(client, &vault_name, known_before).await?;
         for app in apps {
             for server in &app.mcp_servers {
                 if removed.iter().any(|name| name == server) {
@@ -579,9 +515,7 @@ fn unknown_mcp_server(name: &str) -> Response {
         StatusCode::NOT_FOUND,
         Json(ErrorBody {
             error: "settings/unknown-mcp-server",
-            detail: Some(format!(
-                "no [[mcp_server]] entry named {name:?} is configured"
-            )),
+            detail: Some(format!("no [[mcp_server]] entry named {name:?} is configured")),
             server: Some(name.to_owned()),
             used_by: Vec::new(),
         }),

@@ -20,8 +20,7 @@ fn a_slug_with_uppercase_or_symbols_is_not_url_safe() {
 }
 
 #[test]
-fn manifest_kind_and_target_parse_from_their_documented_toml_values()
--> Result<(), Box<dyn std::error::Error>> {
+fn manifest_kind_and_target_parse_from_their_documented_toml_values() -> Result<(), Box<dyn std::error::Error>> {
     let raw: ManifestRaw = toml::from_str(
         r#"
             name = "Task Register Dashboard"

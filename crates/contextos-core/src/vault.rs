@@ -1,6 +1,6 @@
 use crate::{
-    AppendMutation, AppendOutcome, ContentHash, DeleteMutation, DeleteOutcome, MoveMutation,
-    MoveOutcome, PipelineResult, RestoreMutation, VaultPath, WriteMutation, WriteOutcome,
+    AppendMutation, AppendOutcome, ContentHash, DeleteMutation, DeleteOutcome, MoveMutation, MoveOutcome,
+    PipelineResult, RestoreMutation, VaultPath, WriteMutation, WriteOutcome,
 };
 
 /// UTF-8 vault content plus its optimistic-concurrency identity.
@@ -58,10 +58,7 @@ pub trait AppendsVault: Send + Sync {
     ///
     /// Returns the primary append error. Secondary failures remain in the
     /// successful result's warnings.
-    fn append(
-        &self,
-        request: &AppendMutation,
-    ) -> Result<PipelineResult<AppendOutcome>, Self::Error>;
+    fn append(&self, request: &AppendMutation) -> Result<PipelineResult<AppendOutcome>, Self::Error>;
 }
 
 /// Consumer-owned port for atomic vault renames.
@@ -75,8 +72,7 @@ pub trait MovesVault: Send + Sync {
     ///
     /// Returns the primary move error. Secondary failures remain in the
     /// successful result's warnings.
-    fn move_path(&self, request: &MoveMutation)
-    -> Result<PipelineResult<MoveOutcome>, Self::Error>;
+    fn move_path(&self, request: &MoveMutation) -> Result<PipelineResult<MoveOutcome>, Self::Error>;
 }
 
 /// Consumer-owned port for atomic, conflict-aware vault persistence.
@@ -89,8 +85,7 @@ pub trait WritesVault: Send + Sync {
     ///
     /// Returns the primary persistence error. Secondary failures remain in the
     /// successful result's warnings.
-    fn persist(&self, request: &WriteMutation)
-    -> Result<PipelineResult<WriteOutcome>, Self::Error>;
+    fn persist(&self, request: &WriteMutation) -> Result<PipelineResult<WriteOutcome>, Self::Error>;
 
     /// Materialises historical content as a new forward mutation.
     ///
@@ -98,10 +93,7 @@ pub trait WritesVault: Send + Sync {
     ///
     /// Returns the primary persistence error. Secondary failures remain in the
     /// successful result's warnings.
-    fn restore(
-        &self,
-        request: &RestoreMutation,
-    ) -> Result<PipelineResult<WriteOutcome>, Self::Error>;
+    fn restore(&self, request: &RestoreMutation) -> Result<PipelineResult<WriteOutcome>, Self::Error>;
 
     /// Deletes a validated file or empty directory through the shared pipeline.
     ///
@@ -109,8 +101,5 @@ pub trait WritesVault: Send + Sync {
     ///
     /// Returns the primary persistence error. Secondary failures remain in the
     /// successful result's warnings.
-    fn delete(
-        &self,
-        request: &DeleteMutation,
-    ) -> Result<PipelineResult<DeleteOutcome>, Self::Error>;
+    fn delete(&self, request: &DeleteMutation) -> Result<PipelineResult<DeleteOutcome>, Self::Error>;
 }

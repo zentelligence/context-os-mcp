@@ -2,16 +2,13 @@ use std::path::PathBuf;
 
 use contextos_core::{VaultPath, VaultPathInput, VaultRoot, VaultRootInput, VaultSet};
 use contextos_fs::{
-    DirectoryTreeRequest, EntryKind, FileInfoRequest, Filesystem, FilesystemConfig, FsError,
-    FsLimits, ListDirectoryRequest, ListDirectoryWithSizesRequest, ReadTextRequest,
-    SearchFilesRequest, SortBy, default_hidden_patterns,
+    DirectoryTreeRequest, EntryKind, FileInfoRequest, Filesystem, FilesystemConfig, FsError, FsLimits,
+    ListDirectoryRequest, ListDirectoryWithSizesRequest, ReadTextRequest, SearchFilesRequest, SortBy,
+    default_hidden_patterns,
 };
 use tempfile::tempdir;
 
-fn filesystem(
-    root: PathBuf,
-    managed: bool,
-) -> Result<(Filesystem, VaultSet), Box<dyn std::error::Error>> {
+fn filesystem(root: PathBuf, managed: bool) -> Result<(Filesystem, VaultSet), Box<dyn std::error::Error>> {
     filesystem_with_hidden(root, managed, default_hidden_patterns())
 }
 
@@ -43,7 +40,7 @@ fn path(roots: &VaultSet, raw: &str) -> Result<VaultPath, Box<dyn std::error::Er
 }
 
 #[test]
-fn fr_06_lists_entries_with_kind_markers() -> Result<(), Box<dyn std::error::Error>> {
+fn lists_entries_with_kind_markers() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::create_dir(vault.path().join("notes"))?;
     std::fs::write(vault.path().join("readme.md"), "read me")?;
@@ -62,7 +59,7 @@ fn fr_06_lists_entries_with_kind_markers() -> Result<(), Box<dyn std::error::Err
 }
 
 #[test]
-fn fr_07_lists_sizes_and_sorts_by_size() -> Result<(), Box<dyn std::error::Error>> {
+fn lists_sizes_and_sorts_by_size() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("large.md"), "123456789")?;
     std::fs::write(vault.path().join("small.md"), "1")?;
@@ -82,7 +79,7 @@ fn fr_07_lists_sizes_and_sorts_by_size() -> Result<(), Box<dyn std::error::Error
 }
 
 #[test]
-fn fr_08_builds_bounded_tree_and_honours_excludes() -> Result<(), Box<dyn std::error::Error>> {
+fn builds_bounded_tree_and_honours_excludes() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::create_dir_all(vault.path().join("notes/deep"))?;
     std::fs::create_dir_all(vault.path().join("private/nested"))?;
@@ -108,8 +105,7 @@ fn fr_08_builds_bounded_tree_and_honours_excludes() -> Result<(), Box<dyn std::e
 }
 
 #[test]
-fn fr_10_searches_case_insensitive_globs_with_excludes_and_limit()
--> Result<(), Box<dyn std::error::Error>> {
+fn searches_case_insensitive_globs_with_excludes_and_limit() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::create_dir_all(vault.path().join("notes/private"))?;
     std::fs::write(vault.path().join("notes/Alpha.MD"), "alpha")?;
@@ -129,7 +125,7 @@ fn fr_10_searches_case_insensitive_globs_with_excludes_and_limit()
 }
 
 #[test]
-fn fr_11_reports_metadata_permissions_and_bounded_hash() -> Result<(), Box<dyn std::error::Error>> {
+fn reports_metadata_permissions_and_bounded_hash() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let note = vault.path().join("note.md");
     std::fs::write(&note, "hello")?;
@@ -155,31 +151,24 @@ fn fr_11_reports_metadata_permissions_and_bounded_hash() -> Result<(), Box<dyn s
 }
 
 #[test]
-fn fr_12_lists_resolved_roots_and_managed_flags() -> Result<(), Box<dyn std::error::Error>> {
+fn lists_resolved_roots_and_managed_flags() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let (filesystem, _) = filesystem(vault.path().to_path_buf(), false)?;
 
     let roots = filesystem.list_allowed_directories();
 
     assert_eq!(roots.len(), 1);
-    assert_eq!(
-        roots[0].path,
-        dunce::canonicalize(vault.path())?.to_string_lossy()
-    );
+    assert_eq!(roots[0].path, dunce::canonicalize(vault.path())?.to_string_lossy());
     assert!(!roots[0].managed);
     Ok(())
 }
 
 #[test]
-fn fr_84_list_directory_omits_a_path_matching_hidden() -> Result<(), Box<dyn std::error::Error>> {
+fn list_directory_omits_a_path_matching_hidden() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::create_dir(vault.path().join("secret"))?;
     std::fs::write(vault.path().join("visible.md"), "visible")?;
-    let (filesystem, roots) = filesystem_with_hidden(
-        vault.path().to_path_buf(),
-        true,
-        vec!["secret/**".to_owned()],
-    )?;
+    let (filesystem, roots) = filesystem_with_hidden(vault.path().to_path_buf(), true, vec!["secret/**".to_owned()])?;
 
     let result = filesystem.list_directory(&ListDirectoryRequest {
         path: path(&roots, ".")?,
@@ -191,16 +180,11 @@ fn fr_84_list_directory_omits_a_path_matching_hidden() -> Result<(), Box<dyn std
 }
 
 #[test]
-fn fr_84_list_directory_with_sizes_omits_a_path_matching_hidden()
--> Result<(), Box<dyn std::error::Error>> {
+fn list_directory_with_sizes_omits_a_path_matching_hidden() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("secret.md"), "secret")?;
     std::fs::write(vault.path().join("visible.md"), "visible")?;
-    let (filesystem, roots) = filesystem_with_hidden(
-        vault.path().to_path_buf(),
-        true,
-        vec!["secret.md".to_owned()],
-    )?;
+    let (filesystem, roots) = filesystem_with_hidden(vault.path().to_path_buf(), true, vec!["secret.md".to_owned()])?;
 
     let result = filesystem.list_directory_with_sizes(&ListDirectoryWithSizesRequest {
         path: path(&roots, ".")?,
@@ -213,17 +197,12 @@ fn fr_84_list_directory_with_sizes_omits_a_path_matching_hidden()
 }
 
 #[test]
-fn fr_84_directory_tree_omits_a_subtree_matching_hidden() -> Result<(), Box<dyn std::error::Error>>
-{
+fn directory_tree_omits_a_subtree_matching_hidden() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::create_dir_all(vault.path().join("secret/nested"))?;
     std::fs::write(vault.path().join("secret/nested/private.md"), "private")?;
     std::fs::write(vault.path().join("visible.md"), "visible")?;
-    let (filesystem, roots) = filesystem_with_hidden(
-        vault.path().to_path_buf(),
-        true,
-        vec!["secret/**".to_owned()],
-    )?;
+    let (filesystem, roots) = filesystem_with_hidden(vault.path().to_path_buf(), true, vec!["secret/**".to_owned()])?;
 
     let tree = filesystem.directory_tree(&DirectoryTreeRequest {
         path: path(&roots, ".")?,
@@ -239,16 +218,12 @@ fn fr_84_directory_tree_omits_a_subtree_matching_hidden() -> Result<(), Box<dyn 
 }
 
 #[test]
-fn fr_84_search_files_omits_a_path_matching_hidden() -> Result<(), Box<dyn std::error::Error>> {
+fn search_files_omits_a_path_matching_hidden() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::create_dir(vault.path().join("secret"))?;
     std::fs::write(vault.path().join("secret/note.md"), "secret")?;
     std::fs::write(vault.path().join("visible.md"), "visible")?;
-    let (filesystem, roots) = filesystem_with_hidden(
-        vault.path().to_path_buf(),
-        true,
-        vec!["secret/**".to_owned()],
-    )?;
+    let (filesystem, roots) = filesystem_with_hidden(vault.path().to_path_buf(), true, vec!["secret/**".to_owned()])?;
 
     let results = filesystem.search_files(&SearchFilesRequest {
         path: path(&roots, ".")?,
@@ -262,15 +237,11 @@ fn fr_84_search_files_omits_a_path_matching_hidden() -> Result<(), Box<dyn std::
 }
 
 #[test]
-fn fr_84_direct_read_of_a_hidden_path_is_unaffected() -> Result<(), Box<dyn std::error::Error>> {
+fn direct_read_of_a_hidden_path_is_unaffected() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::create_dir(vault.path().join("secret"))?;
     std::fs::write(vault.path().join("secret/note.md"), "still readable")?;
-    let (filesystem, roots) = filesystem_with_hidden(
-        vault.path().to_path_buf(),
-        true,
-        vec!["secret/**".to_owned()],
-    )?;
+    let (filesystem, roots) = filesystem_with_hidden(vault.path().to_path_buf(), true, vec!["secret/**".to_owned()])?;
 
     let result = filesystem.read_text(&ReadTextRequest {
         path: path(&roots, "secret/note.md")?,
@@ -282,8 +253,7 @@ fn fr_84_direct_read_of_a_hidden_path_is_unaffected() -> Result<(), Box<dyn std:
 }
 
 #[test]
-fn fr_84_hidden_count_mismatch_is_rejected_at_construction()
--> Result<(), Box<dyn std::error::Error>> {
+fn hidden_count_mismatch_is_rejected_at_construction() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let vault_root = VaultRoot::try_from(VaultRootInput {
         path: vault.path().to_path_buf(),

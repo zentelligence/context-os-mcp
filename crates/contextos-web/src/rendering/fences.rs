@@ -1,10 +1,10 @@
-//! Triple-colon fence parsing (`standards/markdown-fence-conventions.md`,
-//! FR-241): `:::name{attrs}` ... `:::` blocks resolve to their semantic
-//! container before general Markdown parsing runs, since triple-colon
-//! fences are not core Markdown and a generic parser would otherwise
-//! mangle or ignore them. An unrecognised fence name still renders as a
-//! generically bordered block carrying its literal name as a label, never
-//! silently dropped (FR-241's explicit requirement).
+//! Triple-colon fence parsing (`standards/markdown-fence-conventions.md`):
+//! `:::name{attrs}` ... `:::` blocks resolve to their semantic container
+//! before general Markdown parsing runs, since triple-colon fences are not
+//! core Markdown and a generic parser would otherwise mangle or ignore
+//! them. An unrecognised fence name still renders as a generically
+//! bordered block carrying its literal name as a label, never silently
+//! dropped.
 //!
 //! Fences do not nest in this pipeline (the convention document itself
 //! recommends "keep nested fences shallow"): a fence's inner text is
@@ -17,7 +17,7 @@ use crate::rendering::escape_html;
 /// The full vocabulary `standards/markdown-fence-conventions.md` documents
 /// across every category it lists (admonition, reasoning and workflow,
 /// layout, technical documentation, status, AI workflow), plus its two
-/// document-render fences. Kept as one flat recognised-name set: FR-241
+/// document-render fences. Kept as one flat recognised-name set: rendering
 /// distinguishes only "recognised" from "unrecognised", not category, so a
 /// category type would be structure with no behavioural use yet.
 const RECOGNISED_FENCE_NAMES: &[&str] = &[
@@ -137,11 +137,7 @@ pub fn parse_open_line(line: &str) -> Option<FenceOpen> {
         Some((name, attrs)) => (name.trim(), attrs.strip_suffix('}').unwrap_or(attrs)),
         None => (rest.trim(), ""),
     };
-    if name_part.is_empty()
-        || !name_part
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-')
-    {
+    if name_part.is_empty() || !name_part.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return None;
     }
     Some(FenceOpen {
@@ -282,8 +278,8 @@ fn push_placeholder_paragraph(out_lines: &mut Vec<String>, index: usize) {
 /// Renders one fence block to its final HTML, given `inner_html` (the
 /// block's own inner text, already rendered through the caller's recursive
 /// pass). Both a recognised and an unrecognised fence render bordered with
-/// the fence's literal name as a label (FR-241): only the CSS class
-/// distinguishes a themed, known semantic container from a generic one.
+/// the fence's literal name as a label: only the CSS class distinguishes a
+/// themed, known semantic container from a generic one.
 #[must_use]
 pub fn render(open: &FenceOpen, inner_html: &str) -> String {
     if SELF_CLOSING_FENCE_NAMES.contains(&open.name.as_str()) {

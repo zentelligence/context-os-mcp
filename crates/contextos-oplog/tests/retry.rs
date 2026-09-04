@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use contextos_core::{
-    AppendMutation, AppendOutcome, AppendsVault, LogsOperations, OpKind, OperationEvent, Origin,
-    PipelineResult, VaultPath, VaultPathInput, VaultRoot, VaultRootInput, VaultSet,
+    AppendMutation, AppendOutcome, AppendsVault, LogsOperations, OpKind, OperationEvent, Origin, PipelineResult,
+    VaultPath, VaultPathInput, VaultRoot, VaultRootInput, VaultSet,
 };
 use contextos_oplog::{OperationLog, OperationLogConfig};
 use tempfile::tempdir;
@@ -27,10 +27,7 @@ struct InjectedFailure;
 impl AppendsVault for FailsOnceAppender {
     type Error = InjectedFailure;
 
-    fn append(
-        &self,
-        request: &AppendMutation,
-    ) -> Result<PipelineResult<AppendOutcome>, Self::Error> {
+    fn append(&self, request: &AppendMutation) -> Result<PipelineResult<AppendOutcome>, Self::Error> {
         let mut state = self.state.lock().map_err(|_| InjectedFailure)?;
         if state.failures_remaining > 0 {
             state.failures_remaining -= 1;
@@ -68,8 +65,7 @@ fn event(path: VaultPath, minute: u8, summary: &str) -> OperationEvent {
 }
 
 #[test]
-fn fr_23_failed_append_is_buffered_and_retried_before_the_next_entry()
--> Result<(), Box<dyn std::error::Error>> {
+fn failed_append_is_buffered_and_retried_before_the_next_entry() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("note.md"), "note")?;
     let root = VaultRoot::try_from(VaultRootInput {
@@ -112,8 +108,7 @@ fn fr_23_failed_append_is_buffered_and_retried_before_the_next_entry()
 }
 
 #[test]
-fn fr_23_graceful_flush_retries_a_buffered_entry_without_creating_another_record()
--> Result<(), Box<dyn std::error::Error>> {
+fn graceful_flush_retries_a_buffered_entry_without_creating_another_record() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("note.md"), "note")?;
     let root = VaultRoot::try_from(VaultRootInput {

@@ -3,10 +3,9 @@ use std::path::{Path, PathBuf};
 
 use contextos_core::{
     AppendMutation, AppendOutcome, AppliesMutations, Clock, ContentHash, CreateDirectoryMutation,
-    CreateDirectoryOutcome, DeleteMutation, DeleteOutcome, MoveMutation, MoveOutcome, OpKind,
-    OperationEvent, OperationWarning, Origin, PipelineConfig, RoutedPipelineConfig,
-    RoutedWritePipeline, RoutesOperations, VaultPath, VaultPathInput, VaultRoot, VaultRootInput,
-    VaultSet, WriteMutation, WriteOutcome, WritePipeline,
+    CreateDirectoryOutcome, DeleteMutation, DeleteOutcome, MoveMutation, MoveOutcome, OpKind, OperationEvent,
+    OperationWarning, Origin, PipelineConfig, RoutedPipelineConfig, RoutedWritePipeline, RoutesOperations, VaultPath,
+    VaultPathInput, VaultRoot, VaultRootInput, VaultSet, WriteMutation, WriteOutcome, WritePipeline,
 };
 use tempfile::tempdir;
 use time::OffsetDateTime;
@@ -29,10 +28,7 @@ impl AppliesMutations for RecordingAdapter {
         })
     }
 
-    fn create_directory(
-        &self,
-        request: &CreateDirectoryMutation,
-    ) -> Result<CreateDirectoryOutcome, Self::Error> {
+    fn create_directory(&self, request: &CreateDirectoryMutation) -> Result<CreateDirectoryOutcome, Self::Error> {
         Ok(CreateDirectoryOutcome {
             path: request.path.clone(),
             created: self.directory_created,
@@ -92,8 +88,8 @@ impl RoutesOperations for FailingServices {
 
 fn path(root: PathBuf, raw: &str) -> Result<VaultPath, Box<dyn std::error::Error>> {
     // `tempdir()` names its directory something like `.tmpjFXxK1` on
-    // Windows, whose leading `.` is not a valid URI scheme token (`FR-96`),
-    // so this fixture gives its vault an explicit, valid name rather than
+    // Windows, whose leading `.` is not a valid URI scheme token, so this
+    // fixture gives its vault an explicit, valid name rather than
     // relying on the temp directory's own basename.
     let roots = VaultSet::try_from(vec![VaultRoot::try_from(VaultRootInput {
         path: root,
@@ -104,8 +100,7 @@ fn path(root: PathBuf, raw: &str) -> Result<VaultPath, Box<dyn std::error::Error
 }
 
 #[test]
-fn nfr_03_pipeline_persists_then_emits_one_operation_event()
--> Result<(), Box<dyn std::error::Error>> {
+fn pipeline_persists_then_emits_one_operation_event() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let note = path(vault.path().to_path_buf(), "note.md")?;
     let pipeline = WritePipeline::from(PipelineConfig {
@@ -134,8 +129,7 @@ fn nfr_03_pipeline_persists_then_emits_one_operation_event()
 }
 
 #[test]
-fn phase_2_secondary_failures_warn_without_failing_a_completed_write()
--> Result<(), Box<dyn std::error::Error>> {
+fn phase_2_secondary_failures_warn_without_failing_a_completed_write() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let note = path(vault.path().to_path_buf(), "note.md")?;
     let pipeline = RoutedWritePipeline::from(RoutedPipelineConfig {
@@ -160,8 +154,7 @@ fn phase_2_secondary_failures_warn_without_failing_a_completed_write()
 }
 
 #[test]
-fn fr_05_idempotent_directory_creation_still_has_a_typed_outcome()
--> Result<(), Box<dyn std::error::Error>> {
+fn idempotent_directory_creation_still_has_a_typed_outcome() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let directory = path(vault.path().to_path_buf(), "notes")?;
     let pipeline = WritePipeline::from(PipelineConfig {
@@ -177,16 +170,12 @@ fn fr_05_idempotent_directory_creation_still_has_a_typed_outcome()
     })?;
 
     assert!(result.value.created);
-    assert_eq!(
-        result.event.as_ref().map(|event| event.kind),
-        Some(OpKind::Create)
-    );
+    assert_eq!(result.event.as_ref().map(|event| event.kind), Some(OpKind::Create));
     Ok(())
 }
 
 #[test]
-fn fr_05_idempotent_no_change_does_not_emit_an_operation_event()
--> Result<(), Box<dyn std::error::Error>> {
+fn idempotent_no_change_does_not_emit_an_operation_event() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let directory = path(vault.path().to_path_buf(), "notes")?;
     let pipeline = WritePipeline::from(PipelineConfig {
@@ -212,8 +201,7 @@ fn content_hash_try_from_rejects_non_sha256_text() {
 }
 
 #[test]
-fn vault_path_converts_to_path_reference_without_a_free_form_helper()
--> Result<(), Box<dyn std::error::Error>> {
+fn vault_path_converts_to_path_reference_without_a_free_form_helper() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let path = path(vault.path().to_path_buf(), "note.md")?;
     let standard_path: &Path = (&path).into();
@@ -221,9 +209,6 @@ fn vault_path_converts_to_path_reference_without_a_free_form_helper()
     // `note.md` does not exist yet, so the production path resolves
     // the vault (the existing ancestor) rather than the raw, possibly
     // unresolved tempdir path (e.g. under Windows 8.3 short names).
-    assert_eq!(
-        standard_path,
-        dunce::canonicalize(vault.path())?.join("note.md")
-    );
+    assert_eq!(standard_path, dunce::canonicalize(vault.path())?.join("note.md"));
     Ok(())
 }

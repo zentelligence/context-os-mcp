@@ -1,6 +1,6 @@
 use contextos_core::{
-    MoveMutation, NoSearchUpdates, OpKind, OperationRouter, OperationRouterConfig, Origin,
-    VaultRoot, VaultRootInput, VaultSet,
+    MoveMutation, NoSearchUpdates, OpKind, OperationRouter, OperationRouterConfig, Origin, VaultRoot, VaultRootInput,
+    VaultSet,
 };
 use contextos_fs::{FilesystemService, FilesystemServiceConfig, RoutedFilesystemServiceConfig};
 use contextos_git::{Git2Vault, Git2VaultConfig, GitRestoreRequest};
@@ -11,8 +11,7 @@ use tempfile::tempdir;
 mod support;
 
 #[test]
-fn fr_33_bad_overwrite_is_restored_through_an_ordinary_restore_mutation()
--> Result<(), Box<dyn std::error::Error>> {
+fn bad_overwrite_is_restored_through_an_ordinary_restore_mutation() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("note.md"), "baseline\n")?;
     let root = VaultRoot::try_from(VaultRootInput {
@@ -30,10 +29,7 @@ fn fr_33_bad_overwrite_is_restored_through_an_ordinary_restore_mutation()
         allow_destructive_restore: false,
         protected_restore_paths: Vec::new(),
     })?;
-    let baseline = git
-        .initialise(&writer)?
-        .commit_id
-        .ok_or("initial commit missing")?;
+    let baseline = git.initialise(&writer)?.commit_id.ok_or("initial commit missing")?;
     std::fs::write(vault.path().join("note.md"), "damaged\n")?;
 
     let result = git.restore(
@@ -45,10 +41,7 @@ fn fr_33_bad_overwrite_is_restored_through_an_ordinary_restore_mutation()
         &writer,
     )?;
 
-    assert_eq!(
-        std::fs::read_to_string(vault.path().join("note.md"))?,
-        "baseline\n"
-    );
+    assert_eq!(std::fs::read_to_string(vault.path().join("note.md"))?, "baseline\n");
     assert_eq!(result.events.len(), 1);
     assert_eq!(result.events[0].kind, OpKind::Restore);
     assert!(result.diff.contains("-damaged"));
@@ -57,8 +50,7 @@ fn fr_33_bad_overwrite_is_restored_through_an_ordinary_restore_mutation()
 }
 
 #[test]
-fn fr_33_wrong_delete_is_restored_as_a_new_file_without_rewriting_history()
--> Result<(), Box<dyn std::error::Error>> {
+fn wrong_delete_is_restored_as_a_new_file_without_rewriting_history() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("deleted.md"), "recover me\n")?;
     let root = VaultRoot::try_from(VaultRootInput {
@@ -76,10 +68,7 @@ fn fr_33_wrong_delete_is_restored_as_a_new_file_without_rewriting_history()
         allow_destructive_restore: false,
         protected_restore_paths: Vec::new(),
     })?;
-    let baseline = git
-        .initialise(&writer)?
-        .commit_id
-        .ok_or("initial commit missing")?;
+    let baseline = git.initialise(&writer)?.commit_id.ok_or("initial commit missing")?;
     std::fs::remove_file(vault.path().join("deleted.md"))?;
 
     let result = git.restore(
@@ -97,10 +86,7 @@ fn fr_33_wrong_delete_is_restored_as_a_new_file_without_rewriting_history()
         "recover me\n"
     );
     assert_eq!(result.events[0].kind, OpKind::Restore);
-    assert_eq!(
-        repository.head()?.peel_to_commit()?.id().to_string(),
-        baseline
-    );
+    assert_eq!(repository.head()?.peel_to_commit()?.id().to_string(), baseline);
     Ok(())
 }
 
@@ -189,31 +175,15 @@ fn phase_2_bulk_move_recovery_restores_owned_paths_and_preserves_untracked_opera
     )?;
     let recovery = git.commit(Some("mcp: recover bulk move"))?;
 
-    assert_eq!(
-        std::fs::read_to_string(vault.path().join("projects/a.md"))?,
-        "A\n"
-    );
-    assert_eq!(
-        std::fs::read_to_string(vault.path().join("projects/b.md"))?,
-        "B\n"
-    );
+    assert_eq!(std::fs::read_to_string(vault.path().join("projects/a.md"))?, "A\n");
+    assert_eq!(std::fs::read_to_string(vault.path().join("projects/b.md"))?, "B\n");
     assert!(!vault.path().join("misplaced").exists());
     assert_eq!(
         std::fs::read_to_string(vault.path().join("operator-untracked.md"))?,
         "keep me\n"
     );
-    assert!(
-        result
-            .events
-            .iter()
-            .any(|event| event.kind == OpKind::Restore)
-    );
-    assert!(
-        result
-            .events
-            .iter()
-            .any(|event| event.kind == OpKind::Delete)
-    );
+    assert!(result.events.iter().any(|event| event.kind == OpKind::Restore));
+    assert!(result.events.iter().any(|event| event.kind == OpKind::Delete));
     assert!(recovery.commit_id.is_some());
     let root_index = std::fs::read_to_string(vault.path().join("index.md"))?;
     let project_index = std::fs::read_to_string(vault.path().join("projects/index.md"))?;

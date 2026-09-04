@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use contextos_core::{VaultPath, VaultPathInput, VaultRoot, VaultRootInput, VaultSet};
 use contextos_fs::{
-    Filesystem, FilesystemConfig, FsError, FsLimits, LineRange, ReadLimit, ReadManyRequest,
-    ReadTextRequest, default_hidden_patterns,
+    Filesystem, FilesystemConfig, FsError, FsLimits, LineRange, ReadLimit, ReadManyRequest, ReadTextRequest,
+    default_hidden_patterns,
 };
 use tempfile::tempdir;
 
@@ -29,16 +29,12 @@ fn fixture(
     Ok((filesystem, roots))
 }
 
-fn vault_path<'a>(
-    roots: &'a VaultSet,
-    raw: &'a str,
-) -> Result<VaultPath, Box<dyn std::error::Error>> {
+fn vault_path<'a>(roots: &'a VaultSet, raw: &'a str) -> Result<VaultPath, Box<dyn std::error::Error>> {
     Ok(VaultPath::try_from(VaultPathInput { roots, raw })?)
 }
 
 #[test]
-fn fr_01_reads_utf8_text_and_returns_total_lines_and_sha256()
--> Result<(), Box<dyn std::error::Error>> {
+fn reads_utf8_text_and_returns_total_lines_and_sha256() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("note.md"), "one\ntwo\nthree\n")?;
     let (filesystem, roots) = fixture(vault.path().to_path_buf(), 1024, 50)?;
@@ -59,7 +55,7 @@ fn fr_01_reads_utf8_text_and_returns_total_lines_and_sha256()
 }
 
 #[test]
-fn fr_01_applies_head_tail_and_inclusive_line_range() -> Result<(), Box<dyn std::error::Error>> {
+fn applies_head_tail_and_inclusive_line_range() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("note.md"), "one\ntwo\nthree\n")?;
     let (filesystem, roots) = fixture(vault.path().to_path_buf(), 1024, 50)?;
@@ -89,7 +85,7 @@ fn fr_01_applies_head_tail_and_inclusive_line_range() -> Result<(), Box<dyn std:
 }
 
 #[test]
-fn nfr_08_requires_a_limiter_for_large_files() -> Result<(), Box<dyn std::error::Error>> {
+fn requires_a_limiter_for_large_files() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("large.md"), "one\ntwo\nthree\n")?;
     let (filesystem, roots) = fixture(vault.path().to_path_buf(), 4, 50)?;
@@ -111,7 +107,7 @@ fn nfr_08_requires_a_limiter_for_large_files() -> Result<(), Box<dyn std::error:
 }
 
 #[test]
-fn nfr_08_applies_the_limit_of_the_selected_vault_root() -> Result<(), Box<dyn std::error::Error>> {
+fn applies_the_limit_of_the_selected_vault_root() -> Result<(), Box<dyn std::error::Error>> {
     let restrictive_vault = tempdir()?;
     let permissive_vault = tempdir()?;
     let restrictive_file = restrictive_vault.path().join("note.md");
@@ -157,16 +153,13 @@ fn nfr_08_applies_the_limit_of_the_selected_vault_root() -> Result<(), Box<dyn s
         limit: None,
     })?;
 
-    assert!(matches!(
-        restrictive_result,
-        Err(FsError::TooLarge { maximum: 4, .. })
-    ));
+    assert!(matches!(restrictive_result, Err(FsError::TooLarge { maximum: 4, .. })));
     assert_eq!(permissive_result.content, "12345678");
     Ok(())
 }
 
 #[test]
-fn fr_02_applies_batch_limits_per_selected_vault_root() -> Result<(), Box<dyn std::error::Error>> {
+fn applies_batch_limits_per_selected_vault_root() -> Result<(), Box<dyn std::error::Error>> {
     let restrictive_vault = tempdir()?;
     let permissive_vault = tempdir()?;
     let first_file = permissive_vault.path().join("first.md");
@@ -205,10 +198,7 @@ fn fr_02_applies_batch_limits_per_selected_vault_root() -> Result<(), Box<dyn st
 
     assert_eq!(filesystem.batch_capacity(), 3);
     let results = filesystem.read_many(ReadManyRequest {
-        paths: vec![
-            vault_path(&roots, &first_path)?,
-            vault_path(&roots, &second_path)?,
-        ],
+        paths: vec![vault_path(&roots, &first_path)?, vault_path(&roots, &second_path)?],
     })?;
 
     assert_eq!(results.len(), 2);
@@ -217,7 +207,7 @@ fn fr_02_applies_batch_limits_per_selected_vault_root() -> Result<(), Box<dyn st
 }
 
 #[test]
-fn fr_01_rejects_binary_content() -> Result<(), Box<dyn std::error::Error>> {
+fn rejects_binary_content() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("binary.dat"), [0_u8, 159, 146, 150])?;
     let (filesystem, roots) = fixture(vault.path().to_path_buf(), 1024, 50)?;
@@ -233,31 +223,25 @@ fn fr_01_rejects_binary_content() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn fr_02_batch_isolates_per_file_failures() -> Result<(), Box<dyn std::error::Error>> {
+fn batch_isolates_per_file_failures() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("present.md"), "available")?;
     let (filesystem, roots) = fixture(vault.path().to_path_buf(), 1024, 50)?;
 
     let result = filesystem.read_many(ReadManyRequest {
-        paths: vec![
-            vault_path(&roots, "present.md")?,
-            vault_path(&roots, "missing.md")?,
-        ],
+        paths: vec![vault_path(&roots, "present.md")?, vault_path(&roots, "missing.md")?],
     })?;
 
     assert_eq!(result.len(), 2);
     assert_eq!(result[0].content.as_deref(), Some("available"));
     assert!(result[0].error.is_none());
     assert!(result[1].content.is_none());
-    assert_eq!(
-        result[1].error.as_ref().map(|error| error.code),
-        Some("path/not-found")
-    );
+    assert_eq!(result[1].error.as_ref().map(|error| error.code), Some("path/not-found"));
     Ok(())
 }
 
 #[test]
-fn fr_02_rejects_batch_over_configured_limit() -> Result<(), Box<dyn std::error::Error>> {
+fn rejects_batch_over_configured_limit() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let (filesystem, roots) = fixture(vault.path().to_path_buf(), 1024, 1)?;
 
@@ -270,8 +254,7 @@ fn fr_02_rejects_batch_over_configured_limit() -> Result<(), Box<dyn std::error:
 }
 
 #[test]
-fn nfr_01_rejects_a_validated_path_from_another_vault_set() -> Result<(), Box<dyn std::error::Error>>
-{
+fn rejects_a_validated_path_from_another_vault_set() -> Result<(), Box<dyn std::error::Error>> {
     let configured = tempdir()?;
     let outside = tempdir()?;
     std::fs::write(outside.path().join("secret.md"), "private")?;

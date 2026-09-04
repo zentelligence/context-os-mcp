@@ -1,8 +1,8 @@
 //! `ephemeris_moon_phase`, `ephemeris_solar_events`, `ephemeris_wheel_of_year`,
-//! `ephemeris_personal_year_period`, `ephemeris_boundaries` (`FR-101` to
-//! `FR-105`, Phase 10): schema-valid MCP surface over `contextos-ephemeris`.
-//! Every ephemeris tool handler is always compiled in; visibility is gated
-//! at runtime by `[server] astro` (`D-25`), not a Cargo feature, so this
+//! `ephemeris_personal_year_period`, `ephemeris_boundaries`: schema-valid
+//! MCP surface over `contextos-ephemeris`. Every ephemeris tool handler is
+//! always compiled in; visibility is gated at runtime by `[server] astro`,
+//! not a Cargo feature, so this
 //! whole file runs under a plain `cargo test -p contextos-mcp`, unlike
 //! `contextos-search/tests/embedding_fastembed.rs`'s feature-gated
 //! precedent (that capability genuinely is compile-time optional; this one
@@ -53,13 +53,12 @@ async fn call_tool(
     Ok(result?)
 }
 
-/// `D-25`: with `[server] astro` left at its default (`false`), none of
+/// With `[server] astro` left at its default (`false`), none of
 /// the five ephemeris tools are advertised, even though every handler is
 /// compiled into this binary. The complementary case (`astro = true`
 /// advertises all five) is covered by the next test.
 #[tokio::test]
-async fn ephemeris_tools_are_not_advertised_with_astro_left_at_its_default() -> Result<(), BoxError>
-{
+async fn ephemeris_tools_are_not_advertised_with_astro_left_at_its_default() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
     let (server_transport, client_transport) = tokio::io::duplex(65536);
@@ -83,7 +82,7 @@ async fn ephemeris_tools_are_not_advertised_with_astro_left_at_its_default() -> 
 
 /// `mcp-contracts.md` checklist item 1: advertised name and schema. All
 /// five ephemeris tools are present, each with a non-empty description,
-/// once `[server] astro` is enabled for this instance (`D-25`).
+/// once `[server] astro` is enabled for this instance.
 #[tokio::test]
 async fn ephemeris_tools_are_advertised_when_astro_is_enabled() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
@@ -131,8 +130,7 @@ async fn ephemeris_tools_are_advertised_when_astro_is_enabled() -> Result<(), Bo
 /// boundary reports identical content to the domain layer, not just that
 /// the domain layer itself is correct.
 #[tokio::test]
-async fn fr_101_ephemeris_moon_phase_reports_the_verified_new_moon_fixture() -> Result<(), BoxError>
-{
+async fn ephemeris_moon_phase_reports_the_verified_new_moon_fixture() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = server_with_astro_enabled(vault.path())?;
     let result = call_tool(
@@ -160,7 +158,7 @@ async fn fr_101_ephemeris_moon_phase_reports_the_verified_new_moon_fixture() -> 
 }
 
 #[tokio::test]
-async fn fr_101_ephemeris_moon_phase_rejects_a_malformed_date() -> Result<(), BoxError> {
+async fn ephemeris_moon_phase_rejects_a_malformed_date() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = server_with_astro_enabled(vault.path())?;
     let result = call_tool(
@@ -172,10 +170,7 @@ async fn fr_101_ephemeris_moon_phase_rejects_a_malformed_date() -> Result<(), Bo
 
     assert_eq!(result.is_error, Some(true));
     assert_eq!(
-        result
-            .structured_content
-            .as_ref()
-            .and_then(|value| value.get("code")),
+        result.structured_content.as_ref().and_then(|value| value.get("code")),
         Some(&json!("io/invalid-argument"))
     );
     Ok(())
@@ -198,8 +193,7 @@ async fn ephemeris_moon_phase_rejects_an_unknown_input_field() -> Result<(), Box
 }
 
 #[tokio::test]
-async fn fr_102_ephemeris_solar_events_returns_four_events_in_chronological_order()
--> Result<(), BoxError> {
+async fn ephemeris_solar_events_returns_four_events_in_chronological_order() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = server_with_astro_enabled(vault.path())?;
     let result = call_tool(
@@ -240,8 +234,7 @@ async fn fr_102_ephemeris_solar_events_returns_four_events_in_chronological_orde
     assert_eq!(instants.len(), 4, "every event must carry an instant");
     for instant in &instants {
         assert!(
-            time::OffsetDateTime::parse(instant, &time::format_description::well_known::Rfc3339)
-                .is_ok(),
+            time::OffsetDateTime::parse(instant, &time::format_description::well_known::Rfc3339).is_ok(),
             "{instant} is not valid RFC 3339"
         );
     }
@@ -252,7 +245,7 @@ async fn fr_102_ephemeris_solar_events_returns_four_events_in_chronological_orde
 }
 
 #[tokio::test]
-async fn fr_102_ephemeris_solar_events_rejects_an_out_of_range_year() -> Result<(), BoxError> {
+async fn ephemeris_solar_events_rejects_an_out_of_range_year() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = server_with_astro_enabled(vault.path())?;
     let result = call_tool(
@@ -264,21 +257,17 @@ async fn fr_102_ephemeris_solar_events_rejects_an_out_of_range_year() -> Result<
 
     assert_eq!(result.is_error, Some(true));
     assert_eq!(
-        result
-            .structured_content
-            .as_ref()
-            .and_then(|value| value.get("code")),
+        result.structured_content.as_ref().and_then(|value| value.get("code")),
         Some(&json!("ephemeris/year-out-of-range"))
     );
     Ok(())
 }
 
-/// `FR-103`'s own worked example: a June solstice is Southern Hemisphere
+/// A worked example: a June solstice is Southern Hemisphere
 /// `winter_solstice` by name, at the same position `ephemeris_solar_events`
-/// (`FR-102`) independently reports as `june_solstice`.
+/// independently reports as `june_solstice`.
 #[tokio::test]
-async fn fr_103_ephemeris_wheel_of_year_hemisphere_correctly_names_points() -> Result<(), BoxError>
-{
+async fn ephemeris_wheel_of_year_hemisphere_correctly_names_points() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = server_with_astro_enabled(vault.path())?;
     let result = call_tool(
@@ -306,8 +295,7 @@ async fn fr_103_ephemeris_wheel_of_year_hemisphere_correctly_names_points() -> R
 }
 
 #[tokio::test]
-async fn fr_103_ephemeris_wheel_of_year_rejects_an_unknown_hemisphere_value() -> Result<(), BoxError>
-{
+async fn ephemeris_wheel_of_year_rejects_an_unknown_hemisphere_value() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = server_with_astro_enabled(vault.path())?;
     let result = call_tool(
@@ -321,8 +309,7 @@ async fn fr_103_ephemeris_wheel_of_year_rejects_an_unknown_hemisphere_value() ->
 }
 
 #[tokio::test]
-async fn fr_104_ephemeris_personal_year_period_reports_period_1_at_the_birthday()
--> Result<(), BoxError> {
+async fn ephemeris_personal_year_period_reports_period_1_at_the_birthday() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = server_with_astro_enabled(vault.path())?;
     let result = call_tool(
@@ -345,10 +332,10 @@ async fn fr_104_ephemeris_personal_year_period_reports_period_1_at_the_birthday(
     Ok(())
 }
 
-/// `FR-105`: with both `hemisphere` and `birth_date` supplied, all three
+/// With both `hemisphere` and `birth_date` supplied, all three
 /// event kinds can appear in one aggregate call.
 #[tokio::test]
-async fn fr_105_ephemeris_boundaries_aggregates_multiple_event_kinds() -> Result<(), BoxError> {
+async fn ephemeris_boundaries_aggregates_multiple_event_kinds() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = server_with_astro_enabled(vault.path())?;
     let result = call_tool(
@@ -397,8 +384,7 @@ async fn fr_105_ephemeris_boundaries_aggregates_multiple_event_kinds() -> Result
 /// A caller supplying no `hemisphere`/`birth_date` gets a valid, narrower
 /// result (moon quarters only), never an error.
 #[tokio::test]
-async fn fr_105_ephemeris_boundaries_with_no_optional_data_still_succeeds() -> Result<(), BoxError>
-{
+async fn ephemeris_boundaries_with_no_optional_data_still_succeeds() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = server_with_astro_enabled(vault.path())?;
     let result = call_tool(
@@ -425,15 +411,12 @@ async fn fr_105_ephemeris_boundaries_with_no_optional_data_still_succeeds() -> R
             .all(|event| event.get("kind") == Some(&json!("moon_quarter"))),
         "with no hemisphere/birth_date, only moon_quarter events may appear, got {events:?}"
     );
-    assert!(
-        !events.is_empty(),
-        "expected the verified New Moon in range"
-    );
+    assert!(!events.is_empty(), "expected the verified New Moon in range");
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_105_ephemeris_boundaries_rejects_an_inverted_date_range() -> Result<(), BoxError> {
+async fn ephemeris_boundaries_rejects_an_inverted_date_range() -> Result<(), BoxError> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = server_with_astro_enabled(vault.path())?;
     let result = call_tool(
@@ -448,10 +431,7 @@ async fn fr_105_ephemeris_boundaries_rejects_an_inverted_date_range() -> Result<
 
     assert_eq!(result.is_error, Some(true));
     assert_eq!(
-        result
-            .structured_content
-            .as_ref()
-            .and_then(|value| value.get("code")),
+        result.structured_content.as_ref().and_then(|value| value.get("code")),
         Some(&json!("ephemeris/invalid-date-range"))
     );
     Ok(())
@@ -459,8 +439,7 @@ async fn fr_105_ephemeris_boundaries_rejects_an_inverted_date_range() -> Result<
 
 /// `mcp-contracts.md` checklist item 7: parity across transports.
 #[tokio::test]
-async fn ephemeris_moon_phase_is_reachable_over_the_streamable_http_transport_too()
--> Result<(), BoxError> {
+async fn ephemeris_moon_phase_is_reachable_over_the_streamable_http_transport_too() -> Result<(), BoxError> {
     use rmcp::transport::StreamableHttpClientTransport;
     use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
     use tokio::net::TcpListener;
@@ -487,8 +466,7 @@ async fn ephemeris_moon_phase_is_reachable_over_the_streamable_http_transport_to
     });
     let url = format!("http://{addr}{}", contextos_mcp::HTTP_MOUNT_PATH);
 
-    let client_config =
-        StreamableHttpClientTransportConfig::with_uri(url).auth_header(token.to_owned());
+    let client_config = StreamableHttpClientTransportConfig::with_uri(url).auth_header(token.to_owned());
     let transport = StreamableHttpClientTransport::from_config(client_config);
     let client = ().serve(transport).await?;
 
@@ -500,10 +478,7 @@ async fn ephemeris_moon_phase_is_reachable_over_the_streamable_http_transport_to
         .await?;
     assert_eq!(result.is_error, Some(false));
     assert_eq!(
-        result
-            .structured_content
-            .as_ref()
-            .and_then(|value| value.get("name")),
+        result.structured_content.as_ref().and_then(|value| value.get("name")),
         Some(&json!("new"))
     );
 

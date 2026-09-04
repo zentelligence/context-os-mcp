@@ -1,7 +1,6 @@
 use contextos_core::{Clock, VaultPath, VaultPathInput, VaultRoot, VaultSet, WritesVault};
 use contextos_fs::{
-    Filesystem, FilesystemConfig, FilesystemService, FilesystemServiceConfig, FsLimits,
-    default_hidden_patterns,
+    Filesystem, FilesystemConfig, FilesystemService, FilesystemServiceConfig, FsLimits, default_hidden_patterns,
 };
 use time::OffsetDateTime;
 use time::macros::datetime;
@@ -38,10 +37,7 @@ pub fn filesystem(root: &VaultRoot) -> Result<Filesystem, Box<dyn std::error::Er
     })?)
 }
 
-#[allow(
-    dead_code,
-    reason = "not every integration-test crate needs path construction"
-)]
+#[allow(dead_code, reason = "not every integration-test crate needs path construction")]
 pub fn vault_path(root: &VaultRoot, raw: &str) -> Result<VaultPath, Box<dyn std::error::Error>> {
     let roots = VaultSet::try_from(vec![root.clone()])?;
     Ok(VaultPath::try_from(VaultPathInput { roots: &roots, raw })?)

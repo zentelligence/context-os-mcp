@@ -20,9 +20,7 @@ command = "contextos-mcp"
 args = ["--stdio"]
 "#;
 
-async fn router_with_web_toml(
-    contents: &str,
-) -> Result<(tempfile::TempDir, axum::Router), BoxError> {
+async fn router_with_web_toml(contents: &str) -> Result<(tempfile::TempDir, axum::Router), BoxError> {
     let dir = tempfile::tempdir()?;
     std::fs::write(dir.path().join("web.toml"), contents)?;
     // No real `contextos-mcp` process for these unit tests: every case here
@@ -90,14 +88,13 @@ async fn get_renders_the_configured_mcp_server() -> Result<(), BoxError> {
     Ok(())
 }
 
-/// `web-architecture.md` §6 (`NFR-W02`): `/settings/` is an SSR+HTMX
+/// `web-architecture.md` §6: `/settings/` is an SSR+HTMX
 /// surface, so a plain browser navigation (no `HX-Request` header) gets the
 /// full page shell, htmx and its `json-enc` extension included, matching
 /// `standards/http-routing-response-contract-standard.md`'s "no HX-Request
 /// -> full HTML page" contract.
 #[tokio::test]
-async fn get_without_hx_request_returns_the_full_page_shell_with_htmx_loaded()
--> Result<(), BoxError> {
+async fn get_without_hx_request_returns_the_full_page_shell_with_htmx_loaded() -> Result<(), BoxError> {
     let (_dir, router) = router_with_web_toml(BASE).await?;
 
     let response = router
@@ -144,8 +141,7 @@ async fn get_with_hx_request_returns_a_bare_fragment() -> Result<(), BoxError> {
 }
 
 #[tokio::test]
-async fn post_adds_a_new_mcp_server_entry_and_a_following_get_reflects_it() -> Result<(), BoxError>
-{
+async fn post_adds_a_new_mcp_server_entry_and_a_following_get_reflects_it() -> Result<(), BoxError> {
     let (_dir, router) = router_with_web_toml(BASE).await?;
 
     let (status, body) = request(
@@ -166,8 +162,7 @@ async fn post_adds_a_new_mcp_server_entry_and_a_following_get_reflects_it() -> R
 }
 
 #[tokio::test]
-async fn post_with_a_duplicate_name_is_rejected_and_web_toml_is_unchanged() -> Result<(), BoxError>
-{
+async fn post_with_a_duplicate_name_is_rejected_and_web_toml_is_unchanged() -> Result<(), BoxError> {
     let (dir, router) = router_with_web_toml(BASE).await?;
     let before = std::fs::read_to_string(dir.path().join("web.toml"))?;
 
@@ -180,10 +175,7 @@ async fn post_with_a_duplicate_name_is_rejected_and_web_toml_is_unchanged() -> R
 
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(body["error"], "settings/invalid-configuration");
-    assert_eq!(
-        std::fs::read_to_string(dir.path().join("web.toml"))?,
-        before
-    );
+    assert_eq!(std::fs::read_to_string(dir.path().join("web.toml"))?, before);
     Ok(())
 }
 
@@ -196,10 +188,7 @@ async fn post_with_a_malformed_body_is_a_400_and_web_toml_is_unchanged() -> Resu
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error"], "route/malformed-body");
-    assert_eq!(
-        std::fs::read_to_string(dir.path().join("web.toml"))?,
-        before
-    );
+    assert_eq!(std::fs::read_to_string(dir.path().join("web.toml"))?, before);
     Ok(())
 }
 
@@ -224,18 +213,13 @@ async fn a_fuzzed_body_naming_a_vault_field_never_touches_config_toml() -> Resul
     // all (a `vault` array, the shape `config.toml`'s `[[vault]]` blocks
     // take): rejected as malformed, since `McpServerConfig` has no `vault`
     // field and this crate never opens `config.toml` from any handler.
-    let (status, _body) = request(
-        &router,
-        Method::POST,
-        r#"{"vault":[{"path":"/etc","name":"evil"}]}"#,
-    )
-    .await?;
+    let (status, _body) = request(&router, Method::POST, r#"{"vault":[{"path":"/etc","name":"evil"}]}"#).await?;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 
     assert_eq!(
         std::fs::read_to_string(dir.path().join("config.toml"))?,
         before_config_toml,
-        "config.toml must never be touched by a /settings/ submission (FR-252)"
+        "config.toml must never be touched by a /settings/ submission"
     );
     Ok(())
 }
@@ -257,14 +241,12 @@ async fn patch_partially_updates_an_existing_mcp_server_entry() -> Result<(), Bo
     Ok(())
 }
 
-/// The "auth for an MCP server" case the original informal requirement's
-/// "MCP servers and auth" line names (distinct from `D-W02`'s deferred
-/// auth for `contextos-web`'s own HTTP surface): an HTTP `[[mcp_server]]`
+/// The "auth for an MCP server" case (distinct from `contextos-web`'s own,
+/// deliberately deferred, HTTP surface auth): an HTTP `[[mcp_server]]`
 /// entry's `token_env` round-trips through `POST`, the read-only summary,
 /// and the edit form's pre-filled value.
 #[tokio::test]
-async fn post_adds_an_http_mcp_server_with_a_token_env_and_it_is_visible_and_editable()
--> Result<(), BoxError> {
+async fn post_adds_an_http_mcp_server_with_a_token_env_and_it_is_visible_and_editable() -> Result<(), BoxError> {
     let (_dir, router) = router_with_web_toml(BASE).await?;
 
     let (status, body) = request(
@@ -310,12 +292,7 @@ async fn patch_updates_an_http_mcp_servers_token_env() -> Result<(), BoxError> {
 async fn patch_partially_updates_server_ui() -> Result<(), BoxError> {
     let (_dir, router) = router_with_web_toml(BASE).await?;
 
-    let (status, body) = request(
-        &router,
-        Method::PATCH,
-        r#"{"target":"ui","patch":{"theme":"dark"}}"#,
-    )
-    .await?;
+    let (status, body) = request(&router, Method::PATCH, r#"{"target":"ui","patch":{"theme":"dark"}}"#).await?;
 
     assert_eq!(status, StatusCode::OK, "{body:?}");
     let rendered = body.as_str().unwrap_or_default();
@@ -363,8 +340,7 @@ async fn put_fully_replaces_an_existing_entry_keeping_its_name() -> Result<(), B
 }
 
 #[tokio::test]
-async fn put_replacing_an_unknown_entry_is_a_404_and_web_toml_is_unchanged() -> Result<(), BoxError>
-{
+async fn put_replacing_an_unknown_entry_is_a_404_and_web_toml_is_unchanged() -> Result<(), BoxError> {
     let (dir, router) = router_with_web_toml(BASE).await?;
     let before = std::fs::read_to_string(dir.path().join("web.toml"))?;
 
@@ -377,16 +353,12 @@ async fn put_replacing_an_unknown_entry_is_a_404_and_web_toml_is_unchanged() -> 
 
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(body["error"], "settings/unknown-mcp-server");
-    assert_eq!(
-        std::fs::read_to_string(dir.path().join("web.toml"))?,
-        before
-    );
+    assert_eq!(std::fs::read_to_string(dir.path().join("web.toml"))?, before);
     Ok(())
 }
 
 #[tokio::test]
-async fn delete_removing_the_only_mcp_server_with_no_live_session_fails_closed()
--> Result<(), BoxError> {
+async fn delete_removing_the_only_mcp_server_with_no_live_session_fails_closed() -> Result<(), BoxError> {
     let (dir, router) = router_with_web_toml(BASE).await?;
     let before = std::fs::read_to_string(dir.path().join("web.toml"))?;
 
@@ -398,10 +370,7 @@ async fn delete_removing_the_only_mcp_server_with_no_live_session_fails_closed()
 
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
     assert_eq!(body["error"], "mcp/server-not-configured");
-    assert_eq!(
-        std::fs::read_to_string(dir.path().join("web.toml"))?,
-        before
-    );
+    assert_eq!(std::fs::read_to_string(dir.path().join("web.toml"))?, before);
     Ok(())
 }
 

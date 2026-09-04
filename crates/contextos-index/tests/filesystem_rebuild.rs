@@ -1,10 +1,8 @@
 use contextos_core::{
-    MaintainsIndexes, OpKind, OperationEvent, Origin, VaultPath, VaultPathInput, VaultRoot,
-    VaultRootInput, VaultSet,
+    MaintainsIndexes, OpKind, OperationEvent, Origin, VaultPath, VaultPathInput, VaultRoot, VaultRootInput, VaultSet,
 };
 use contextos_fs::{
-    Filesystem, FilesystemConfig, FilesystemService, FilesystemServiceConfig, FsLimits,
-    default_hidden_patterns,
+    Filesystem, FilesystemConfig, FilesystemService, FilesystemServiceConfig, FsLimits, default_hidden_patterns,
 };
 use contextos_index::{IndexError, IndexService, IndexServiceConfig, IndexServiceError};
 use tempfile::tempdir;
@@ -21,8 +19,7 @@ impl contextos_core::Clock for FixedClock {
 }
 
 #[test]
-fn fr_20_to_fr_22_rebuilds_a_real_directory_through_the_write_pipeline()
--> Result<(), Box<dyn std::error::Error>> {
+fn to_fr_22_rebuilds_a_real_directory_through_the_write_pipeline() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let notes = vault.path().join("notes");
     std::fs::create_dir(&notes)?;
@@ -80,18 +77,10 @@ fn fr_20_to_fr_22_rebuilds_a_real_directory_through_the_write_pipeline()
     assert!(rebuilt.starts_with("# Bespoke Notes\n\nOperator introduction.\n\n"));
     assert!(rebuilt.ends_with("\n\nOperator footer.\n"));
     assert!(rebuilt.contains("| [keep.md](keep.md) | Hand summary |"));
-    assert!(
-        rebuilt.contains(
-            "| [new-note.md](new-note.md) | New Note: A new note exists. <!-- auto --> |"
-        )
-    );
+    assert!(rebuilt.contains("| [new-note.md](new-note.md) | New Note: A new note exists. <!-- auto --> |"));
     assert!(!rebuilt.contains("| [index.md](index.md)"));
     std::fs::rename(notes.join("index.md"), notes.join("_index.md"))?;
-    let preview = service.rebuild_report(
-        &directory,
-        Origin::Tool("vault_index_rebuild".to_owned()),
-        true,
-    )?;
+    let preview = service.rebuild_report(&directory, Origin::Tool("vault_index_rebuild".to_owned()), true)?;
     assert_eq!(preview.indexes_updated, 1);
     assert!(notes.join("_index.md").exists());
     assert!(!notes.join("index.md").exists());
@@ -99,8 +88,7 @@ fn fr_20_to_fr_22_rebuilds_a_real_directory_through_the_write_pipeline()
 }
 
 #[test]
-fn fr_20_rebuild_renames_legacy_underscore_index_before_reconciliation()
--> Result<(), Box<dyn std::error::Error>> {
+fn rebuild_renames_legacy_underscore_index_before_reconciliation() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let notes = vault.path().join("notes");
     std::fs::create_dir(&notes)?;
@@ -157,14 +145,8 @@ fn fr_20_rebuild_renames_legacy_underscore_index_before_reconciliation()
     assert!(rebuilt.contains("| [new-note.md](new-note.md) | New Note <!-- auto --> |"));
     assert_eq!(events.len(), 2);
     assert_eq!(events[0].kind, OpKind::Move);
-    assert_eq!(
-        events[0].paths[0].relative(),
-        std::path::Path::new("notes/_index.md")
-    );
-    assert_eq!(
-        events[0].paths[1].relative(),
-        std::path::Path::new("notes/index.md")
-    );
+    assert_eq!(events[0].paths[0].relative(), std::path::Path::new("notes/_index.md"));
+    assert_eq!(events[0].paths[1].relative(), std::path::Path::new("notes/index.md"));
     assert!(
         events
             .iter()
@@ -174,8 +156,7 @@ fn fr_20_rebuild_renames_legacy_underscore_index_before_reconciliation()
 }
 
 #[test]
-fn fr_20_rebuild_rejects_legacy_index_collision_without_changing_either_file()
--> Result<(), Box<dyn std::error::Error>> {
+fn rebuild_rejects_legacy_index_collision_without_changing_either_file() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let notes = vault.path().join("notes");
     std::fs::create_dir(&notes)?;
@@ -212,12 +193,8 @@ fn fr_20_rebuild_rejects_legacy_index_collision_without_changing_either_file()
         raw: "notes",
     })?;
 
-    let Err(error) = service.rebuild(&directory, Origin::Tool("vault_index_rebuild".to_owned()))
-    else {
-        return Err(std::io::Error::other(
-            "colliding index names did not require operator resolution",
-        )
-        .into());
+    let Err(error) = service.rebuild(&directory, Origin::Tool("vault_index_rebuild".to_owned())) else {
+        return Err(std::io::Error::other("colliding index names did not require operator resolution").into());
     };
 
     assert_eq!(error.code(), "index/legacy-conflict");
@@ -227,8 +204,7 @@ fn fr_20_rebuild_rejects_legacy_index_collision_without_changing_either_file()
 }
 
 #[test]
-fn fr_20_completed_file_event_reconciles_its_parent_and_returns_internal_event()
--> Result<(), Box<dyn std::error::Error>> {
+fn completed_file_event_reconciles_its_parent_and_returns_internal_event() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let notes = vault.path().join("notes");
     std::fs::create_dir(&notes)?;
@@ -288,8 +264,7 @@ fn fr_20_completed_file_event_reconciles_its_parent_and_returns_internal_event()
 }
 
 #[test]
-fn fr_22_rebuild_uses_the_selected_identity_in_a_multi_vault_set()
--> Result<(), Box<dyn std::error::Error>> {
+fn rebuild_uses_the_selected_identity_in_a_multi_vault_set() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     std::fs::write(second.path().join("note.md"), "# Second Vault\n")?;
@@ -351,16 +326,12 @@ fn fr_22_rebuild_uses_the_selected_identity_in_a_multi_vault_set()
 /// `title: {{Placeholder}}` frontmatter value, which opens an unquoted
 /// YAML flow mapping at the first `{`).
 #[test]
-fn fr_20_a_frontmatter_parse_failure_during_rebuild_names_the_offending_file()
--> Result<(), Box<dyn std::error::Error>> {
+fn a_frontmatter_parse_failure_during_rebuild_names_the_offending_file() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let notes = vault.path().join("notes");
     std::fs::create_dir(&notes)?;
     std::fs::write(notes.join("ok.md"), "# Fine\n\nNothing wrong here.\n")?;
-    std::fs::write(
-        notes.join("broken.md"),
-        "---\ntitle: {{Placeholder}}\n---\nBody.\n",
-    )?;
+    std::fs::write(notes.join("broken.md"), "---\ntitle: {{Placeholder}}\n---\nBody.\n")?;
     let root = VaultRoot::try_from(VaultRootInput {
         path: vault.path().to_path_buf(),
         managed: true,
@@ -392,8 +363,7 @@ fn fr_20_a_frontmatter_parse_failure_during_rebuild_names_the_offending_file()
         raw: "notes",
     })?;
 
-    let Err(error) = service.rebuild(&directory, Origin::Tool("vault_index_rebuild".to_owned()))
-    else {
+    let Err(error) = service.rebuild(&directory, Origin::Tool("vault_index_rebuild".to_owned())) else {
         return Err("broken.md's frontmatter should fail the rebuild".into());
     };
     let IndexServiceError::Index(IndexError::Frontmatter { path, .. }) = error else {
@@ -403,15 +373,14 @@ fn fr_20_a_frontmatter_parse_failure_during_rebuild_names_the_offending_file()
     Ok(())
 }
 
-/// `D-30`: `fs_delete_file` may only treat a directory's managed
+/// `fs_delete_file` may only treat a directory's managed
 /// `index.md`/`_index.md` as ignorable content when this service would
 /// actually recreate it, i.e. the directory belongs to this service's own
 /// root and is not excluded from index maintenance. `manages_directory`
 /// is the query the tool handler uses to decide that, so it must agree
 /// with `reconcile_event`'s own exclusion and root checks exactly.
 #[test]
-fn d_30_manages_directory_reports_index_maintenance_scope() -> Result<(), Box<dyn std::error::Error>>
-{
+fn manages_directory_reports_index_maintenance_scope() -> Result<(), Box<dyn std::error::Error>> {
     let vault_a = tempdir()?;
     let vault_b = tempdir()?;
     std::fs::create_dir(vault_a.path().join("notes"))?;

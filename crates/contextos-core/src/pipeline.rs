@@ -52,9 +52,7 @@ impl TryFrom<&str> for ContentHash {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if value.len() != 64 {
-            return Err(ContentHashError::InvalidLength {
-                actual: value.len(),
-            });
+            return Err(ContentHashError::InvalidLength { actual: value.len() });
         }
         if !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             return Err(ContentHashError::InvalidCharacter);
@@ -230,10 +228,7 @@ pub trait AppliesMutations: Send + Sync {
     /// # Errors
     ///
     /// Returns the adapter's typed persistence error.
-    fn create_directory(
-        &self,
-        request: &CreateDirectoryMutation,
-    ) -> Result<CreateDirectoryOutcome, Self::Error>;
+    fn create_directory(&self, request: &CreateDirectoryMutation) -> Result<CreateDirectoryOutcome, Self::Error>;
 
     /// Atomically renames a file or directory without replacing a destination.
     ///
@@ -351,16 +346,8 @@ where
     /// does not complete.
     pub fn write(&self, request: &WriteMutation) -> Result<PipelineResult<WriteOutcome>, A::Error> {
         let value = self.adapter.write(request)?;
-        let kind = if value.created {
-            OpKind::Create
-        } else {
-            OpKind::Modify
-        };
-        let action = if value.created {
-            "Created"
-        } else {
-            "Overwrote"
-        };
+        let kind = if value.created { OpKind::Create } else { OpKind::Modify };
+        let action = if value.created { "Created" } else { "Overwrote" };
         let event = OperationEvent {
             kind,
             paths: vec![value.path.clone()],
@@ -385,10 +372,7 @@ where
     ///
     /// Returns the adapter's typed error and emits no event when persistence
     /// does not complete.
-    pub fn restore(
-        &self,
-        request: &RestoreMutation,
-    ) -> Result<PipelineResult<WriteOutcome>, A::Error> {
+    pub fn restore(&self, request: &RestoreMutation) -> Result<PipelineResult<WriteOutcome>, A::Error> {
         let value = self.adapter.write(&WriteMutation::from(request))?;
         let event = OperationEvent {
             kind: OpKind::Restore,
@@ -414,10 +398,7 @@ where
     ///
     /// Returns the adapter's typed error and emits no event when deletion does
     /// not complete.
-    pub fn delete(
-        &self,
-        request: &DeleteMutation,
-    ) -> Result<PipelineResult<DeleteOutcome>, A::Error> {
+    pub fn delete(&self, request: &DeleteMutation) -> Result<PipelineResult<DeleteOutcome>, A::Error> {
         let value = self.adapter.delete(request)?;
         let event = OperationEvent {
             kind: OpKind::Delete,
@@ -439,17 +420,10 @@ where
     ///
     /// Returns the adapter's typed error and emits no event when the append does
     /// not complete.
-    pub fn append(
-        &self,
-        request: &AppendMutation,
-    ) -> Result<PipelineResult<AppendOutcome>, A::Error> {
+    pub fn append(&self, request: &AppendMutation) -> Result<PipelineResult<AppendOutcome>, A::Error> {
         let value = self.adapter.append(request)?;
         let event = OperationEvent {
-            kind: if value.created {
-                OpKind::Create
-            } else {
-                OpKind::Modify
-            },
+            kind: if value.created { OpKind::Create } else { OpKind::Modify },
             paths: vec![value.path.clone()],
             origin: request.origin.clone(),
             summary: format!(
@@ -497,10 +471,7 @@ where
     ///
     /// Returns the adapter's typed error and emits no event when the move does
     /// not complete.
-    pub fn move_path(
-        &self,
-        request: &MoveMutation,
-    ) -> Result<PipelineResult<MoveOutcome>, A::Error> {
+    pub fn move_path(&self, request: &MoveMutation) -> Result<PipelineResult<MoveOutcome>, A::Error> {
         let value = self.adapter.move_path(request)?;
         let event = OperationEvent {
             kind: OpKind::Move,
@@ -541,10 +512,7 @@ where
     /// # Errors
     ///
     /// Returns only primary persistence errors. Secondary failures are warnings.
-    pub fn restore(
-        &self,
-        request: &RestoreMutation,
-    ) -> Result<PipelineResult<WriteOutcome>, A::Error> {
+    pub fn restore(&self, request: &RestoreMutation) -> Result<PipelineResult<WriteOutcome>, A::Error> {
         Ok(self.route_result(self.pipeline.restore(request)?))
     }
 
@@ -553,10 +521,7 @@ where
     /// # Errors
     ///
     /// Returns only primary persistence errors. Secondary failures are warnings.
-    pub fn delete(
-        &self,
-        request: &DeleteMutation,
-    ) -> Result<PipelineResult<DeleteOutcome>, A::Error> {
+    pub fn delete(&self, request: &DeleteMutation) -> Result<PipelineResult<DeleteOutcome>, A::Error> {
         Ok(self.route_result(self.pipeline.delete(request)?))
     }
 
@@ -565,10 +530,7 @@ where
     /// # Errors
     ///
     /// Returns only primary persistence errors. Secondary failures are warnings.
-    pub fn append(
-        &self,
-        request: &AppendMutation,
-    ) -> Result<PipelineResult<AppendOutcome>, A::Error> {
+    pub fn append(&self, request: &AppendMutation) -> Result<PipelineResult<AppendOutcome>, A::Error> {
         Ok(self.route_result(self.pipeline.append(request)?))
     }
 
@@ -589,10 +551,7 @@ where
     /// # Errors
     ///
     /// Returns only primary persistence errors. Secondary failures are warnings.
-    pub fn move_path(
-        &self,
-        request: &MoveMutation,
-    ) -> Result<PipelineResult<MoveOutcome>, A::Error> {
+    pub fn move_path(&self, request: &MoveMutation) -> Result<PipelineResult<MoveOutcome>, A::Error> {
         Ok(self.route_result(self.pipeline.move_path(request)?))
     }
 

@@ -2,8 +2,7 @@ use contextos_obsidian::{FrontmatterDocument, NoteCreateInput, NoteDocument};
 use serde_json::{Map, json};
 
 #[test]
-fn fr_40_note_creation_uses_resolved_defaults_in_stable_key_order()
--> Result<(), Box<dyn std::error::Error>> {
+fn note_creation_uses_resolved_defaults_in_stable_key_order() -> Result<(), Box<dyn std::error::Error>> {
     let note = NoteDocument::try_from(NoteCreateInput {
         title: "Daily Reflection",
         frontmatter: Map::new(),
@@ -12,11 +11,7 @@ fn fr_40_note_creation_uses_resolved_defaults_in_stable_key_order()
     })?;
     let rendered = String::try_from(note)?;
     let parsed = FrontmatterDocument::try_from(rendered.as_str())?;
-    let keys = parsed
-        .frontmatter()
-        .keys()
-        .map(String::as_str)
-        .collect::<Vec<_>>();
+    let keys = parsed.frontmatter().keys().map(String::as_str).collect::<Vec<_>>();
 
     assert_eq!(
         keys,
@@ -25,24 +20,17 @@ fn fr_40_note_creation_uses_resolved_defaults_in_stable_key_order()
         ]
     );
     assert_eq!(parsed.frontmatter().get("type"), Some(&json!("note")));
-    assert_eq!(
-        parsed.frontmatter().get("title"),
-        Some(&json!("Daily Reflection"))
-    );
+    assert_eq!(parsed.frontmatter().get("title"), Some(&json!("Daily Reflection")));
     assert_eq!(parsed.frontmatter().get("entity"), Some(&json!("personal")));
     assert_eq!(parsed.frontmatter().get("status"), Some(&json!("new")));
     assert_eq!(parsed.frontmatter().get("tags"), Some(&json!([])));
     assert_eq!(parsed.frontmatter().get("aliases"), Some(&json!([])));
-    assert_eq!(
-        parsed.body(),
-        "# Daily Reflection\n\nToday was productive.\n"
-    );
+    assert_eq!(parsed.body(), "# Daily Reflection\n\nToday was productive.\n");
     Ok(())
 }
 
 #[test]
-fn fr_40_supplied_frontmatter_overrides_defaults_and_keeps_additional_keys()
--> Result<(), Box<dyn std::error::Error>> {
+fn supplied_frontmatter_overrides_defaults_and_keeps_additional_keys() -> Result<(), Box<dyn std::error::Error>> {
     let supplied = serde_json::from_value(json!({
         "entity": "business",
         "status": "active",

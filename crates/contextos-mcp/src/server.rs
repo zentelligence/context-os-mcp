@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use contextos_core::{
-    LogsOperations, MaintainsIndexes, OperationEvent, OperationRouter, OperationRouterConfig,
-    OperationWarning, PathError, SystemClock, VaultPath, VaultRootId, VaultSet, VersionsVault,
+    LogsOperations, MaintainsIndexes, OperationEvent, OperationRouter, OperationRouterConfig, OperationWarning,
+    PathError, SystemClock, VaultPath, VaultRootId, VaultSet, VersionsVault,
 };
 use contextos_fs::{
     Filesystem, FilesystemConfig, FilesystemService, FilesystemServiceConfig, FsError, FsLimits,
@@ -13,8 +13,7 @@ use contextos_index::{IndexService, IndexServiceConfig, IndexServiceError};
 use contextos_mermaid::MermanParser;
 use contextos_oplog::{OperationLog, OperationLogConfig, OperationLogError};
 use contextos_search::{
-    EmbeddingProviderConfig, EmbedsText, SearchError, SemanticConfig, VaultSearchConfig,
-    VaultSearchService,
+    EmbeddingProviderConfig, EmbedsText, SearchError, SemanticConfig, VaultSearchConfig, VaultSearchService,
 };
 use rmcp::handler::server::router::tool::ToolRoute;
 use rmcp::handler::server::tool::ToolCallContext;
@@ -37,17 +36,12 @@ pub(crate) struct WriteCoordinator {
 impl From<usize> for WriteCoordinator {
     fn from(root_count: usize) -> Self {
         let locks = (0..root_count).map(|_| Arc::new(Mutex::new(()))).collect();
-        Self {
-            locks: Arc::new(locks),
-        }
+        Self { locks: Arc::new(locks) }
     }
 }
 
 impl WriteCoordinator {
-    pub(crate) async fn lock_roots(
-        &self,
-        roots: &[VaultRootId],
-    ) -> Result<Vec<OwnedMutexGuard<()>>, ToolError> {
+    pub(crate) async fn lock_roots(&self, roots: &[VaultRootId]) -> Result<Vec<OwnedMutexGuard<()>>, ToolError> {
         let mut indices = roots
             .iter()
             .copied()
@@ -146,11 +140,7 @@ pub(crate) struct VersionCollection {
 
 impl VersionsVault for VersionCollection {
     fn stage(&self, event: &OperationEvent) -> Result<(), OperationWarning> {
-        let mut roots = event
-            .paths
-            .iter()
-            .map(VaultPath::root_id)
-            .collect::<Vec<_>>();
+        let mut roots = event.paths.iter().map(VaultPath::root_id).collect::<Vec<_>>();
         roots.sort_by_key(|root| usize::try_from(*root).unwrap_or(usize::MAX));
         roots.dedup();
         for root in roots {
@@ -164,21 +154,19 @@ impl VersionsVault for VersionCollection {
                 let mut scoped = event.clone();
                 scoped.paths.retain(|path| path.root_id() == root);
                 service.stage(&scoped)?;
-                let generation = service
-                    .pending_generation()
-                    .map_err(OperationWarning::from)?;
+                let generation = service.pending_generation().map_err(OperationWarning::from)?;
                 let delay = self.debounce_seconds.get(index).copied().unwrap_or(30);
                 let service = service.clone();
                 if let Ok(runtime) = tokio::runtime::Handle::try_current() {
                     runtime.spawn(async move {
                         tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
-                        let committed = tokio::task::spawn_blocking(move || {
-                            service.commit_if_generation(generation)
-                        })
-                        .await;
+                        let committed =
+                            tokio::task::spawn_blocking(move || service.commit_if_generation(generation)).await;
                         match committed {
                             Ok(Ok(_)) => {}
-                            Ok(Err(error)) => tracing::warn!(code = error.code(), error = %error, "debounced Git commit failed"),
+                            Ok(Err(error)) => {
+                                tracing::warn!(code = error.code(), error = %error, "debounced Git commit failed");
+                            }
                             Err(error) => tracing::warn!(error = %error, "debounced Git task failed"),
                         }
                     });
@@ -296,10 +284,7 @@ impl TryFrom<ServerBuildConfig> for ContextOsServer {
         reason = "the composition root keeps all per-vault service wiring visible in one auditable boundary"
     )]
     fn try_from(build: ServerBuildConfig) -> Result<Self, Self::Error> {
-        let ServerBuildConfig {
-            config: value,
-            modules,
-        } = build;
+        let ServerBuildConfig { config: value, modules } = build;
         let vault_info = Arc::new(VaultInfoConfig::from(&value));
         let destructive_delete = value
             .vaults
@@ -442,10 +427,8 @@ impl TryFrom<ServerBuildConfig> for ContextOsServer {
                     return Ok(None);
                 }
                 let root_id = VaultRootId::try_from(index)?;
-                let state_directory = crate::state_dir::resolve_state_directory(
-                    config.state_directory.as_deref(),
-                    root.path(),
-                )?;
+                let state_directory =
+                    crate::state_dir::resolve_state_directory(config.state_directory.as_deref(), root.path())?;
                 let semantic = semantic_config(config, &state_directory)?;
                 tracing::info!(
                     vault = %root.path().display(),
@@ -555,9 +538,7 @@ impl TryFrom<ServerBuildConfig> for ContextOsServer {
 /// ephemeris, and registered modules alike), so no tool this server can
 /// ever advertise, built in or extension, carries a nullable-union shape
 /// confirmed to take down Cowork's tool registry.
-fn sanitise_router_schemas(
-    router: &mut rmcp::handler::server::router::tool::ToolRouter<ContextOsServer>,
-) {
+fn sanitise_router_schemas(router: &mut rmcp::handler::server::router::tool::ToolRouter<ContextOsServer>) {
     for route in router.map.values_mut() {
         let mut input = serde_json::Value::Object((*route.attr.input_schema).clone());
         crate::resource_support::sanitise_nullable_unions(&mut input);
@@ -581,9 +562,7 @@ fn sanitise_router_schemas(
 /// contributes. Each route resolves its [`ModuleContext`] fresh from the
 /// live server instance at call time (`tcc.service`), so a module never
 /// holds server state directly.
-fn build_module_router(
-    modules: &ModuleRegistry,
-) -> rmcp::handler::server::router::tool::ToolRouter<ContextOsServer> {
+fn build_module_router(modules: &ModuleRegistry) -> rmcp::handler::server::router::tool::ToolRouter<ContextOsServer> {
     let mut router = rmcp::handler::server::router::tool::ToolRouter::<ContextOsServer>::new();
     for module in modules.iter() {
         for tool in module.tools() {
@@ -638,20 +617,17 @@ pub(crate) fn semantic_config(
 /// `FastembedLocal` reads from: `crate::model_cli::resolve_model_directory`
 /// resolves a shared `contextos model download` cache root to the actual
 /// model snapshot directory first.
-fn embedding_provider_config(
-    embedding: &crate::EmbeddingConfig,
-) -> Result<EmbeddingProviderConfig, SearchError> {
+fn embedding_provider_config(embedding: &crate::EmbeddingConfig) -> Result<EmbeddingProviderConfig, SearchError> {
     match embedding.provider {
         EmbeddingProvider::Local => {
-            let model_directory =
-                embedding
-                    .model_directory
-                    .clone()
-                    .ok_or_else(|| SearchError::EmbeddingConfig {
-                        reason: "provider = \"local\" requires [vault.search.embedding] \
+            let model_directory = embedding
+                .model_directory
+                .clone()
+                .ok_or_else(|| SearchError::EmbeddingConfig {
+                    reason: "provider = \"local\" requires [vault.search.embedding] \
                              model_directory to be configured"
-                            .to_owned(),
-                    })?;
+                        .to_owned(),
+                })?;
             let model_directory = crate::model_cli::resolve_model_directory(&model_directory);
             Ok(EmbeddingProviderConfig::Local { model_directory })
         }
@@ -749,10 +725,7 @@ impl ContextOsServer {
     /// stops every spawned task promptly; the caller should await each
     /// returned handle as part of its own graceful-shutdown sequence.
     #[must_use]
-    pub fn spawn_semantic_drain(
-        &self,
-        shutdown: &CancellationToken,
-    ) -> Vec<tokio::task::JoinHandle<()>> {
+    pub fn spawn_semantic_drain(&self, shutdown: &CancellationToken) -> Vec<tokio::task::JoinHandle<()>> {
         crate::semantic_drain::spawn(&self.search, &self.rebuild_budget_seconds, shutdown)
     }
 }
@@ -827,8 +800,8 @@ mod tests {
     use contextos_search::{EmbeddingProviderConfig, REQUIRED_MODEL_FILES};
 
     #[tokio::test]
-    async fn concurrent_mutations_for_one_root_are_serialised()
-    -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn concurrent_mutations_for_one_root_are_serialised() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+    {
         let coordinator = WriteCoordinator::from(1_usize);
         let root = contextos_core::VaultRootId::try_from(0_usize)?;
         let first_guards = coordinator.lock_roots(&[root]).await?;
@@ -845,8 +818,7 @@ mod tests {
     }
 
     #[test]
-    fn local_provider_config_resolves_a_shared_cache_root_model_directory()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn local_provider_config_resolves_a_shared_cache_root_model_directory() -> Result<(), Box<dyn std::error::Error>> {
         let cache = tempfile::tempdir()?;
         let repo_dir = cache.path().join("models--Qdrant--all-MiniLM-L6-v2-onnx");
         let snapshot_dir = repo_dir.join("snapshots").join("test-revision");

@@ -31,8 +31,7 @@ fn status_reports_not_registered_for_a_missing_file() -> Result<(), Box<dyn std:
 }
 
 #[test]
-fn register_creates_a_missing_file_with_the_expected_entry()
--> Result<(), Box<dyn std::error::Error>> {
+fn register_creates_a_missing_file_with_the_expected_entry() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let path = fixture.path().join("claude_desktop_config.json");
     let detector = FixedDetector(false);
@@ -58,16 +57,12 @@ fn register_preserves_unrelated_keys_and_other_servers() -> Result<(), Box<dyn s
     let written: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path)?)?;
     assert_eq!(written["unrelatedTopLevelKey"], 42);
     assert_eq!(written["mcpServers"]["other-server"]["command"], "other");
-    assert_eq!(
-        written["mcpServers"]["contextos"]["command"],
-        entry().command
-    );
+    assert_eq!(written["mcpServers"]["contextos"]["command"], entry().command);
     Ok(())
 }
 
 #[test]
-fn register_refuses_to_write_while_the_host_is_running_without_force()
--> Result<(), Box<dyn std::error::Error>> {
+fn register_refuses_to_write_while_the_host_is_running_without_force() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let path = fixture.path().join("claude_desktop_config.json");
     let detector = FixedDetector(true);
@@ -80,8 +75,7 @@ fn register_refuses_to_write_while_the_host_is_running_without_force()
 }
 
 #[test]
-fn register_proceeds_while_the_host_is_running_when_forced()
--> Result<(), Box<dyn std::error::Error>> {
+fn register_proceeds_while_the_host_is_running_when_forced() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let path = fixture.path().join("claude_desktop_config.json");
     let detector = FixedDetector(true);
@@ -93,8 +87,7 @@ fn register_proceeds_while_the_host_is_running_when_forced()
 }
 
 #[test]
-fn register_writes_a_timestamped_backup_of_an_existing_file()
--> Result<(), Box<dyn std::error::Error>> {
+fn register_writes_a_timestamped_backup_of_an_existing_file() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let path = fixture.path().join("claude_desktop_config.json");
     let original = r#"{"mcpServers": {}}"#;
@@ -118,8 +111,7 @@ fn register_writes_a_timestamped_backup_of_an_existing_file()
 }
 
 #[test]
-fn register_rejects_malformed_pre_existing_json_and_writes_nothing()
--> Result<(), Box<dyn std::error::Error>> {
+fn register_rejects_malformed_pre_existing_json_and_writes_nothing() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let path = fixture.path().join("claude_desktop_config.json");
     std::fs::write(&path, "{not valid json")?;
@@ -127,10 +119,7 @@ fn register_rejects_malformed_pre_existing_json_and_writes_nothing()
 
     let result = register(&path, &entry(), &detector, false);
 
-    assert!(matches!(
-        result,
-        Err(HostRegistrationError::InvalidJson { .. })
-    ));
+    assert!(matches!(result, Err(HostRegistrationError::InvalidJson { .. })));
     assert_eq!(std::fs::read_to_string(&path)?, "{not valid json");
     let backups: Vec<_> = std::fs::read_dir(fixture.path())?
         .filter_map(Result::ok)
@@ -173,8 +162,7 @@ fn deregister_preserves_other_servers_entries() -> Result<(), Box<dyn std::error
 }
 
 #[test]
-fn deregister_reports_not_registered_for_a_missing_file() -> Result<(), Box<dyn std::error::Error>>
-{
+fn deregister_reports_not_registered_for_a_missing_file() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let path = fixture.path().join("claude_desktop_config.json");
     let detector = FixedDetector(false);
@@ -187,8 +175,7 @@ fn deregister_reports_not_registered_for_a_missing_file() -> Result<(), Box<dyn 
 }
 
 #[test]
-fn deregister_refuses_to_write_while_the_host_is_running_without_force()
--> Result<(), Box<dyn std::error::Error>> {
+fn deregister_refuses_to_write_while_the_host_is_running_without_force() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let path = fixture.path().join("claude_desktop_config.json");
     let running = FixedDetector(true);
@@ -218,12 +205,7 @@ fn system_process_detector_finds_a_genuinely_running_process_by_name_substring()
     let needle: String = stem.chars().take(8).collect();
 
     let mut child = std::process::Command::new(&exe)
-        .args([
-            "--exact",
-            "system_process_detector_child",
-            "--ignored",
-            "--nocapture",
-        ])
+        .args(["--exact", "system_process_detector_child", "--ignored", "--nocapture"])
         .spawn()?;
 
     let detector = SystemProcessDetector;

@@ -1,5 +1,4 @@
-//! `web.toml` loading (FR-203) and read-only `config.toml` vault-list
-//! loading (FR-202).
+//! `web.toml` loading and read-only `config.toml` vault-list loading.
 //!
 //! `contextos-web` never owns or writes `config.toml`: [`load_vault_set`]
 //! parses only the `[[vault]]` blocks it needs (`path`, `name`, `managed`),
@@ -7,9 +6,9 @@
 //! `search`, and so on) that belongs to `contextos-mcp`'s own schema, so it
 //! deliberately does not `deny_unknown_fields` the way `contextos-mcp`'s own
 //! `Config` does. It reuses `contextos-core`'s `VaultRoot`/`VaultSet`
-//! directly (FR-200) rather than depending on `contextos-mcp`'s `Config`
-//! type, so the two binaries share the validated domain type without
-//! sharing a crate boundary that would violate `D-W01`.
+//! directly rather than depending on `contextos-mcp`'s `Config` type, so
+//! the two binaries share the validated domain type without sharing a
+//! crate boundary.
 
 use std::fs;
 use std::net::SocketAddr;
@@ -19,7 +18,7 @@ use contextos_core::{PathError, VaultRoot, VaultRootInput, VaultSet};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// `web.toml`'s full schema (FR-203).
+/// `web.toml`'s full schema.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct WebConfig {
@@ -32,8 +31,8 @@ pub struct WebConfig {
 impl WebConfig {
     /// Re-checks every cross-field invariant [`load_web_config`] enforces on
     /// load. `pub(crate)` so [`crate::config_writer::WebConfigDocument`]
-    /// (FR-251) can run the identical validator against an edited document
-    /// before persisting it, rather than duplicating these rules.
+    /// can run the identical validator against an edited document before
+    /// persisting it, rather than duplicating these rules.
     pub(crate) fn validate(&self) -> Result<(), WebConfigError> {
         validate_loopback_bind(&self.server.bind)?;
         let mut seen = std::collections::HashSet::new();
@@ -50,25 +49,20 @@ impl WebConfig {
 
 /// Rejects any bind address that does not resolve to a loopback interface.
 ///
-/// This is `D-W02`'s enforcement point, not just its documented default:
-/// `contextos-web` ships in this phase with no authentication mechanism at
-/// all, so a non-loopback bind would expose every proxied MCP tool (and the
+/// `contextos-web` ships with no authentication mechanism at all, so a
+/// non-loopback bind would expose every proxied MCP tool (and the
 /// static asset directory) to any host reachable on that interface. There is
 /// deliberately no token-bypass the way `contextos-mcp`'s own
 /// `validate_bind` allows for its HTTP transport (`architecture.md` §7.6):
 /// no bearer-token mechanism exists in `contextos-web` to bypass with.
 fn validate_loopback_bind(bind: &str) -> Result<(), WebConfigError> {
-    let address =
-        bind.parse::<SocketAddr>()
-            .map_err(|_source| WebConfigError::InvalidBindAddress {
-                bind: bind.to_owned(),
-            })?;
+    let address = bind
+        .parse::<SocketAddr>()
+        .map_err(|_source| WebConfigError::InvalidBindAddress { bind: bind.to_owned() })?;
     if address.ip().is_loopback() {
         Ok(())
     } else {
-        Err(WebConfigError::NonLoopbackBind {
-            bind: bind.to_owned(),
-        })
+        Err(WebConfigError::NonLoopbackBind { bind: bind.to_owned() })
     }
 }
 
@@ -121,7 +115,7 @@ pub enum WebLogLevel {
     Trace,
 }
 
-/// One `[[mcp_server]]` entry (FR-203). Internally tagged on `transport` so
+/// One `[[mcp_server]]` entry. Internally tagged on `transport` so
 /// a stdio and an HTTP entry can carry their own, non-overlapping required
 /// fields (`command`/`args` versus `endpoint`/`token_env`) rather than
 /// making every field optional on a single flat shape.
@@ -210,8 +204,8 @@ pub fn current_appearance(path: &Path) -> Appearance {
     }
 }
 
-/// The subset of `config.toml`'s schema `contextos-web` reads (FR-202):
-/// each `[[vault]]` block's `path`, `name`, and `managed`. Every other
+/// The subset of `config.toml`'s schema `contextos-web` reads: each
+/// `[[vault]]` block's `path`, `name`, and `managed`. Every other
 /// field `contextos-mcp`'s own `Config` recognises is silently ignored
 /// here, deliberately: this is a read-only, non-owning reader, not a
 /// second implementation of `contextos-mcp`'s schema.
@@ -237,7 +231,7 @@ const fn default_managed() -> bool {
 /// Loads `config.toml`'s vault list from `path` and resolves it to a
 /// [`VaultSet`], the same `contextos-core` type `contextos-mcp` resolves
 /// from the identical file, so both binaries agree on which vaults exist,
-/// their `name`, and their root without a second source of truth (FR-202).
+/// their `name`, and their root without a second source of truth.
 ///
 /// # Errors
 ///
@@ -251,10 +245,9 @@ pub fn load_vault_set(path: &Path) -> Result<VaultSet, WebConfigError> {
         path: path.to_owned(),
         source,
     })?;
-    let parsed: VaultListConfig =
-        toml::from_str(&source).map_err(|source| WebConfigError::Toml {
-            source: Box::new(source),
-        })?;
+    let parsed: VaultListConfig = toml::from_str(&source).map_err(|source| WebConfigError::Toml {
+        source: Box::new(source),
+    })?;
     let roots = parsed
         .vaults
         .into_iter()

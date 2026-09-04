@@ -1,4 +1,4 @@
-//! Wikilink and embed scanning (`web-rendering.md` §1 stage 3, FR-240):
+//! Wikilink and embed scanning (`web-rendering.md` §1 stage 3):
 //! `[[target|display]]` and `![[target]]` syntax. This module only finds
 //! occurrences in raw text and renders a resolved/dead result to HTML; it
 //! never itself decides whether a target resolves (that is an MCP round
@@ -94,16 +94,9 @@ fn scan_line(line: &str, occurrences: &mut Vec<LinkOccurrence>) -> String {
             if is_embed || is_link {
                 let open_at = if is_embed { i + 1 } else { i };
                 if let Some((occurrence, next_i)) = parse_bracket(&chars, open_at) {
-                    let syntax = if is_embed {
-                        LinkSyntax::Embed
-                    } else {
-                        LinkSyntax::Link
-                    };
+                    let syntax = if is_embed { LinkSyntax::Embed } else { LinkSyntax::Link };
                     let index = occurrences.len();
-                    occurrences.push(LinkOccurrence {
-                        syntax,
-                        ..occurrence
-                    });
+                    occurrences.push(LinkOccurrence { syntax, ..occurrence });
                     if is_embed {
                         // Block-level: own paragraph, matching fences/callouts.
                         if !out.trim().is_empty() {
@@ -174,10 +167,7 @@ fn parse_inner(inner: &str) -> LinkOccurrence {
 /// Renders a resolved link/embed reference to its `<a>` HTML.
 #[must_use]
 pub fn render_link(occurrence: &LinkOccurrence, href: &str) -> String {
-    let text = occurrence
-        .display
-        .clone()
-        .unwrap_or_else(|| occurrence.target.clone());
+    let text = occurrence.display.clone().unwrap_or_else(|| occurrence.target.clone());
     format!(
         "<a class=\"wikilink\" href=\"{href}\">{text}</a>",
         href = escape_html(href),
@@ -186,13 +176,10 @@ pub fn render_link(occurrence: &LinkOccurrence, href: &str) -> String {
 }
 
 /// Renders an unresolved (dead) link/embed reference as a visually distinct
-/// span, never a broken anchor (FR-240).
+/// span, never a broken anchor.
 #[must_use]
 pub fn render_dead_link(occurrence: &LinkOccurrence) -> String {
-    let text = occurrence
-        .display
-        .clone()
-        .unwrap_or_else(|| occurrence.target.clone());
+    let text = occurrence.display.clone().unwrap_or_else(|| occurrence.target.clone());
     format!(
         "<span class=\"wikilink dead\" data-target=\"{target}\">{text}</span>",
         target = escape_html(&occurrence.target),

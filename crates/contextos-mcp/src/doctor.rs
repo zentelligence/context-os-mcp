@@ -2,8 +2,8 @@ use std::fmt::{self, Display, Formatter};
 
 use contextos_core::{Origin, SystemClock, VaultPath, VaultPathInput, VaultSet};
 use contextos_fs::{
-    Filesystem, FilesystemConfig, FilesystemService, FilesystemServiceConfig, FsError, FsLimits,
-    ReadTextRequest, SearchFilesRequest,
+    Filesystem, FilesystemConfig, FilesystemService, FilesystemServiceConfig, FsError, FsLimits, ReadTextRequest,
+    SearchFilesRequest,
 };
 use contextos_git::{Git2Vault, Git2VaultConfig};
 use contextos_index::{IndexService, IndexServiceConfig};
@@ -24,9 +24,7 @@ impl DoctorReport {
     /// Reports whether any check requires operator action before normal service.
     #[must_use]
     pub fn has_failures(&self) -> bool {
-        self.checks
-            .iter()
-            .any(|check| check.status == DoctorStatus::Fail)
+        self.checks.iter().any(|check| check.status == DoctorStatus::Fail)
     }
 }
 
@@ -64,10 +62,7 @@ impl TryFrom<&Config> for DoctorReport {
             filesystem: filesystem.clone(),
             clock: SystemClock,
         });
-        let mut checks = vec![DoctorCheck::pass(
-            "Configuration",
-            "valid effective configuration",
-        )];
+        let mut checks = vec![DoctorCheck::pass("Configuration", "valid effective configuration")];
 
         for (index, (vault, root)) in value.vaults.iter().zip(roots.iter()).enumerate() {
             checks.push(
@@ -133,12 +128,10 @@ fn index_check(
         }
     };
     match report {
-        Ok(report) if report.indexes_created == 0 && report.indexes_updated == 0 => {
-            Ok(DoctorCheck::pass(
-                "Managed indexes",
-                format!("{} directories are current", report.directories_scanned),
-            ))
-        }
+        Ok(report) if report.indexes_created == 0 && report.indexes_updated == 0 => Ok(DoctorCheck::pass(
+            "Managed indexes",
+            format!("{} directories are current", report.directories_scanned),
+        )),
         Ok(report) => Ok(DoctorCheck::fail_auto_fixable(
             "Managed indexes",
             format!(
@@ -156,11 +149,7 @@ fn index_check(
     }
 }
 
-fn git_check(
-    vault: &crate::VaultConfig,
-    root: &contextos_core::VaultRoot,
-    roots: &VaultSet,
-) -> DoctorCheck {
+fn git_check(vault: &crate::VaultConfig, root: &contextos_core::VaultRoot, roots: &VaultSet) -> DoctorCheck {
     if !vault.git.enabled {
         return DoctorCheck::pass("Git recovery", "disabled");
     }
@@ -221,31 +210,26 @@ fn git_check(
 /// covered by [`index_check`]) and reading its status. Model acquisition
 /// itself (the pre-fetch tool) is separate; this check only reports whether
 /// the configured directory currently holds a usable model.
-fn semantic_check(
-    vault: &crate::VaultConfig,
-    root: &contextos_core::VaultRoot,
-) -> Result<DoctorCheck, DoctorError> {
+fn semantic_check(vault: &crate::VaultConfig, root: &contextos_core::VaultRoot) -> Result<DoctorCheck, DoctorError> {
     if !vault.search.semantic {
         return Ok(DoctorCheck::pass("Semantic search", "disabled"));
     }
 
     let root_id = contextos_core::VaultRootId::try_from(0_usize)?;
-    let state_directory =
-        crate::state_dir::resolve_state_directory(vault.state_directory.as_deref(), root.path())?;
-    let outcome: Result<_, SearchError> =
-        semantic_config(vault, &state_directory).and_then(|semantic| {
-            let service = VaultSearchService::try_from(VaultSearchConfig {
-                root_id,
-                root: root.path().to_path_buf(),
-                excludes: vault.search.exclude.clone(),
-                state_directory,
-                text_enabled: false,
-                graph_enabled: false,
-                graph_backend: GraphBackend::default(),
-                semantic,
-            })?;
-            service.status()
-        });
+    let state_directory = crate::state_dir::resolve_state_directory(vault.state_directory.as_deref(), root.path())?;
+    let outcome: Result<_, SearchError> = semantic_config(vault, &state_directory).and_then(|semantic| {
+        let service = VaultSearchService::try_from(VaultSearchConfig {
+            root_id,
+            root: root.path().to_path_buf(),
+            excludes: vault.search.exclude.clone(),
+            state_directory,
+            text_enabled: false,
+            graph_enabled: false,
+            graph_backend: GraphBackend::default(),
+            semantic,
+        })?;
+        service.status()
+    });
 
     Ok(match outcome {
         Ok(status) => DoctorCheck::pass(
@@ -404,11 +388,7 @@ impl Display for DoctorReport {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         writeln!(formatter, "ContextOS MCP doctor")?;
         for check in &self.checks {
-            writeln!(
-                formatter,
-                "{} | {} | {}",
-                check.subject, check.status, check.message
-            )?;
+            writeln!(formatter, "{} | {} | {}", check.subject, check.status, check.message)?;
             if let Some(action) = &check.action {
                 writeln!(formatter, "  Action: {action}")?;
             }
@@ -455,11 +435,7 @@ impl DoctorCheck {
     }
 
     /// A failure requiring operator judgement: never auto-fixable.
-    fn fail(
-        subject: impl Into<String>,
-        message: impl Into<String>,
-        action: impl Into<String>,
-    ) -> Self {
+    fn fail(subject: impl Into<String>, message: impl Into<String>, action: impl Into<String>) -> Self {
         Self {
             subject: subject.into(),
             status: DoctorStatus::Fail,
@@ -543,8 +519,7 @@ mod tests {
     use super::DoctorReport;
 
     #[test]
-    fn fr_95_frontmatter_validity_reports_files_that_fail_strict_yaml_parsing()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn frontmatter_validity_reports_files_that_fail_strict_yaml_parsing() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = tempdir()?;
         let vault = fixture.path().join("vault");
         std::fs::create_dir(&vault)?;
@@ -573,16 +548,12 @@ mod tests {
         assert_eq!(check.remediation_tool, None);
         assert!(check.message.contains("broken.md"), "{}", check.message);
         assert!(!check.message.contains("valid.md"), "{}", check.message);
-        assert!(
-            !check.message.contains("no-frontmatter.md"),
-            "{}",
-            check.message
-        );
+        assert!(!check.message.contains("no-frontmatter.md"), "{}", check.message);
         Ok(())
     }
 
     #[test]
-    fn fr_95_frontmatter_validity_passes_a_vault_with_only_valid_or_absent_frontmatter()
+    fn frontmatter_validity_passes_a_vault_with_only_valid_or_absent_frontmatter()
     -> Result<(), Box<dyn std::error::Error>> {
         let fixture = tempdir()?;
         let vault = fixture.path().join("vault");
@@ -605,8 +576,8 @@ mod tests {
     }
 
     #[test]
-    fn fr_95_a_double_moustache_placeholder_is_not_reported_as_invalid_frontmatter()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn a_double_moustache_placeholder_is_not_reported_as_invalid_frontmatter() -> Result<(), Box<dyn std::error::Error>>
+    {
         let fixture = tempdir()?;
         let vault = fixture.path().join("vault");
         std::fs::create_dir(&vault)?;
@@ -636,8 +607,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_95_a_genuine_yaml_error_beside_a_placeholder_is_still_reported()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn a_genuine_yaml_error_beside_a_placeholder_is_still_reported() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = tempdir()?;
         let vault = fixture.path().join("vault");
         std::fs::create_dir(&vault)?;
@@ -665,8 +635,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_95_a_placeholder_followed_by_trailing_literal_text_is_not_reported()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn a_placeholder_followed_by_trailing_literal_text_is_not_reported() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = tempdir()?;
         let vault = fixture.path().join("vault");
         std::fs::create_dir(&vault)?;
@@ -675,10 +644,7 @@ mod tests {
         // value, just part of it. A quoted replacement ("placeholder")
         // would leave trailing unquoted text after the closing quote,
         // which is itself invalid YAML.
-        std::fs::write(
-            vault.join("template.md"),
-            "---\nname: {{Hat Name}} Hat\n---\nBody\n",
-        )?;
+        std::fs::write(vault.join("template.md"), "---\nname: {{Hat Name}} Hat\n---\nBody\n")?;
         let mut config = Config::try_from(vec![vault])?;
         config.vaults[0].index_md.enabled = false;
         config.vaults[0].git.enabled = false;
@@ -695,8 +661,8 @@ mod tests {
     }
 
     #[test]
-    fn fr_95_a_placeholder_nested_inside_an_already_quoted_string_is_not_reported()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn a_placeholder_nested_inside_an_already_quoted_string_is_not_reported() -> Result<(), Box<dyn std::error::Error>>
+    {
         let fixture = tempdir()?;
         let vault = fixture.path().join("vault");
         std::fs::create_dir(&vault)?;
@@ -724,8 +690,8 @@ mod tests {
     }
 
     #[test]
-    fn fr_95_the_exact_real_vault_templates_that_first_exposed_this_are_now_valid()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn the_exact_real_vault_templates_that_first_exposed_this_are_now_valid() -> Result<(), Box<dyn std::error::Error>>
+    {
         let fixture = tempdir()?;
         let vault = fixture.path().join("vault");
         std::fs::create_dir(&vault)?;
@@ -757,8 +723,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_91_stale_or_missing_managed_index_is_classified_auto_fixable()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn stale_or_missing_managed_index_is_classified_auto_fixable() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = tempdir()?;
         let vault = fixture.path().join("vault");
         std::fs::create_dir(&vault)?;
@@ -779,8 +744,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_91_absent_git_repository_is_classified_auto_fixable()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn absent_git_repository_is_classified_auto_fixable() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = tempdir()?;
         let vault = fixture.path().join("vault");
         std::fs::create_dir(&vault)?;
@@ -809,8 +773,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_92_each_per_vault_check_is_tagged_with_its_configured_vault_index()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn each_per_vault_check_is_tagged_with_its_configured_vault_index() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = tempdir()?;
         let healthy = fixture.path().join("healthy");
         let stale = fixture.path().join("stale");
@@ -849,8 +812,7 @@ mod tests {
     }
 
     #[test]
-    fn fr_91_semantic_search_misconfiguration_is_not_auto_fixable()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn semantic_search_misconfiguration_is_not_auto_fixable() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = tempdir()?;
         let vault = fixture.path().join("vault");
         std::fs::create_dir(&vault)?;

@@ -3,12 +3,12 @@ mod support;
 use std::fs;
 
 use contextos_core::{
-    OpKind, OperationEvent, Origin, UpdatesSearch, VaultPath, VaultPathInput, VaultRoot,
-    VaultRootId, VaultRootInput, VaultSet,
+    OpKind, OperationEvent, Origin, UpdatesSearch, VaultPath, VaultPathInput, VaultRoot, VaultRootId, VaultRootInput,
+    VaultSet,
 };
 use contextos_search::{
-    FakeEmbedder, GraphBackend, GraphDirection, RebuildProgress, RebuildTarget, SearchError,
-    SemanticConfig, SemanticQuery, TextQuery, VaultSearchConfig, VaultSearchService,
+    FakeEmbedder, GraphBackend, GraphDirection, RebuildProgress, RebuildTarget, SearchError, SemanticConfig,
+    SemanticQuery, TextQuery, VaultSearchConfig, VaultSearchService,
 };
 use serde_json::Map;
 use support::{document, vault_note};
@@ -44,9 +44,7 @@ fn service_at(
 /// A service with text and graph disabled but semantic search enabled
 /// through a deterministic [`FakeEmbedder`], for `query_semantic` and
 /// semantic status/rebuild contract tests.
-fn semantic_service_at(
-    vault: &tempfile::TempDir,
-) -> Result<VaultSearchService, Box<dyn std::error::Error>> {
+fn semantic_service_at(vault: &tempfile::TempDir) -> Result<VaultSearchService, Box<dyn std::error::Error>> {
     Ok(VaultSearchService::try_from(VaultSearchConfig {
         root_id: VaultRootId::try_from(0_usize)?,
         root: vault.path().to_path_buf(),
@@ -62,7 +60,7 @@ fn semantic_service_at(
     })?)
 }
 
-/// D-06: `fjall` holds an exclusive lock on a graph store's directory for
+/// `fjall` holds an exclusive lock on a graph store's directory for
 /// as long as it is open, so a second `VaultSearchService` constructed over
 /// the same vault while the first is still live cannot open the link graph.
 /// This must degrade the second service's graph capability to disabled
@@ -71,8 +69,7 @@ fn semantic_service_at(
 /// connector instance still gets a working server with every other
 /// capability intact.
 #[test]
-fn graph_store_locked_by_another_instance_degrades_to_disabled()
--> Result<(), Box<dyn std::error::Error>> {
+fn graph_store_locked_by_another_instance_degrades_to_disabled() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let first = service_at(&vault, false, true)?;
     let second = service_at(&vault, false, true)?;
@@ -92,10 +89,7 @@ fn graph_store_locked_by_another_instance_degrades_to_disabled()
 
 /// Builds a `VaultPath` for `relative` without writing or overwriting file
 /// content, unlike `support::vault_note`.
-fn vault_path(
-    vault: &tempfile::TempDir,
-    relative: &str,
-) -> Result<VaultPath, Box<dyn std::error::Error>> {
+fn vault_path(vault: &tempfile::TempDir, relative: &str) -> Result<VaultPath, Box<dyn std::error::Error>> {
     let roots = VaultSet::try_from(vec![VaultRoot::try_from(VaultRootInput {
         path: vault.path().to_path_buf(),
         managed: true,
@@ -117,10 +111,7 @@ fn write_event(kind: OpKind, paths: Vec<VaultPath>) -> OperationEvent {
     }
 }
 
-fn apply(
-    service: &VaultSearchService,
-    event: &OperationEvent,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn apply(service: &VaultSearchService, event: &OperationEvent) -> Result<(), Box<dyn std::error::Error>> {
     let Ok(()) = service.update(event) else {
         return Err("expected the combined search update to succeed".into());
     };
@@ -128,8 +119,7 @@ fn apply(
 }
 
 fn plain_query(query: &str) -> TextQuery<'_> {
-    static NO_FIELDS: std::sync::OnceLock<Map<String, serde_json::Value>> =
-        std::sync::OnceLock::new();
+    static NO_FIELDS: std::sync::OnceLock<Map<String, serde_json::Value>> = std::sync::OnceLock::new();
     TextQuery {
         query,
         path_prefix: None,
@@ -141,8 +131,7 @@ fn plain_query(query: &str) -> TextQuery<'_> {
 }
 
 #[test]
-fn fr_50_fr_51_query_text_indexes_through_the_combined_service()
--> Result<(), Box<dyn std::error::Error>> {
+fn query_text_indexes_through_the_combined_service() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, true, true)?;
     let (_roots, path) = vault_note(&vault, "notes/alpha.md", "# Alpha\n\nGadget prose.\n")?;
@@ -157,15 +146,10 @@ fn fr_50_fr_51_query_text_indexes_through_the_combined_service()
 }
 
 #[test]
-fn fr_50_query_text_hit_title_matches_the_derived_document_title()
--> Result<(), Box<dyn std::error::Error>> {
+fn query_text_hit_title_matches_the_derived_document_title() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, true, true)?;
-    let expected = document(
-        &vault,
-        "alpha.md",
-        "# Alpha Heading\n\nSearchable content.\n",
-    )?;
+    let expected = document(&vault, "alpha.md", "# Alpha Heading\n\nSearchable content.\n")?;
     let path = vault_path(&vault, "alpha.md")?;
     apply(&service, &write_event(OpKind::Create, vec![path]))?;
 
@@ -176,17 +160,13 @@ fn fr_50_query_text_hit_title_matches_the_derived_document_title()
 }
 
 #[test]
-fn fr_116_query_text_respects_exclude_paths_filter() -> Result<(), Box<dyn std::error::Error>> {
+fn query_text_respects_exclude_paths_filter() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, true, true)?;
     let (_roots, current_path) = vault_note(&vault, "notes/gadget.md", "# Gadget\n\nProse.\n")?;
-    let (_roots, superseded_path) =
-        vault_note(&vault, "notes/old/gadget.md", "# Old Gadget\n\nProse.\n")?;
+    let (_roots, superseded_path) = vault_note(&vault, "notes/old/gadget.md", "# Old Gadget\n\nProse.\n")?;
     apply(&service, &write_event(OpKind::Create, vec![current_path]))?;
-    apply(
-        &service,
-        &write_event(OpKind::Create, vec![superseded_path]),
-    )?;
+    apply(&service, &write_event(OpKind::Create, vec![superseded_path]))?;
 
     let (hits, _freshness) = service.query_text(&TextQuery {
         query: "prose",
@@ -247,8 +227,7 @@ fn graph_disabled_reports_the_stable_disabled_error() -> Result<(), Box<dyn std:
 }
 
 #[test]
-fn fr_52_graph_updates_through_create_move_and_delete_events()
--> Result<(), Box<dyn std::error::Error>> {
+fn graph_updates_through_create_move_and_delete_events() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, true, true)?;
 
@@ -261,19 +240,12 @@ fn fr_52_graph_updates_through_create_move_and_delete_events()
     apply(&service, &write_event(OpKind::Create, vec![a_path.clone()]))?;
 
     let neighbours = service.graph_neighbours("a.md", 1, GraphDirection::Out)?;
-    let mut paths: Vec<&str> = neighbours
-        .nodes
-        .iter()
-        .map(|node| node.path.as_str())
-        .collect();
+    let mut paths: Vec<&str> = neighbours.nodes.iter().map(|node| node.path.as_str()).collect();
     paths.sort_unstable();
     assert_eq!(paths, vec!["a.md", "b.md"]);
 
     let backlinks = service.graph_backlinks("b.md")?;
-    assert_eq!(
-        backlinks.nodes.iter().filter(|n| n.path == "a.md").count(),
-        1
-    );
+    assert_eq!(backlinks.nodes.iter().filter(|n| n.path == "a.md").count(), 1);
 
     let path_view = service.graph_path("a.md", "b.md", GraphDirection::Out)?;
     assert_eq!(path_view.edges.len(), 1);
@@ -282,16 +254,9 @@ fn fr_52_graph_updates_through_create_move_and_delete_events()
     // disappear from the graph.
     fs::rename(vault.path().join("a.md"), vault.path().join("c.md"))?;
     let c_path = vault_path(&vault, "c.md")?;
-    apply(
-        &service,
-        &write_event(OpKind::Move, vec![a_path, c_path.clone()]),
-    )?;
+    apply(&service, &write_event(OpKind::Move, vec![a_path, c_path.clone()]))?;
     let moved_backlinks = service.graph_backlinks("b.md")?;
-    let moved_paths: Vec<&str> = moved_backlinks
-        .nodes
-        .iter()
-        .map(|node| node.path.as_str())
-        .collect();
+    let moved_paths: Vec<&str> = moved_backlinks.nodes.iter().map(|node| node.path.as_str()).collect();
     assert!(moved_paths.contains(&"c.md"));
     assert!(!moved_paths.contains(&"a.md"));
 
@@ -305,8 +270,7 @@ fn fr_52_graph_updates_through_create_move_and_delete_events()
 }
 
 #[test]
-fn fr_52_malformed_wikilink_syntax_degrades_without_failing_the_update()
--> Result<(), Box<dyn std::error::Error>> {
+fn malformed_wikilink_syntax_degrades_without_failing_the_update() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, true, true)?;
     // An unterminated wikilink is rejected by the markdown parser; the
@@ -321,7 +285,7 @@ fn fr_52_malformed_wikilink_syntax_degrades_without_failing_the_update()
 }
 
 #[test]
-fn fr_55_status_reports_document_and_graph_counts() -> Result<(), Box<dyn std::error::Error>> {
+fn status_reports_document_and_graph_counts() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, true, true)?;
     let (_roots, b_path) = vault_note(&vault, "b.md", "# B\n\nno links\n")?;
@@ -341,7 +305,7 @@ fn fr_55_status_reports_document_and_graph_counts() -> Result<(), Box<dyn std::e
 }
 
 #[test]
-fn fr_55_status_reports_the_resolved_state_directory() -> Result<(), Box<dyn std::error::Error>> {
+fn status_reports_the_resolved_state_directory() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, true, true)?;
 
@@ -353,8 +317,7 @@ fn fr_55_status_reports_the_resolved_state_directory() -> Result<(), Box<dyn std
 }
 
 #[test]
-fn fr_55_rebuild_reconciles_external_edits_and_reports_zero_staleness_afterwards()
--> Result<(), Box<dyn std::error::Error>> {
+fn rebuild_reconciles_external_edits_and_reports_zero_staleness_afterwards() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, true, true)?;
     vault_note(&vault, "a.md", "# A\n\n[[b]]\n")?;
@@ -381,8 +344,7 @@ fn fr_55_rebuild_reconciles_external_edits_and_reports_zero_staleness_afterwards
 }
 
 #[test]
-fn fr_55_rebuild_with_progress_reports_text_and_graph_phase_boundaries()
--> Result<(), Box<dyn std::error::Error>> {
+fn rebuild_with_progress_reports_text_and_graph_phase_boundaries() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, true, true)?;
     vault_note(&vault, "a.md", "# A\n\n[[b]]\n")?;
@@ -404,8 +366,7 @@ fn fr_55_rebuild_with_progress_reports_text_and_graph_phase_boundaries()
 }
 
 #[test]
-fn fr_55_semantic_rebuild_with_progress_reports_one_update_per_document()
--> Result<(), Box<dyn std::error::Error>> {
+fn semantic_rebuild_with_progress_reports_one_update_per_document() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
     vault_note(&vault, "a.md", "# A\n\nFirst note.\n")?;
@@ -418,26 +379,17 @@ fn fr_55_semantic_rebuild_with_progress_reports_one_update_per_document()
     assert_eq!(
         observed,
         vec![
-            RebuildProgress::SemanticProgress {
-                completed: 1,
-                total: 3
-            },
-            RebuildProgress::SemanticProgress {
-                completed: 2,
-                total: 3
-            },
-            RebuildProgress::SemanticProgress {
-                completed: 3,
-                total: 3
-            },
+            RebuildProgress::SemanticProgress { completed: 1, total: 3 },
+            RebuildProgress::SemanticProgress { completed: 2, total: 3 },
+            RebuildProgress::SemanticProgress { completed: 3, total: 3 },
         ]
     );
     Ok(())
 }
 
 #[test]
-fn fr_55_semantic_rebuild_with_a_budget_returns_early_and_a_later_call_finishes_it()
--> Result<(), Box<dyn std::error::Error>> {
+fn semantic_rebuild_with_a_budget_returns_early_and_a_later_call_finishes_it() -> Result<(), Box<dyn std::error::Error>>
+{
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
     vault_note(&vault, "a.md", "# A\n\nFirst note.\n")?;
@@ -449,11 +401,7 @@ fn fr_55_semantic_rebuild_with_a_budget_returns_early_and_a_later_call_finishes_
     // them: the mechanism a client with a short request timeout relies on
     // to call `query_index_rebuild` repeatedly instead of hitting its own
     // timeout mid-rebuild.
-    let first = service.rebuild_with_budget(
-        RebuildTarget::Semantic,
-        Some(time::Duration::ZERO),
-        &mut |_| {},
-    )?;
+    let first = service.rebuild_with_budget(RebuildTarget::Semantic, Some(time::Duration::ZERO), &mut |_| {})?;
     let first_report = first.semantic.ok_or("expected a semantic rebuild report")?;
     assert_eq!(first_report.paths_scanned, 1);
     assert_eq!(
@@ -470,9 +418,7 @@ fn fr_55_semantic_rebuild_with_a_budget_returns_early_and_a_later_call_finishes_
     // A second, unbudgeted call against the same long-lived service
     // finishes whatever the first call left behind.
     let second = service.rebuild_with_budget(RebuildTarget::Semantic, None, &mut |_| {})?;
-    let second_report = second
-        .semantic
-        .ok_or("expected a semantic rebuild report")?;
+    let second_report = second.semantic.ok_or("expected a semantic rebuild report")?;
     assert_eq!(second_report.remaining, 0);
 
     let status_after = service.status()?;
@@ -482,7 +428,7 @@ fn fr_55_semantic_rebuild_with_a_budget_returns_early_and_a_later_call_finishes_
 }
 
 #[test]
-fn fr_55_repeated_budgeted_calls_converge_to_zero_remaining_without_reviving_completed_paths()
+fn repeated_budgeted_calls_converge_to_zero_remaining_without_reviving_completed_paths()
 -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
@@ -506,14 +452,8 @@ fn fr_55_repeated_budgeted_calls_converge_to_zero_remaining_without_reviving_com
     // a live vault).
     let mut previous_remaining = usize::MAX;
     for call in 1..=5 {
-        let report = service.rebuild_with_budget(
-            RebuildTarget::Semantic,
-            Some(time::Duration::ZERO),
-            &mut |_| {},
-        )?;
-        let semantic_report = report
-            .semantic
-            .ok_or("expected a semantic rebuild report")?;
+        let report = service.rebuild_with_budget(RebuildTarget::Semantic, Some(time::Duration::ZERO), &mut |_| {})?;
+        let semantic_report = report.semantic.ok_or("expected a semantic rebuild report")?;
         assert_eq!(
             semantic_report.paths_scanned, 1,
             "call {call}: a zero budget must process exactly one document"
@@ -537,7 +477,7 @@ fn fr_55_repeated_budgeted_calls_converge_to_zero_remaining_without_reviving_com
 }
 
 #[test]
-fn fr_55_semantic_rebuild_is_unavailable() -> Result<(), Box<dyn std::error::Error>> {
+fn semantic_rebuild_is_unavailable() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = service_at(&vault, true, true)?;
 
@@ -556,8 +496,7 @@ fn fr_55_semantic_rebuild_is_unavailable() -> Result<(), Box<dyn std::error::Err
 /// `rebuild`, `drain_semantic_queue` must never discover an unenqueued
 /// file by walking the vault, regardless of how many files exist.
 #[test]
-fn fr_55_drain_semantic_queue_never_walks_the_vault_to_discover_unqueued_files()
--> Result<(), Box<dyn std::error::Error>> {
+fn drain_semantic_queue_never_walks_the_vault_to_discover_unqueued_files() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
     vault_note(&vault, "note.md", "# Note\n\nStable content.\n")?;
@@ -573,8 +512,7 @@ fn fr_55_drain_semantic_queue_never_walks_the_vault_to_discover_unqueued_files()
 }
 
 #[test]
-fn fr_55_drain_semantic_queue_drains_only_what_was_explicitly_enqueued()
--> Result<(), Box<dyn std::error::Error>> {
+fn drain_semantic_queue_drains_only_what_was_explicitly_enqueued() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
     let (_roots, path) = vault_note(&vault, "note.md", "# Note\n\nStable content.\n")?;
@@ -589,15 +527,11 @@ fn fr_55_drain_semantic_queue_drains_only_what_was_explicitly_enqueued()
 }
 
 #[test]
-fn fr_53_query_semantic_returns_the_matching_chunk_with_score_and_heading_context()
--> Result<(), Box<dyn std::error::Error>> {
+fn query_semantic_returns_the_matching_chunk_with_score_and_heading_context() -> Result<(), Box<dyn std::error::Error>>
+{
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
-    let (_roots, path) = vault_note(
-        &vault,
-        "notes/alpha.md",
-        "# Alpha\n\nGadget prose about widgets.\n",
-    )?;
+    let (_roots, path) = vault_note(&vault, "notes/alpha.md", "# Alpha\n\nGadget prose about widgets.\n")?;
     apply(&service, &write_event(OpKind::Create, vec![path]))?;
 
     // `update` only enqueues; a rebuild forces the queued path through the
@@ -622,7 +556,7 @@ fn fr_53_query_semantic_returns_the_matching_chunk_with_score_and_heading_contex
 }
 
 #[test]
-fn fr_53_query_semantic_respects_path_prefix_filter() -> Result<(), Box<dyn std::error::Error>> {
+fn query_semantic_respects_path_prefix_filter() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
     let (_roots, a_path) = vault_note(&vault, "a/note.md", "# A\n\nContent in a.\n")?;
@@ -644,7 +578,7 @@ fn fr_53_query_semantic_respects_path_prefix_filter() -> Result<(), Box<dyn std:
 }
 
 #[test]
-fn fr_116_query_semantic_respects_exclude_paths_filter() -> Result<(), Box<dyn std::error::Error>> {
+fn query_semantic_respects_exclude_paths_filter() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
     let (_roots, a_path) = vault_note(&vault, "a/note.md", "# A\n\nContent in a.\n")?;
@@ -666,7 +600,7 @@ fn fr_116_query_semantic_respects_exclude_paths_filter() -> Result<(), Box<dyn s
 }
 
 #[test]
-fn fr_53_query_semantic_limit_zero_returns_no_hits() -> Result<(), Box<dyn std::error::Error>> {
+fn query_semantic_limit_zero_returns_no_hits() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
     let (_roots, path) = vault_note(&vault, "note.md", "# Note\n\nSome content.\n")?;
@@ -684,8 +618,7 @@ fn fr_53_query_semantic_limit_zero_returns_no_hits() -> Result<(), Box<dyn std::
 }
 
 #[test]
-fn fr_53_query_semantic_skips_a_hit_whose_source_changed_since_it_was_embedded()
--> Result<(), Box<dyn std::error::Error>> {
+fn query_semantic_skips_a_hit_whose_source_changed_since_it_was_embedded() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
     let (_roots, path) = vault_note(&vault, "note.md", "# Note\n\nOriginal content.\n")?;
@@ -708,8 +641,7 @@ fn fr_53_query_semantic_skips_a_hit_whose_source_changed_since_it_was_embedded()
 }
 
 #[test]
-fn fr_55_status_reports_semantic_document_and_chunk_counts_and_staleness()
--> Result<(), Box<dyn std::error::Error>> {
+fn status_reports_semantic_document_and_chunk_counts_and_staleness() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
     let (_roots, path) = vault_note(
@@ -732,9 +664,7 @@ fn fr_55_status_reports_semantic_document_and_chunk_counts_and_staleness()
     );
 
     let report = service.rebuild(RebuildTarget::Semantic)?;
-    let semantic_report = report
-        .semantic
-        .ok_or("expected a semantic rebuild report")?;
+    let semantic_report = report.semantic.ok_or("expected a semantic rebuild report")?;
     assert_eq!(semantic_report.paths_scanned, 1);
     assert_eq!(semantic_report.embedded, 2);
     assert_eq!(semantic_report.skipped, 0);
@@ -749,8 +679,7 @@ fn fr_55_status_reports_semantic_document_and_chunk_counts_and_staleness()
 }
 
 #[test]
-fn fr_53_fr_55_rebuild_skips_unchanged_chunks_on_a_second_pass()
--> Result<(), Box<dyn std::error::Error>> {
+fn rebuild_skips_unchanged_chunks_on_a_second_pass() -> Result<(), Box<dyn std::error::Error>> {
     let vault = vault_dir()?;
     let service = semantic_service_at(&vault)?;
     vault_note(&vault, "note.md", "# Note\n\nStable content.\n")?;
@@ -761,9 +690,7 @@ fn fr_53_fr_55_rebuild_skips_unchanged_chunks_on_a_second_pass()
     assert_eq!(first_report.skipped, 0);
 
     let second = service.rebuild(RebuildTarget::Semantic)?;
-    let second_report = second
-        .semantic
-        .ok_or("expected a semantic rebuild report")?;
+    let second_report = second.semantic.ok_or("expected a semantic rebuild report")?;
     assert_eq!(second_report.embedded, 0);
     assert_eq!(second_report.skipped, 1);
     Ok(())

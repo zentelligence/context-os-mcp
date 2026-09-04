@@ -35,10 +35,9 @@ use inquire::{Confirm, Select, Text};
 use thiserror::Error;
 
 use crate::{
-    Config, ConfigDocument, ConfigError, ConfigIoError, ConfigWriterError, DetectsRunningProcesses,
-    HostPathError, HostPathResolution, HostRegistrationError, IndexCliError, IndexReport,
-    ModelCliError, RegisteredServer, VaultSummary, is_claude_desktop_running, load_config_document,
-    register, write_config_document,
+    Config, ConfigDocument, ConfigError, ConfigIoError, ConfigWriterError, DetectsRunningProcesses, HostPathError,
+    HostPathResolution, HostRegistrationError, IndexCliError, IndexReport, ModelCliError, RegisteredServer,
+    VaultSummary, is_claude_desktop_running, load_config_document, register, write_config_document,
 };
 
 /// One operator interaction the interview wizard needs: a yes/no question
@@ -99,23 +98,16 @@ impl Interviewer for TerminalInterviewer {
     }
 
     fn ask_with_default(&mut self, prompt: &str, default: &str) -> Result<String, InterviewError> {
-        Ok(Text::new(prompt)
-            .with_default(default)
-            .prompt()?
-            .trim()
-            .to_owned())
+        Ok(Text::new(prompt).with_default(default).prompt()?.trim().to_owned())
     }
 
     fn choose(&mut self, prompt: &str, options: &[&str]) -> Result<usize, InterviewError> {
         let selection = Select::new(prompt, options.to_vec()).prompt()?;
-        options
-            .iter()
-            .position(|option| *option == selection)
-            .ok_or_else(|| {
-                InterviewError::Prompt(inquire::InquireError::Custom(
-                    "selected option not found among the offered choices".into(),
-                ))
-            })
+        options.iter().position(|option| *option == selection).ok_or_else(|| {
+            InterviewError::Prompt(inquire::InquireError::Custom(
+                "selected option not found among the offered choices".into(),
+            ))
+        })
     }
 }
 
@@ -200,25 +192,13 @@ impl Display for InterviewReport {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         writeln!(formatter, "ContextOS MCP guided setup")?;
         if !self.added_vaults.is_empty() {
-            writeln!(
-                formatter,
-                "Added vault(s): {}",
-                self.added_vaults.join(", ")
-            )?;
+            writeln!(formatter, "Added vault(s): {}", self.added_vaults.join(", "))?;
         }
         if !self.edited_vaults.is_empty() {
-            writeln!(
-                formatter,
-                "Edited vault(s): {}",
-                self.edited_vaults.join(", ")
-            )?;
+            writeln!(formatter, "Edited vault(s): {}", self.edited_vaults.join(", "))?;
         }
         if !self.removed_vaults.is_empty() {
-            writeln!(
-                formatter,
-                "Removed vault(s): {}",
-                self.removed_vaults.join(", ")
-            )?;
+            writeln!(formatter, "Removed vault(s): {}", self.removed_vaults.join(", "))?;
         }
         if self.server_settings_changed {
             writeln!(formatter, "Server settings updated")?;
@@ -237,11 +217,7 @@ impl Display for InterviewReport {
                 writeln!(formatter, "Claude Desktop registration skipped")?;
             }
             HostRegistrationOutcome::Registered { host_path } => {
-                writeln!(
-                    formatter,
-                    "Registered with Claude Desktop at {}",
-                    host_path.display()
-                )?;
+                writeln!(formatter, "Registered with Claude Desktop at {}", host_path.display())?;
             }
             HostRegistrationOutcome::HostRunning { host_path } => {
                 writeln!(
@@ -288,8 +264,7 @@ pub fn run_interview(
     match existing.len() {
         0 => {}
         1 => {
-            let updated_name =
-                edit_existing_vault(interviewer, &mut document, environment, &existing[0])?;
+            let updated_name = edit_existing_vault(interviewer, &mut document, environment, &existing[0])?;
             edited_vaults.push(updated_name);
         }
         _ => {
@@ -319,18 +294,13 @@ pub fn run_interview(
     }
 
     let semantic_model_directory = if !added_vaults.is_empty()
-        && interviewer.confirm(
-            "Enable semantic search for the vault(s) you just added?",
-            false,
-        )? {
-        let model_directory =
-            if interviewer.confirm("Download the local embedding model now?", true)? {
-                (environment.download_model)(&environment.model_cache_dir)?
-            } else {
-                parse_manual_path(
-                    &interviewer.ask("Path to an existing local embedding model directory:")?,
-                )
-            };
+        && interviewer.confirm("Enable semantic search for the vault(s) you just added?", false)?
+    {
+        let model_directory = if interviewer.confirm("Download the local embedding model now?", true)? {
+            (environment.download_model)(&environment.model_cache_dir)?
+        } else {
+            parse_manual_path(&interviewer.ask("Path to an existing local embedding model directory:")?)
+        };
         for name in &added_vaults {
             document.enable_semantic_search(name, &model_directory)?;
         }
@@ -344,12 +314,11 @@ pub fn run_interview(
     let config = Config::try_from(document.render().as_str())?;
     let index_summary = IndexReport::try_from(&config)?;
 
-    let host_registration =
-        if interviewer.confirm("Register this server with Claude Desktop now?", true)? {
-            register_with_host(interviewer, environment)?
-        } else {
-            HostRegistrationOutcome::Skipped
-        };
+    let host_registration = if interviewer.confirm("Register this server with Claude Desktop now?", true)? {
+        register_with_host(interviewer, environment)?
+    } else {
+        HostRegistrationOutcome::Skipped
+    };
 
     Ok(InterviewReport {
         added_vaults,
@@ -365,10 +334,7 @@ pub fn run_interview(
 /// Asks for one vault's name and path and appends it, the shared body of
 /// both the fresh-install mandatory loop and the already-configured
 /// optional "add a new vault?" loop.
-fn add_one_vault(
-    interviewer: &mut dyn Interviewer,
-    document: &mut ConfigDocument,
-) -> Result<String, InterviewError> {
+fn add_one_vault(interviewer: &mut dyn Interviewer, document: &mut ConfigDocument) -> Result<String, InterviewError> {
     let name = interviewer.ask("Vault name:")?;
     let path = interviewer.ask("Vault path (absolute, must already exist):")?;
     document.add_vault(&name, &parse_manual_path(&path), true)?;
@@ -390,16 +356,10 @@ fn edit_existing_vault(
         "Vault path (absolute, must already exist):",
         &current.path.display().to_string(),
     )?;
-    let managed = interviewer.confirm(
-        &format!("Keep {name} managed (indexing, oplog, Git)?"),
-        current.managed,
-    )?;
+    let managed = interviewer.confirm(&format!("Keep {name} managed (indexing, oplog, Git)?"), current.managed)?;
     document.update_vault(&current.name, &name, &parse_manual_path(&path), managed)?;
 
-    let semantic = interviewer.confirm(
-        &format!("Enable semantic search for {name}?"),
-        current.semantic,
-    )?;
+    let semantic = interviewer.confirm(&format!("Enable semantic search for {name}?"), current.semantic)?;
     if semantic {
         let keep_existing = current.model_directory.is_some()
             && interviewer.confirm(
@@ -412,16 +372,13 @@ fn edit_existing_vault(
                 ),
                 true,
             )?;
-        let model_directory =
-            if let (true, Some(existing)) = (keep_existing, &current.model_directory) {
-                existing.clone()
-            } else if interviewer.confirm("Download the local embedding model now?", true)? {
-                (environment.download_model)(&environment.model_cache_dir)?
-            } else {
-                parse_manual_path(
-                    &interviewer.ask("Path to an existing local embedding model directory:")?,
-                )
-            };
+        let model_directory = if let (true, Some(existing)) = (keep_existing, &current.model_directory) {
+            existing.clone()
+        } else if interviewer.confirm("Download the local embedding model now?", true)? {
+            (environment.download_model)(&environment.model_cache_dir)?
+        } else {
+            parse_manual_path(&interviewer.ask("Path to an existing local embedding model directory:")?)
+        };
         document.enable_semantic_search(&name, &model_directory)?;
     } else if current.semantic {
         document.disable_semantic_search(&name)?;
@@ -441,11 +398,7 @@ fn focus_on_existing_configuration(
     removed_vaults: &mut Vec<String>,
     server_settings_changed: &mut bool,
 ) -> Result<(), InterviewError> {
-    let focus_options = [
-        "General (server) settings",
-        "All vaults",
-        "A specific vault",
-    ];
+    let focus_options = ["General (server) settings", "All vaults", "A specific vault"];
     loop {
         let focus = interviewer.choose("What would you like to focus on?", &focus_options)?;
         match focus {
@@ -455,19 +408,12 @@ fn focus_on_existing_configuration(
             }
             1 => {
                 for vault in document.vaults() {
-                    let updated_name =
-                        edit_existing_vault(interviewer, document, environment, &vault)?;
+                    let updated_name = edit_existing_vault(interviewer, document, environment, &vault)?;
                     edited_vaults.push(updated_name);
                 }
             }
             2 => {
-                focus_on_one_vault(
-                    interviewer,
-                    document,
-                    environment,
-                    edited_vaults,
-                    removed_vaults,
-                )?;
+                focus_on_one_vault(interviewer, document, environment, edited_vaults, removed_vaults)?;
             }
             _ => {
                 return Err(InterviewError::Prompt(inquire::InquireError::Custom(
@@ -532,13 +478,9 @@ fn edit_server_settings(
         .filter(|part| !part.is_empty())
         .collect();
     let log_level = interviewer
-        .ask_with_default(
-            "Log level (error, warn, info, debug, trace):",
-            &current.log_level,
-        )?
+        .ask_with_default("Log level (error, warn, info, debug, trace):", &current.log_level)?
         .to_ascii_lowercase();
-    let log_file =
-        interviewer.ask_with_default("Log file path (blank for stderr):", &current.log_file)?;
+    let log_file = interviewer.ask_with_default("Log file path (blank for stderr):", &current.log_file)?;
     document.set_server_settings(&transports, &log_level, &log_file)?;
     Ok(())
 }
@@ -619,11 +561,7 @@ fn parse_manual_path(raw: &str) -> PathBuf {
     let unquoted = trimmed
         .strip_prefix('"')
         .and_then(|rest| rest.strip_suffix('"'))
-        .or_else(|| {
-            trimmed
-                .strip_prefix('\'')
-                .and_then(|rest| rest.strip_suffix('\''))
-        })
+        .or_else(|| trimmed.strip_prefix('\'').and_then(|rest| rest.strip_suffix('\'')))
         .unwrap_or(trimmed);
     PathBuf::from(unquoted)
 }

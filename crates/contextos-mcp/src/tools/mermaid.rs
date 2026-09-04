@@ -34,9 +34,9 @@ impl ContextOsServer {
         let mermaid = Arc::clone(&self.mermaid);
         execute(move || {
             let source = resolve_mermaid_source(&roots, &filesystem, input)?;
-            Ok(StructuredValidationToolResult::from(
-                MermaidValidationSource(mermaid.validate(&source)),
-            ))
+            Ok(StructuredValidationToolResult::from(MermaidValidationSource(
+                mermaid.validate(&source),
+            )))
         })
         .await
     }
@@ -86,9 +86,7 @@ fn resolve_mermaid_source(
         (Some(_), Some(_)) => Err(ToolError::Invalid(
             "mermaid tools accept exactly one of 'path' or 'source', not both",
         )),
-        (None, None) => Err(ToolError::Invalid(
-            "mermaid tools require either 'path' or 'source'",
-        )),
+        (None, None) => Err(ToolError::Invalid("mermaid tools require either 'path' or 'source'")),
         (Some(raw), None) => {
             let path = VaultPath::try_from(VaultPathInput { roots, raw: &raw })?;
             let text = filesystem.read_text(&ReadTextRequest { path, limit: None })?;
@@ -175,10 +173,8 @@ impl TryFrom<MermaidRenderOutcome> for CallToolResult {
                 )]))
             }
             Err(diagnostics) => {
-                let result =
-                    StructuredValidationToolResult::from(MermaidValidationSource(diagnostics));
-                let value = serde_json::to_value(result)
-                    .map_err(ToolError::MermaidDiagnosticSerialisation)?;
+                let result = StructuredValidationToolResult::from(MermaidValidationSource(diagnostics));
+                let value = serde_json::to_value(result).map_err(ToolError::MermaidDiagnosticSerialisation)?;
                 Ok(Self::structured(value))
             }
         }

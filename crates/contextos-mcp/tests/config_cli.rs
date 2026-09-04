@@ -3,10 +3,7 @@ use std::process::Command;
 
 use tempfile::tempdir;
 
-fn contextos(
-    config: &std::path::Path,
-    args: &[&str],
-) -> Result<std::process::Output, Box<dyn std::error::Error>> {
+fn contextos(config: &std::path::Path, args: &[&str]) -> Result<std::process::Output, Box<dyn std::error::Error>> {
     Ok(Command::new(env!("CARGO_BIN_EXE_contextos"))
         .args(["--config", config.to_str().ok_or("non-UTF-8 config")?])
         .args(args)
@@ -14,8 +11,7 @@ fn contextos(
 }
 
 #[test]
-fn config_vault_add_creates_a_missing_config_file_and_adds_a_managed_vault()
--> Result<(), Box<dyn std::error::Error>> {
+fn config_vault_add_creates_a_missing_config_file_and_adds_a_managed_vault() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let vault = fixture.path().join("vault");
     fs::create_dir(&vault)?;
@@ -42,8 +38,7 @@ fn config_vault_add_creates_a_missing_config_file_and_adds_a_managed_vault()
 }
 
 #[test]
-fn config_vault_add_with_unmanaged_writes_managed_false() -> Result<(), Box<dyn std::error::Error>>
-{
+fn config_vault_add_with_unmanaged_writes_managed_false() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let vault = fixture.path().join("vault");
     fs::create_dir(&vault)?;
@@ -60,11 +55,7 @@ fn config_vault_add_with_unmanaged_writes_managed_false() -> Result<(), Box<dyn 
             "--unmanaged",
         ],
     )?;
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 
     let written = fs::read_to_string(&config)?;
     assert!(written.contains("managed = false"));
@@ -72,8 +63,7 @@ fn config_vault_add_with_unmanaged_writes_managed_false() -> Result<(), Box<dyn 
 }
 
 #[test]
-fn config_vault_add_rejects_a_nonexistent_path_and_creates_no_file()
--> Result<(), Box<dyn std::error::Error>> {
+fn config_vault_add_rejects_a_nonexistent_path_and_creates_no_file() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let missing = fixture.path().join("does-not-exist");
     let config = fixture.path().join("config.toml");
@@ -95,8 +85,7 @@ fn config_vault_add_rejects_a_nonexistent_path_and_creates_no_file()
 }
 
 #[test]
-fn config_vault_list_reports_no_vaults_for_a_missing_config_file()
--> Result<(), Box<dyn std::error::Error>> {
+fn config_vault_list_reports_no_vaults_for_a_missing_config_file() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let config = fixture.path().join("config.toml");
 
@@ -122,19 +111,9 @@ fn config_vault_add_list_remove_round_trips() -> Result<(), Box<dyn std::error::
     for (name, path) in [("mine", &vault), ("other", &other_vault)] {
         let add = contextos(
             &config,
-            &[
-                "config",
-                "vault",
-                "add",
-                name,
-                path.to_str().ok_or("non-UTF-8 vault")?,
-            ],
+            &["config", "vault", "add", name, path.to_str().ok_or("non-UTF-8 vault")?],
         )?;
-        assert!(
-            add.status.success(),
-            "{}",
-            String::from_utf8_lossy(&add.stderr)
-        );
+        assert!(add.status.success(), "{}", String::from_utf8_lossy(&add.stderr));
     }
 
     let list = contextos(&config, &["config", "vault", "list"])?;
@@ -172,11 +151,7 @@ fn config_vault_remove_rejects_removing_the_last_vault() -> Result<(), Box<dyn s
             vault.to_str().ok_or("non-UTF-8 vault")?,
         ],
     )?;
-    assert!(
-        add.status.success(),
-        "{}",
-        String::from_utf8_lossy(&add.stderr)
-    );
+    assert!(add.status.success(), "{}", String::from_utf8_lossy(&add.stderr));
 
     let output = contextos(&config, &["config", "vault", "remove", "mine"])?;
 
@@ -187,8 +162,7 @@ fn config_vault_remove_rejects_removing_the_last_vault() -> Result<(), Box<dyn s
 }
 
 #[test]
-fn config_mcp_register_then_status_then_deregister_round_trips()
--> Result<(), Box<dyn std::error::Error>> {
+fn config_mcp_register_then_status_then_deregister_round_trips() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let config = fixture.path().join("config.toml");
     let host_config = fixture.path().join("claude_desktop_config.json");
@@ -275,8 +249,7 @@ fn config_mcp_register_then_status_then_deregister_round_trips()
 }
 
 #[test]
-fn config_mcp_register_preserves_unrelated_host_config_content()
--> Result<(), Box<dyn std::error::Error>> {
+fn config_mcp_register_preserves_unrelated_host_config_content() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = tempdir()?;
     let config = fixture.path().join("config.toml");
     let host_config = fixture.path().join("claude_desktop_config.json");

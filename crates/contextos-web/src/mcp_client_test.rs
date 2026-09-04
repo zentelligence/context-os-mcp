@@ -20,8 +20,8 @@ async fn a_process_that_exits_without_ever_completing_the_handshake_is_a_startup
     // The process exits immediately without writing a response: the
     // transport observes a closed stream while still waiting for the
     // `initialize` response, so the handshake fails fast rather than
-    // hanging, exercising FR-204's "startup error, not a lazily-discovered
-    // one" without needing a real MCP server binary. Bounded by an explicit
+    // hanging, exercising the "startup error, not a lazily-discovered one"
+    // requirement without needing a real MCP server binary. Bounded by an explicit
     // timeout as a safety net, not as the thing under test: the assertion
     // on the inner `Result` is what proves this fails fast, not the bound.
     let entry = McpServerConfig::Stdio {
@@ -30,12 +30,7 @@ async fn a_process_that_exits_without_ever_completing_the_handshake_is_a_startup
         args: vec!["-c".to_owned(), "exit 0".to_owned()],
     };
 
-    let Ok(result) = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        McpClient::connect(&entry),
-    )
-    .await
-    else {
+    let Ok(result) = tokio::time::timeout(std::time::Duration::from_secs(5), McpClient::connect(&entry)).await else {
         return Err("connect() must fail fast, not hang, once the child process exits".into());
     };
 
@@ -62,8 +57,5 @@ async fn an_http_entry_with_an_unset_token_env_fails_before_connecting() {
 
     let result = McpClient::connect(&entry).await;
 
-    assert!(matches!(
-        result,
-        Err(McpConnectError::MissingTokenEnv { .. })
-    ));
+    assert!(matches!(result, Err(McpConnectError::MissingTokenEnv { .. })));
 }

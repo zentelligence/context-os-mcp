@@ -22,10 +22,9 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use contextos_core::{
-    AppendMutation, AppendOutcome, AppendsVault, DeleteMutation, DeleteOutcome, ListsVault,
-    MoveMutation, MoveOutcome, MovesVault, PathError, PipelineResult, ReadsVault, RestoreMutation,
-    VaultEntry, VaultPath, VaultPathInput, VaultRootId, VaultSet, VaultText, WriteMutation,
-    WriteOutcome, WritesVault,
+    AppendMutation, AppendOutcome, AppendsVault, DeleteMutation, DeleteOutcome, ListsVault, MoveMutation, MoveOutcome,
+    MovesVault, PathError, PipelineResult, ReadsVault, RestoreMutation, VaultEntry, VaultPath, VaultPathInput,
+    VaultRootId, VaultSet, VaultText, WriteMutation, WriteOutcome, WritesVault,
 };
 use contextos_fs::{Filesystem, FsError};
 use contextos_search::VaultSearchService;
@@ -73,8 +72,7 @@ pub struct ModuleCall {
 }
 
 /// Boxed future returned by [`ServerModule::handle`].
-pub type ServerModuleFuture<'a> =
-    Pin<Box<dyn Future<Output = Result<CallToolResult, ErrorData>> + Send + 'a>>;
+pub type ServerModuleFuture<'a> = Pin<Box<dyn Future<Output = Result<CallToolResult, ErrorData>> + Send + 'a>>;
 
 /// An in-process extension module. Implementors receive core
 /// capabilities through the injected [`ModuleContext`], which exposes no
@@ -155,9 +153,7 @@ impl ModuleRegistry {
 
 #[derive(Debug, Error, Eq, PartialEq)]
 pub enum ModuleRegistryError {
-    #[error(
-        "module {module:?} tool {tool_name:?} is not namespaced under its declared prefix {prefix:?}"
-    )]
+    #[error("module {module:?} tool {tool_name:?} is not namespaced under its declared prefix {prefix:?}")]
     UnnamespacedTool {
         module: String,
         tool_name: String,
@@ -294,10 +290,7 @@ impl ModuleContext {
     ///
     /// Returns the adapter's typed error for every failure other than
     /// absence.
-    pub async fn read_optional_text(
-        &self,
-        path: &VaultPath,
-    ) -> Result<Option<VaultText>, ModuleContextError> {
+    pub async fn read_optional_text(&self, path: &VaultPath) -> Result<Option<VaultText>, ModuleContextError> {
         let reads = Arc::clone(&self.reads);
         let path = path.clone();
         Ok(tokio::task::spawn_blocking(move || reads.read_optional_text(&path)).await??)
@@ -335,15 +328,10 @@ impl ModuleContext {
     ///
     /// Returns the primary persistence error. Secondary failures remain in
     /// the successful result's warnings.
-    pub async fn write(
-        &self,
-        request: WriteMutation,
-    ) -> Result<PipelineResult<WriteOutcome>, ModuleContextError> {
+    pub async fn write(&self, request: WriteMutation) -> Result<PipelineResult<WriteOutcome>, ModuleContextError> {
         let root = request.path.root_id();
         let mutations = Arc::clone(&self.mutations);
-        Ok(self
-            .locked(&[root], move || mutations.persist(&request))
-            .await??)
+        Ok(self.locked(&[root], move || mutations.persist(&request)).await??)
     }
 
     /// Materialises historical content as a new forward mutation.
@@ -352,15 +340,10 @@ impl ModuleContext {
     ///
     /// Returns the primary persistence error. Secondary failures remain in
     /// the successful result's warnings.
-    pub async fn restore(
-        &self,
-        request: RestoreMutation,
-    ) -> Result<PipelineResult<WriteOutcome>, ModuleContextError> {
+    pub async fn restore(&self, request: RestoreMutation) -> Result<PipelineResult<WriteOutcome>, ModuleContextError> {
         let root = request.path.root_id();
         let mutations = Arc::clone(&self.mutations);
-        Ok(self
-            .locked(&[root], move || mutations.restore(&request))
-            .await??)
+        Ok(self.locked(&[root], move || mutations.restore(&request)).await??)
     }
 
     /// Deletes a validated file or empty directory through the shared
@@ -370,15 +353,10 @@ impl ModuleContext {
     ///
     /// Returns the primary persistence error. Secondary failures remain in
     /// the successful result's warnings.
-    pub async fn delete(
-        &self,
-        request: DeleteMutation,
-    ) -> Result<PipelineResult<DeleteOutcome>, ModuleContextError> {
+    pub async fn delete(&self, request: DeleteMutation) -> Result<PipelineResult<DeleteOutcome>, ModuleContextError> {
         let root = request.path.root_id();
         let mutations = Arc::clone(&self.mutations);
-        Ok(self
-            .locked(&[root], move || mutations.delete(&request))
-            .await??)
+        Ok(self.locked(&[root], move || mutations.delete(&request)).await??)
     }
 
     /// Appends one complete record through the shared pipeline, initialising
@@ -388,15 +366,10 @@ impl ModuleContext {
     ///
     /// Returns the primary persistence error. Secondary failures remain in
     /// the successful result's warnings.
-    pub async fn append(
-        &self,
-        request: AppendMutation,
-    ) -> Result<PipelineResult<AppendOutcome>, ModuleContextError> {
+    pub async fn append(&self, request: AppendMutation) -> Result<PipelineResult<AppendOutcome>, ModuleContextError> {
         let root = request.path.root_id();
         let mutations = Arc::clone(&self.mutations);
-        Ok(self
-            .locked(&[root], move || mutations.append(&request))
-            .await??)
+        Ok(self.locked(&[root], move || mutations.append(&request)).await??)
     }
 
     /// Moves one path through the shared pipeline without replacing an
@@ -406,15 +379,10 @@ impl ModuleContext {
     ///
     /// Returns the primary persistence error. Secondary failures remain in
     /// the successful result's warnings.
-    pub async fn move_path(
-        &self,
-        request: MoveMutation,
-    ) -> Result<PipelineResult<MoveOutcome>, ModuleContextError> {
+    pub async fn move_path(&self, request: MoveMutation) -> Result<PipelineResult<MoveOutcome>, ModuleContextError> {
         let roots = [request.source.root_id(), request.destination.root_id()];
         let mutations = Arc::clone(&self.mutations);
-        Ok(self
-            .locked(&roots, move || mutations.move_path(&request))
-            .await??)
+        Ok(self.locked(&roots, move || mutations.move_path(&request)).await??)
     }
 
     /// Acquires the write lock for every affected root, then runs `task` on
@@ -444,8 +412,8 @@ impl ModuleContext {
 #[cfg(test)]
 mod tests {
     use super::{
-        ModuleCall, ModuleContext, ModuleManifest, ModuleNamespace, ModuleRegistry,
-        ModuleRegistryError, ServerModule, ServerModuleFuture, Tool,
+        ModuleCall, ModuleContext, ModuleManifest, ModuleNamespace, ModuleRegistry, ModuleRegistryError, ServerModule,
+        ServerModuleFuture, Tool,
     };
 
     struct FixedModule {
@@ -465,14 +433,8 @@ mod tests {
                 .collect()
         }
 
-        fn handle<'a>(
-            &'a self,
-            _call: ModuleCall,
-            _ctx: &'a ModuleContext,
-        ) -> ServerModuleFuture<'a> {
-            Box::pin(async {
-                unreachable!("fixture module handle is not exercised by these tests")
-            })
+        fn handle<'a>(&'a self, _call: ModuleCall, _ctx: &'a ModuleContext) -> ServerModuleFuture<'a> {
+            Box::pin(async { unreachable!("fixture module handle is not exercised by these tests") })
         }
     }
 

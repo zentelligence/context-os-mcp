@@ -53,3 +53,21 @@ Manages this server's entry in an MCP host's own configuration file. Currently s
 - `register --host <host> [--config-path <path>] [--force]` — add or update the entry. `--force` proceeds even though the host is detected running (logging a warning) instead of refusing.
 - `deregister --host <host> [--config-path <path>] [--force]` — remove the entry.
 - `status --host <host> [--config-path <path>]` — report whether the server is currently registered, without writing.
+
+## `contextos-web`
+
+The web UI server, installed as a second binary alongside `contextos`.
+
+| Flag | Effect |
+| --- | --- |
+| `--config <path>` | Load web-server configuration from this TOML file (default `web.toml`); also the path a `service install` embeds into the generated service definition's own `--config` argument |
+
+With no subcommand, starts the HTTP server on the configured bind and blocks until shut down.
+
+### `contextos-web service <install|uninstall|status>`
+
+Installs, removes, or reports on `contextos-web` running as an auto-starting, per-user background service: a `systemd --user` unit on Linux, a `launchd` `LaunchAgent` on macOS, or a Scheduled Task (logon trigger) on Windows. None of the three needs elevation, and none runs with any elevated privilege.
+
+- `install` — install (or re-install, overwriting any existing definition) and start the service immediately.
+- `uninstall` — stop and remove the service. Reports that nothing was installed, rather than failing, when no service is registered.
+- `status` — report whether the service is installed and running, without changing anything.

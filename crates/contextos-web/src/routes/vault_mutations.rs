@@ -1,8 +1,8 @@
-//! `POST`/`PATCH`/`PUT`/`DELETE /{{vault_name}}/{{relative-path}}`
-//! (`FR-225a`): HTMX-driven mutation of vault content, dispatched to the
+//! `POST`/`PATCH`/`PUT`/`DELETE /{{vault_name}}/{{relative-path}}`:
+//! HTMX-driven mutation of vault content, dispatched to the
 //! MCP tool appropriate to the file's type and the specific edit, never a
 //! direct write from `contextos-web` itself. A file type or edit with no
-//! defined mutation path (a `.canvas` file, read-only per `FR-223`)
+//! defined mutation path (a `.canvas` file, read-only here)
 //! returns `405`.
 
 use axum::Json;
@@ -44,10 +44,7 @@ pub async fn mutate(
     body: axum::body::Bytes,
 ) -> Response {
     let Some(client) = state.clients.get(&state.primary_server) else {
-        return error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "mcp/server-not-configured",
-        );
+        return error(StatusCode::INTERNAL_SERVER_ERROR, "mcp/server-not-configured");
     };
     let extension = extension_of(&relative_path).to_ascii_lowercase();
     match extension.as_str() {
@@ -98,8 +95,7 @@ async fn mutate_md(
 /// (`target = "row"`) dispatches `frontmatter_update` against that row's
 /// own note path, never the `.base` file's path; editing the view
 /// definition itself (`target = "definition"`) dispatches `base_apply`
-/// against the `.base` file's own path. The two are never conflated
-/// (`FR-222`).
+/// against the `.base` file's own path. The two are never conflated.
 #[derive(Debug, Deserialize)]
 #[serde(tag = "target", rename_all = "lowercase")]
 enum BaseMutationBody {
@@ -142,10 +138,7 @@ async fn mutate_base(
                     expected_hash,
                 } => {
                     let mut args = Map::new();
-                    args.insert(
-                        "path".to_owned(),
-                        Value::String(format!("{vault_name}://{note_path}")),
-                    );
+                    args.insert("path".to_owned(), Value::String(format!("{vault_name}://{note_path}")));
                     args.insert("patch".to_owned(), Value::Object(patch));
                     if let Some(hash) = expected_hash {
                         args.insert("expected_hash".to_owned(), Value::String(hash));
@@ -155,16 +148,7 @@ async fn mutate_base(
                 BaseMutationBody::Definition {
                     operations,
                     expected_hash,
-                } => {
-                    apply_base_definition(
-                        client,
-                        vault_name,
-                        relative_path,
-                        operations,
-                        expected_hash,
-                    )
-                    .await
-                }
+                } => apply_base_definition(client, vault_name, relative_path, operations, expected_hash).await,
             }
         }
         // A `.base` route's own DELETE removes a filter/view/formula from
@@ -211,12 +195,7 @@ async fn apply_base_definition(
 /// extension) still accepts `DELETE`, since `fs_delete_file` operates on
 /// any file (`web-routes.md` §2: "`fs_delete_file` for `DELETE` on any
 /// file"); `POST`/`PATCH`/`PUT` have no defined target here and are `405`.
-async fn mutate_generic(
-    client: &McpClient,
-    vault_name: &str,
-    relative_path: &str,
-    method: &Method,
-) -> Response {
+async fn mutate_generic(client: &McpClient, vault_name: &str, relative_path: &str, method: &Method) -> Response {
     match *method {
         Method::DELETE => delete_file(client, vault_name, relative_path).await,
         _ => method_not_allowed(),
@@ -234,7 +213,7 @@ async fn delete_file(client: &McpClient, vault_name: &str, relative_path: &str) 
 
 /// Calls `tool_name` and relays whatever the tool reports (success or an
 /// MCP-level tool error) as `200`, the same non-conflation-of-transport-
-/// versus-tool-error contract the MCP proxy route uses (`FR-213`); only an
+/// versus-tool-error contract the MCP proxy route uses; only an
 /// unreachable transport is `502`.
 async fn forward(client: &McpClient, tool_name: &str, args: Map<String, Value>) -> Response {
     match client.call_tool(tool_name.to_owned(), args).await {

@@ -1,11 +1,10 @@
-//! `.canvas` SVG rendering (`web-rendering.md` §3, FR-223, FR-243): a JSON
-//! Canvas 1.0 document (`obsidian:json-canvas` skill), laid out to SVG
-//! using each node's own `x`/`y`/`width`/`height`. No auto-layout runs at
-//! any point: every coordinate used is the one the file itself already
-//! carries.
+//! `.canvas` SVG rendering (`web-rendering.md` §3): a JSON Canvas 1.0
+//! document (`obsidian:json-canvas` skill), laid out to SVG using each
+//! node's own `x`/`y`/`width`/`height`. No auto-layout runs at any point:
+//! every coordinate used is the one the file itself already carries.
 //!
 //! A `canvas_read` diagnostic (dangling edge, duplicate id, unparseable
-//! file, `D-31`) is the caller's signal to render
+//! file) is the caller's signal to render
 //! [`diagnostics::render_diagnostic_panel`](super::diagnostics::render_diagnostic_panel)
 //! instead of calling [`render_svg`] at all; this module assumes it is
 //! only ever asked to lay out an already-diagnostic-free node/edge set.
@@ -71,32 +70,16 @@ impl CanvasNode {
     fn geometry(&self) -> (f64, f64, f64, f64) {
         match self {
             Self::Text {
-                x,
-                y,
-                width,
-                height,
-                ..
+                x, y, width, height, ..
             }
             | Self::File {
-                x,
-                y,
-                width,
-                height,
-                ..
+                x, y, width, height, ..
             }
             | Self::Link {
-                x,
-                y,
-                width,
-                height,
-                ..
+                x, y, width, height, ..
             }
             | Self::Group {
-                x,
-                y,
-                width,
-                height,
-                ..
+                x, y, width, height, ..
             } => (*x, *y, *width, *height),
         }
     }
@@ -104,10 +87,7 @@ impl CanvasNode {
     #[must_use]
     fn id(&self) -> &str {
         match self {
-            Self::Text { id, .. }
-            | Self::File { id, .. }
-            | Self::Link { id, .. }
-            | Self::Group { id, .. } => id,
+            Self::Text { id, .. } | Self::File { id, .. } | Self::Link { id, .. } | Self::Group { id, .. } => id,
         }
     }
 
@@ -175,18 +155,12 @@ fn render_node_text(text: &str) -> String {
     for (index, block) in callouts_extracted.blocks.iter().enumerate() {
         let body_html = super::markdown::html_from_commonmark(&block.body);
         let rendered = super::callouts::render(&block.open, &body_html);
-        html = html.replace(
-            &format!("<p>{}</p>", super::callouts::placeholder(index)),
-            &rendered,
-        );
+        html = html.replace(&format!("<p>{}</p>", super::callouts::placeholder(index)), &rendered);
     }
     for (index, block) in fences_extracted.blocks.iter().enumerate() {
         let inner_html = super::markdown::html_from_commonmark(&block.inner);
         let rendered = super::fences::render(&block.open, &inner_html);
-        html = html.replace(
-            &format!("<p>{}</p>", super::fences::placeholder(index)),
-            &rendered,
-        );
+        html = html.replace(&format!("<p>{}</p>", super::fences::placeholder(index)), &rendered);
     }
     html
 }
@@ -246,9 +220,7 @@ fn render_node(node: &CanvasNode, vault_name: &str) -> String {
     let (x, y, w, h) = node.geometry();
     let id = escape_html(node.id());
     match node {
-        CanvasNode::Group {
-            label, background, ..
-        } => {
+        CanvasNode::Group { label, background, .. } => {
             let stroke = resolve_color(node.color(), "#b8b2a5");
             let fill = background.clone().unwrap_or_else(|| "none".to_owned());
             let label_html = label

@@ -11,8 +11,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use contextos_core::{
-    OpKind, OperationEvent, OperationWarning, PathError, UpdatesSearch, VaultPath, VaultPathInput,
-    VaultRoot, VaultRootId, VaultSet,
+    OpKind, OperationEvent, OperationWarning, PathError, UpdatesSearch, VaultPath, VaultPathInput, VaultRoot,
+    VaultRootId, VaultSet,
 };
 use serde::Serialize;
 use time::OffsetDateTime;
@@ -109,10 +109,7 @@ impl<I: IndexesText> TextSearchService<I> {
             };
             let modified = OffsetDateTime::from(system_modified);
 
-            if existing
-                .as_ref()
-                .is_some_and(|entry| entry.modified == modified)
-            {
+            if existing.as_ref().is_some_and(|entry| entry.modified == modified) {
                 report.scanned = report.scanned.saturating_add(1);
                 continue;
             }
@@ -172,11 +169,10 @@ impl<I: IndexesText> TextSearchService<I> {
             return self.index.remove(&relative);
         }
 
-        let content =
-            fs::read_to_string(&absolute).map_err(|source| SearchError::DocumentRead {
-                path: relative.clone(),
-                source,
-            })?;
+        let content = fs::read_to_string(&absolute).map_err(|source| SearchError::DocumentRead {
+            path: relative.clone(),
+            source,
+        })?;
         let metadata = fs::metadata(&absolute).map_err(|source| SearchError::DocumentRead {
             path: relative.clone(),
             source,
@@ -263,8 +259,7 @@ fn is_excluded(excludes: &[String], relative: &str) -> bool {
 /// Builds a single-root `VaultSet` from the already-resolved vault root, used
 /// to construct throwaway `VaultPath`s for files discovered by the walk.
 fn resolve_single_root_set(root: &Path) -> Result<VaultSet, SearchError> {
-    let vault_root =
-        VaultRoot::try_from(root.to_path_buf()).map_err(|source| root_error(root, source))?;
+    let vault_root = VaultRoot::try_from(root.to_path_buf()).map_err(|source| root_error(root, source))?;
     VaultSet::try_from(vec![vault_root]).map_err(|source| root_error(root, source))
 }
 
@@ -277,10 +272,7 @@ fn root_error(root: &Path, source: PathError) -> SearchError {
 
 /// Recursively walks `root` in deterministic sorted order, returning every
 /// markdown file not under an exclude prefix as a (relative, absolute) pair.
-fn collect_markdown_files(
-    root: &Path,
-    excludes: &[String],
-) -> Result<Vec<(String, PathBuf)>, SearchError> {
+fn collect_markdown_files(root: &Path, excludes: &[String]) -> Result<Vec<(String, PathBuf)>, SearchError> {
     let mut files = Vec::new();
     walk_directory(root, root, excludes, &mut files)?;
     files.sort_by(|left, right| left.0.cmp(&right.0));
@@ -310,12 +302,10 @@ fn walk_directory(
         if is_excluded(excludes, &relative) {
             continue;
         }
-        let file_type = entry
-            .file_type()
-            .map_err(|source| SearchError::DocumentRead {
-                path: path.display().to_string(),
-                source,
-            })?;
+        let file_type = entry.file_type().map_err(|source| SearchError::DocumentRead {
+            path: path.display().to_string(),
+            source,
+        })?;
         if file_type.is_dir() {
             walk_directory(root, &path, excludes, files)?;
         } else if file_type.is_file() && is_markdown(&relative) {

@@ -65,16 +65,14 @@ impl TryFrom<VaultRootInput> for VaultRoot {
     type Error = PathError;
 
     fn try_from(value: VaultRootInput) -> Result<Self, Self::Error> {
-        let resolved =
-            dunce::canonicalize(&value.path).map_err(|source| PathError::RootResolution {
-                path: value.path.clone(),
-                source,
-            })?;
+        let resolved = dunce::canonicalize(&value.path).map_err(|source| PathError::RootResolution {
+            path: value.path.clone(),
+            source,
+        })?;
         if !resolved.is_dir() {
             return Err(PathError::RootNotDirectory { path: resolved });
         }
-        let resolved =
-            Utf8PathBuf::from_path_buf(resolved).map_err(|path| PathError::NonUtf8 { path })?;
+        let resolved = Utf8PathBuf::from_path_buf(resolved).map_err(|path| PathError::NonUtf8 { path })?;
         let name = match value.name {
             Some(name) => name,
             None => resolved
@@ -128,9 +126,7 @@ fn is_valid_scheme_token(name: &str) -> bool {
         return false;
     };
     first.is_ascii_alphabetic()
-        && chars.all(|character| {
-            character.is_ascii_alphanumeric() || matches!(character, '+' | '-' | '.')
-        })
+        && chars.all(|character| character.is_ascii_alphanumeric() || matches!(character, '+' | '-' | '.'))
 }
 
 /// The complete set of roots from trusted startup configuration.
@@ -220,8 +216,7 @@ impl VaultSet {
         let Some(root) = self.roots.get(index) else {
             return false;
         };
-        path.absolute.starts_with(&root.resolved)
-            && path.absolute == root.resolved.join(&path.relative)
+        path.absolute.starts_with(&root.resolved) && path.absolute == root.resolved.join(&path.relative)
     }
 }
 
@@ -286,10 +281,7 @@ impl VaultPath {
     pub fn try_from_vault_selector(roots: &VaultSet, raw: &str) -> Result<Self, PathError> {
         if roots.root_by_name(raw).is_some() {
             let prefixed = format!("{raw}://.");
-            return Self::try_from(VaultPathInput {
-                roots,
-                raw: &prefixed,
-            });
+            return Self::try_from(VaultPathInput { roots, raw: &prefixed });
         }
         Self::try_from(VaultPathInput { roots, raw })
     }
@@ -326,10 +318,7 @@ impl TryFrom<VaultPathInput<'_>> for VaultPath {
                 .position(|root| supplied.starts_with(root.resolved.as_std_path()));
             (supplied.to_path_buf(), lexical_root)
         } else if value.roots.roots.len() == 1 {
-            (
-                value.roots.roots[0].resolved.as_std_path().join(supplied),
-                Some(0),
-            )
+            (value.roots.roots[0].resolved.as_std_path().join(supplied), Some(0))
         } else {
             return Err(PathError::AmbiguousRoot {
                 path: supplied.to_path_buf(),
@@ -345,11 +334,7 @@ impl VaultPath {
     /// after the prefix) against exactly the named root: an
     /// absolute `remainder` must still fall within that one root, never any
     /// other configured vault, so a name prefix never silently redirects.
-    fn resolve_within_named_root(
-        roots: &VaultSet,
-        root_index: usize,
-        remainder: &str,
-    ) -> Result<Self, PathError> {
+    fn resolve_within_named_root(roots: &VaultSet, root_index: usize, remainder: &str) -> Result<Self, PathError> {
         if remainder.is_empty() {
             return Err(PathError::EmptyNamedPrefixRemainder {
                 name: roots.roots[root_index].name().to_owned(),
@@ -360,9 +345,7 @@ impl VaultPath {
         let root = &roots.roots[root_index];
         let supplied = Path::new(remainder);
         let (candidate, lexical_root) = if supplied.is_absolute() {
-            let lexical_root = supplied
-                .starts_with(root.resolved.as_std_path())
-                .then_some(root_index);
+            let lexical_root = supplied.starts_with(root.resolved.as_std_path()).then_some(root_index);
             (supplied.to_path_buf(), lexical_root)
         } else {
             (root.resolved.as_std_path().join(supplied), Some(root_index))
@@ -406,10 +389,8 @@ impl VaultPath {
                 source,
             })?
             .to_path_buf();
-        let relative =
-            Utf8PathBuf::from_path_buf(relative).map_err(|path| PathError::NonUtf8 { path })?;
-        let absolute =
-            Utf8PathBuf::from_path_buf(resolved).map_err(|path| PathError::NonUtf8 { path })?;
+        let relative = Utf8PathBuf::from_path_buf(relative).map_err(|path| PathError::NonUtf8 { path })?;
+        let absolute = Utf8PathBuf::from_path_buf(resolved).map_err(|path| PathError::NonUtf8 { path })?;
         let root = VaultRootId::try_from(root_index)?;
 
         Ok(Self {
@@ -466,9 +447,7 @@ fn validate_windows_input(raw: &str) -> Result<(), PathError> {
 
     let bytes = raw.as_bytes();
     #[cfg(not(windows))]
-    if raw.starts_with(r"\\")
-        || (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':')
-    {
+    if raw.starts_with(r"\\") || (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':') {
         return Err(PathError::UnsupportedWindowsPath { path: raw.into() });
     }
     let without_drive = if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
@@ -512,11 +491,10 @@ fn resolve_with_missing_suffix(candidate: &Path) -> Result<PathBuf, PathError> {
         }
     }
 
-    let mut resolved =
-        dunce::canonicalize(ancestor).map_err(|source| PathError::PathResolution {
-            path: ancestor.to_path_buf(),
-            source,
-        })?;
+    let mut resolved = dunce::canonicalize(ancestor).map_err(|source| PathError::PathResolution {
+        path: ancestor.to_path_buf(),
+        source,
+    })?;
     for component in suffix.into_iter().rev() {
         resolved.push(component);
     }
@@ -626,9 +604,9 @@ impl PathError {
             Self::EmptyNamedPrefixRemainder { .. } => "path/empty-named-prefix",
             Self::InvalidName { .. } => "path/invalid-vault-name",
             Self::DuplicateName { .. } => "path/duplicate-vault-name",
-            Self::WindowsVerbatim { .. }
-            | Self::AlternateDataStream { .. }
-            | Self::UnsupportedWindowsPath { .. } => "path/invalid-windows-path",
+            Self::WindowsVerbatim { .. } | Self::AlternateDataStream { .. } | Self::UnsupportedWindowsPath { .. } => {
+                "path/invalid-windows-path"
+            }
             Self::RootResolution { .. }
             | Self::RootNotDirectory { .. }
             | Self::NoRoots
@@ -659,15 +637,11 @@ impl PathError {
                 "Append a relative path after the \"name://\" prefix, or use \"name://.\" to \
                  select the whole named vault."
             }
-            Self::NoRoots => {
-                "Configure at least one allowed vault directory and restart the server."
-            }
+            Self::NoRoots => "Configure at least one allowed vault directory and restart the server.",
             Self::RootResolution { .. } | Self::RootNotDirectory { .. } => {
                 "Configure an existing, readable directory as the vault root."
             }
-            Self::SymlinkEscape { .. } => {
-                "Use a path whose symlinks resolve within an allowed vault root."
-            }
+            Self::SymlinkEscape { .. } => "Use a path whose symlinks resolve within an allowed vault root.",
             Self::InvalidName { .. } => {
                 "Configure a vault name starting with a letter, containing only letters, \
                  digits, '+', '-', or '.', or remove the override to use the default folder \
@@ -681,9 +655,7 @@ impl PathError {
             | Self::OutsideRoot { .. }
             | Self::WindowsVerbatim { .. }
             | Self::AlternateDataStream { .. }
-            | Self::UnsupportedWindowsPath { .. } => {
-                "Use a normal path contained within an allowed vault root."
-            }
+            | Self::UnsupportedWindowsPath { .. } => "Use a normal path contained within an allowed vault root.",
             Self::TooManyRoots { .. }
             | Self::DuplicateRoot { .. }
             | Self::NonUtf8 { .. }

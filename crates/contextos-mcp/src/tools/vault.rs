@@ -4,9 +4,7 @@
 
 use std::sync::Arc;
 
-use contextos_core::{
-    Clock, OperationEvent, Origin, SystemClock, VaultPath, VaultPathInput, VaultSet,
-};
+use contextos_core::{Clock, OperationEvent, Origin, SystemClock, VaultPath, VaultPathInput, VaultSet};
 use contextos_fs::Filesystem;
 use contextos_git::GitError;
 use contextos_oplog::ManualLogInput;
@@ -64,8 +62,7 @@ impl ContextOsServer {
         let roots = Arc::clone(&self.roots);
         let indexes = Arc::clone(&self.indexes);
         let path = evaluate(move || {
-            VaultPath::try_from_vault_selector(&roots, input.path.as_deref().unwrap_or("."))
-                .map_err(ToolError::from)
+            VaultPath::try_from_vault_selector(&roots, input.path.as_deref().unwrap_or(".")).map_err(ToolError::from)
         })
         .await?;
         let root_index = usize::try_from(path.root_id()).map_err(ToolError::from)?;
@@ -131,11 +128,7 @@ impl ContextOsServer {
             .cloned()
             .flatten()
             .ok_or_else(|| ToolFailure::from(ToolError::OperationLogDisabled))?;
-        let guards = self
-            .writes
-            .lock_roots(&[root_id])
-            .await
-            .map_err(ToolFailure::from)?;
+        let guards = self.writes.lock_roots(&[root_id]).await.map_err(ToolFailure::from)?;
         execute(move || {
             let _guards = guards;
             let events = service.append_manual(&ManualLogInput {
@@ -166,11 +159,7 @@ impl From<&Config> for VaultInfoConfig {
                 .copied()
                 .map(TransportToolResult::from)
                 .collect(),
-            vaults: value
-                .vaults
-                .iter()
-                .map(VaultInfoConfiguredVault::from)
-                .collect(),
+            vaults: value.vaults.iter().map(VaultInfoConfiguredVault::from).collect(),
             resource_link_threshold_kb: value.server.resource_link_threshold_kb,
         }
     }
@@ -248,11 +237,8 @@ impl TryFrom<VaultInfoSource> for VaultInfoToolResult {
     type Error = VaultInfoError;
 
     fn try_from(value: VaultInfoSource) -> Result<Self, Self::Error> {
-        let resource_eligible_files = resource_eligible_file_counts(
-            &value.roots,
-            &value.filesystem,
-            &value.resources_list_include,
-        )?;
+        let resource_eligible_files =
+            resource_eligible_file_counts(&value.roots, &value.filesystem, &value.resources_list_include)?;
         let vaults = value
             .config
             .vaults
@@ -354,10 +340,7 @@ impl
             .2
             .map(|service| service.status())
             .transpose()?
-            .map_or_else(
-                IndexesStatusToolResult::default,
-                IndexesStatusToolResult::from,
-            );
+            .map_or_else(IndexesStatusToolResult::default, IndexesStatusToolResult::from);
         Ok(Self {
             name: value.4,
             path: value.0.path,
@@ -495,10 +478,7 @@ impl From<&crate::EmbeddingConfig> for EmbeddingConfigSummaryToolResult {
             model: value.model.clone(),
             endpoint: value.endpoint.clone(),
             api_key_env: value.api_key_env.clone(),
-            model_directory: value
-                .model_directory
-                .as_deref()
-                .map(|path| path.display().to_string()),
+            model_directory: value.model_directory.as_deref().map(|path| path.display().to_string()),
         }
     }
 }

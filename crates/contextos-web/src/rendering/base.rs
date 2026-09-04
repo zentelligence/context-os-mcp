@@ -1,4 +1,4 @@
-//! `.base` HTMX-driven rendering (`web-rendering.md` §2, FR-222): a `.base`
+//! `.base` HTMX-driven rendering (`web-rendering.md` §2): a `.base`
 //! file is a view definition (filters, formulas, views) evaluated against
 //! the vault, not a data container; its rendered rows are separate note
 //! files elsewhere in the vault. This module renders the active view's
@@ -29,8 +29,8 @@ struct RowView {
     has_link: bool,
     href: String,
     /// The row's own vault-relative note path, the row-edit form's
-    /// `frontmatter_update` target (`FR-222`); `None` when the row has no
-    /// `file.path` column at all, matching `has_link`.
+    /// `frontmatter_update` target; `None` when the row has no `file.path`
+    /// column at all, matching `has_link`.
     note_path: Option<String>,
     columns: Vec<RowColumn>,
 }
@@ -79,8 +79,8 @@ struct BaseReadStructured {
 
 /// Renders the addressed `.base` file's active view as an HTMX card grid
 /// (`web-rendering.md` §2), or a diagnostic panel when the file itself
-/// fails to parse (a diagnostic naming path `"$"`, `D-31`'s convention for
-/// a whole-file parse failure).
+/// fails to parse (a diagnostic naming path `"$"`, this crate's convention
+/// for a whole-file parse failure).
 ///
 /// # Errors
 ///
@@ -98,10 +98,7 @@ pub async fn render_view(
     let (view_names, filters_json) = read_definition(mcp, vault_name, path).await?;
 
     let mut args = serde_json::Map::new();
-    args.insert(
-        "path".to_owned(),
-        Value::String(format!("{vault_name}://{path}")),
-    );
+    args.insert("path".to_owned(), Value::String(format!("{vault_name}://{path}")));
     if let Some(view_name) = view {
         args.insert("view".to_owned(), Value::String(view_name.to_owned()));
     }
@@ -117,9 +114,7 @@ pub async fn render_view(
     };
 
     if structured.diagnostics.iter().any(|d| d.path == "$") {
-        return Ok(diagnostics::render_diagnostic_panel(
-            &structured.diagnostics,
-        ));
+        return Ok(diagnostics::render_diagnostic_panel(&structured.diagnostics));
     }
 
     let active_view = view.map_or_else(|| view_names.first().cloned(), |v| Some(v.to_owned()));
@@ -131,8 +126,7 @@ pub async fn render_view(
         })
         .collect();
 
-    let rows_json: Vec<serde_json::Map<String, Value>> =
-        serde_json::from_str(&structured.content).unwrap_or_default();
+    let rows_json: Vec<serde_json::Map<String, Value>> = serde_json::from_str(&structured.content).unwrap_or_default();
     let rows: Vec<RowView> = rows_json
         .iter()
         .map(|row| row_view(row, &structured.columns, vault_name))
@@ -175,16 +169,9 @@ pub async fn render_view(
 ///
 /// Returns [`McpCallError::Unreachable`] when the MCP transport itself
 /// fails.
-async fn read_definition(
-    mcp: &McpClient,
-    vault_name: &str,
-    path: &str,
-) -> Result<(Vec<String>, String), McpCallError> {
+async fn read_definition(mcp: &McpClient, vault_name: &str, path: &str) -> Result<(Vec<String>, String), McpCallError> {
     let mut args = serde_json::Map::new();
-    args.insert(
-        "path".to_owned(),
-        Value::String(format!("{vault_name}://{path}")),
-    );
+    args.insert("path".to_owned(), Value::String(format!("{vault_name}://{path}")));
     let result = mcp.call_tool("base_read".to_owned(), args).await?;
     if result.is_error == Some(true) {
         return Ok((Vec::new(), String::new()));

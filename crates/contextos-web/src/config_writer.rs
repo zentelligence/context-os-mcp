@@ -1,7 +1,6 @@
-//! `web.toml` editing for `/settings/` (FR-251): structure- and comment-
-//! preserving edits via `toml_edit`, mirroring `contextos-mcp`'s own
-//! `contextos config` "validate-then-write discipline" `FR-251` names
-//! directly as its precedent.
+//! `web.toml` editing for `/settings/`: structure- and comment-preserving
+//! edits via `toml_edit`, mirroring `contextos-mcp`'s own `contextos
+//! config` validate-then-write discipline directly as its precedent.
 //!
 //! Every mutating method re-parses its own rendered output through
 //! [`WebConfig`]'s real schema validator ([`WebConfig::validate`], the same
@@ -42,11 +41,11 @@ impl WebConfigDocument {
     /// next mutating call's own validation pass instead).
     pub fn parse(source: &str) -> Result<Self, WebConfigWriterError> {
         Ok(Self {
-            document: source.parse::<DocumentMut>().map_err(|source| {
-                WebConfigWriterError::Toml {
+            document: source
+                .parse::<DocumentMut>()
+                .map_err(|source| WebConfigWriterError::Toml {
                     source: Box::new(source),
-                }
-            })?,
+                })?,
         })
     }
 
@@ -58,8 +57,8 @@ impl WebConfigDocument {
 
     /// Every configured `[[mcp_server]]` name, in file order. The settings
     /// route diffs this before and after an edit to learn which names, if
-    /// any, the edit removed: the trigger for FR-251's registered-app-
-    /// dependency check.
+    /// any, the edit removed: the trigger for the registered-app-dependency
+    /// check.
     #[must_use]
     pub fn mcp_server_names(&self) -> Vec<String> {
         self.document
@@ -86,10 +85,7 @@ impl WebConfigDocument {
     /// name, an unrecognised `transport`, a missing required field, or a
     /// pre-existing invalid `server.bind` this edit did not itself
     /// introduce).
-    pub fn add_mcp_server(
-        &mut self,
-        entry: &JsonMap<String, JsonValue>,
-    ) -> Result<(), WebConfigWriterError> {
+    pub fn add_mcp_server(&mut self, entry: &JsonMap<String, JsonValue>) -> Result<(), WebConfigWriterError> {
         let backup = self.document.clone();
         let table = json_object_to_table(entry)?;
         let array = self
@@ -170,17 +166,11 @@ impl WebConfigDocument {
             .document
             .get_mut("mcp_server")
             .and_then(Item::as_array_of_tables_mut)
-            .ok_or_else(|| WebConfigWriterError::UnknownMcpServerName {
-                name: name.to_owned(),
-            })?;
+            .ok_or_else(|| WebConfigWriterError::UnknownMcpServerName { name: name.to_owned() })?;
         let before = array.len();
-        array.retain(|table| {
-            mcp_server_name(table).map(|name| name.to_ascii_lowercase()) != Some(target.clone())
-        });
+        array.retain(|table| mcp_server_name(table).map(|name| name.to_ascii_lowercase()) != Some(target.clone()));
         if array.len() == before {
-            return Err(WebConfigWriterError::UnknownMcpServerName {
-                name: name.to_owned(),
-            });
+            return Err(WebConfigWriterError::UnknownMcpServerName { name: name.to_owned() });
         }
         self.validate_or_rollback(backup)
     }
@@ -199,10 +189,7 @@ impl WebConfigDocument {
     /// [`WebConfigWriterError::UiNotATable`] when `[server]`/`[server.ui]`
     /// is present in the document but is not itself a table (a
     /// hand-corrupted `web.toml`).
-    pub fn patch_ui(
-        &mut self,
-        patch: &JsonMap<String, JsonValue>,
-    ) -> Result<(), WebConfigWriterError> {
+    pub fn patch_ui(&mut self, patch: &JsonMap<String, JsonValue>) -> Result<(), WebConfigWriterError> {
         let backup = self.document.clone();
         let server = self
             .document
@@ -226,36 +213,23 @@ impl WebConfigDocument {
             .and_then(Item::as_array_of_tables)
             .and_then(|array| {
                 array.iter().position(|table| {
-                    mcp_server_name(table).map(|found| found.to_ascii_lowercase())
-                        == Some(target.clone())
+                    mcp_server_name(table).map(|found| found.to_ascii_lowercase()) == Some(target.clone())
                 })
             })
-            .ok_or_else(|| WebConfigWriterError::UnknownMcpServerName {
-                name: name.to_owned(),
-            })
+            .ok_or_else(|| WebConfigWriterError::UnknownMcpServerName { name: name.to_owned() })
     }
 
-    fn find_mcp_server_table_mut(
-        &mut self,
-        name: &str,
-    ) -> Result<&mut Table, WebConfigWriterError> {
+    fn find_mcp_server_table_mut(&mut self, name: &str) -> Result<&mut Table, WebConfigWriterError> {
         let target = name.to_ascii_lowercase();
         let array = self
             .document
             .get_mut("mcp_server")
             .and_then(Item::as_array_of_tables_mut)
-            .ok_or_else(|| WebConfigWriterError::UnknownMcpServerName {
-                name: name.to_owned(),
-            })?;
+            .ok_or_else(|| WebConfigWriterError::UnknownMcpServerName { name: name.to_owned() })?;
         array
             .iter_mut()
-            .find(|table| {
-                mcp_server_name(table).map(|found| found.to_ascii_lowercase())
-                    == Some(target.clone())
-            })
-            .ok_or_else(|| WebConfigWriterError::UnknownMcpServerName {
-                name: name.to_owned(),
-            })
+            .find(|table| mcp_server_name(table).map(|found| found.to_ascii_lowercase()) == Some(target.clone()))
+            .ok_or_else(|| WebConfigWriterError::UnknownMcpServerName { name: name.to_owned() })
     }
 
     fn validate_or_rollback(&mut self, backup: DocumentMut) -> Result<(), WebConfigWriterError> {
@@ -276,12 +250,11 @@ impl WebConfigDocument {
 /// notion of validity.
 fn render_and_validate(document: &DocumentMut) -> Result<(), WebConfigWriterError> {
     let text = document.to_string();
-    let config: WebConfig =
-        toml::from_str(&text).map_err(|source| WebConfigWriterError::Invalid {
-            source: WebConfigError::Toml {
-                source: Box::new(source),
-            },
-        })?;
+    let config: WebConfig = toml::from_str(&text).map_err(|source| WebConfigWriterError::Invalid {
+        source: WebConfigError::Toml {
+            source: Box::new(source),
+        },
+    })?;
     config
         .validate()
         .map_err(|source| WebConfigWriterError::Invalid { source })
@@ -333,10 +306,7 @@ fn json_to_toml_item(value: &JsonValue) -> Result<Item, WebConfigWriterError> {
     }
 }
 
-fn merge_patch(
-    table: &mut Table,
-    patch: &JsonMap<String, JsonValue>,
-) -> Result<(), WebConfigWriterError> {
+fn merge_patch(table: &mut Table, patch: &JsonMap<String, JsonValue>) -> Result<(), WebConfigWriterError> {
     for (key, value) in patch {
         table.insert(key, json_to_toml_item(value)?);
     }

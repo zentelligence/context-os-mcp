@@ -26,11 +26,9 @@ impl TryFrom<LinkInput<'_>> for ObsidianLink {
             None => (value.raw, None),
         };
         let (target, heading, block) = match destination.split_once('#') {
-            Some((target, anchor)) if anchor.starts_with('^') => (
-                target.trim(),
-                None,
-                Some(anchor.trim_start_matches('^').to_owned()),
-            ),
+            Some((target, anchor)) if anchor.starts_with('^') => {
+                (target.trim(), None, Some(anchor.trim_start_matches('^').to_owned()))
+            }
             Some((target, heading)) => (target.trim(), Some(heading.to_owned()), None),
             None => (destination.trim(), None, None),
         };
@@ -173,10 +171,7 @@ fn scan_line(
     while cursor < line.len() {
         let remaining = &line[cursor..];
         if remaining.starts_with('`') {
-            let run = remaining
-                .chars()
-                .take_while(|character| *character == '`')
-                .count();
+            let run = remaining.chars().take_while(|character| *character == '`').count();
             inline_ticks = match inline_ticks {
                 Some(opening) if opening == run => None,
                 Some(opening) => Some(opening),

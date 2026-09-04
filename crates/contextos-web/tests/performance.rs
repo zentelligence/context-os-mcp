@@ -1,8 +1,8 @@
-//! Performance test (`NFR-W03`, Phase 15 gate): a note under 50 KB with no
+//! Performance test: a note under 50 KB with no
 //! Mermaid/Canvas dependency serves in under 200 ms p95 over a repeated-
 //! request sample.
 //!
-//! `NFR-W03`'s second clause (the MCP proxy route's own overhead, request
+//! The proxy route's own overhead (request
 //! receipt to tool-call dispatch, excluding the tool's own execution time,
 //! under 20 ms p95) is not covered here: isolating that overhead from the
 //! underlying tool call's own latency needs internal instrumentation
@@ -64,13 +64,10 @@ async fn a_small_note_with_no_diagram_dependency_serves_under_200ms_p95() -> Res
     write(vault_dir.path(), "index.md", "# Root\n")?;
 
     // A representative note under 50 KB: prose, a couple of wikilinks, no
-    // Mermaid or Canvas dependency (NFR-W03's own exclusion).
+    // Mermaid or Canvas dependency (deliberately excluded from this budget).
     let mut body = String::from("# Performance fixture\n\n");
     for i in 0..200 {
-        let _ = writeln!(
-            body,
-            "Paragraph {i} of ordinary prose with a [[target-note]] link.\n"
-        );
+        let _ = writeln!(body, "Paragraph {i} of ordinary prose with a [[target-note]] link.\n");
     }
     assert!(body.len() < 50 * 1024, "fixture note must stay under 50 KB");
     write(vault_dir.path(), "target-note.md", "# Target\n")?;
@@ -100,7 +97,7 @@ async fn a_small_note_with_no_diagram_dependency_serves_under_200ms_p95() -> Res
     let p95_latency = p95(samples);
     assert!(
         p95_latency < Duration::from_millis(200),
-        "p95 latency {p95_latency:?} exceeded the 200 ms NFR-W03 budget"
+        "p95 latency {p95_latency:?} exceeded the 200 ms budget"
     );
     Ok(())
 }

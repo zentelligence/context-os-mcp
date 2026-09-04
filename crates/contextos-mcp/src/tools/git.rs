@@ -8,8 +8,8 @@ use std::sync::Arc;
 use contextos_core::{Clock, SystemClock, VaultPath, VaultPathInput, VaultRoot};
 use contextos_fs::{FilesystemService, FilesystemServiceConfig};
 use contextos_git::{
-    GitCommitResult, GitDiffRequest, GitDiffResult, GitInitResult, GitLogEntry, GitLogRequest,
-    GitRestoreRequest, GitRestoreResult, GitStatusResult,
+    GitCommitResult, GitDiffRequest, GitDiffResult, GitInitResult, GitLogEntry, GitLogRequest, GitRestoreRequest,
+    GitRestoreResult, GitStatusResult,
 };
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::schemars;
@@ -34,8 +34,7 @@ impl ContextOsServer {
         let roots = Arc::clone(&self.roots);
         let git = Arc::clone(&self.git);
         let path = evaluate(move || {
-            VaultPath::try_from_vault_selector(&roots, input.vault.as_deref().unwrap_or("."))
-                .map_err(ToolError::from)
+            VaultPath::try_from_vault_selector(&roots, input.vault.as_deref().unwrap_or(".")).map_err(ToolError::from)
         })
         .await?;
         let index = usize::try_from(path.root_id()).map_err(ToolError::from)?;
@@ -68,8 +67,7 @@ impl ContextOsServer {
         let roots = Arc::clone(&self.roots);
         let git = Arc::clone(&self.git);
         let path = evaluate(move || {
-            VaultPath::try_from_vault_selector(&roots, input.vault.as_deref().unwrap_or("."))
-                .map_err(ToolError::from)
+            VaultPath::try_from_vault_selector(&roots, input.vault.as_deref().unwrap_or(".")).map_err(ToolError::from)
         })
         .await?;
         let index = usize::try_from(path.root_id()).map_err(ToolError::from)?;
@@ -81,9 +79,7 @@ impl ContextOsServer {
         let guards = self.writes.lock_roots(&[path.root_id()]).await?;
         execute(move || {
             let _guards = guards;
-            Ok(GitCommitToolResult::from(
-                service.commit(input.message.as_deref())?,
-            ))
+            Ok(GitCommitToolResult::from(service.commit(input.message.as_deref())?))
         })
         .await
     }
@@ -156,10 +152,7 @@ impl ContextOsServer {
         description = "Read local commit history with an optional path filter",
         output_schema = fallible_output_schema_for::<GitLogToolResult>()
     )]
-    async fn git_log(
-        &self,
-        Parameters(input): Parameters<GitLogInput>,
-    ) -> Result<Json<GitLogToolResult>, ToolFailure> {
+    async fn git_log(&self, Parameters(input): Parameters<GitLogInput>) -> Result<Json<GitLogToolResult>, ToolFailure> {
         let (service, index, root) = self.git_service(input.vault.as_deref()).await?;
         let path = match input.path {
             Some(raw) => Some(self.git_filter_path(index, root, raw).await?),
@@ -201,21 +194,17 @@ impl ContextOsServer {
 }
 
 impl ContextOsServer {
-    pub(crate) async fn git_service(
-        &self,
-        vault: Option<&str>,
-    ) -> Result<(ManagedGit, usize, VaultRoot), ToolFailure> {
+    pub(crate) async fn git_service(&self, vault: Option<&str>) -> Result<(ManagedGit, usize, VaultRoot), ToolFailure> {
         let roots = Arc::clone(&self.roots);
         let raw = vault.unwrap_or(".").to_owned();
-        let path = evaluate(move || {
-            VaultPath::try_from_vault_selector(&roots, &raw).map_err(ToolError::from)
-        })
-        .await?;
+        let path = evaluate(move || VaultPath::try_from_vault_selector(&roots, &raw).map_err(ToolError::from)).await?;
         let index = usize::try_from(path.root_id()).map_err(ToolError::from)?;
-        let root =
-            self.roots.iter().nth(index).cloned().ok_or_else(|| {
-                ToolFailure::from(ToolError::RootLockMissing { root_index: index })
-            })?;
+        let root = self
+            .roots
+            .iter()
+            .nth(index)
+            .cloned()
+            .ok_or_else(|| ToolFailure::from(ToolError::RootLockMissing { root_index: index }))?;
         self.git
             .get(index)
             .cloned()
@@ -246,9 +235,7 @@ impl ContextOsServer {
                 raw: text,
             })?;
             if usize::try_from(path.root_id())? != root_index {
-                return Err(ToolError::Invalid(
-                    "Git filter path must belong to the selected vault",
-                ));
+                return Err(ToolError::Invalid("Git filter path must belong to the selected vault"));
             }
             Ok(path.relative().to_path_buf())
         })
@@ -374,8 +361,7 @@ struct GitRestoreToolResult {
 
 impl From<GitRestoreResult> for GitRestoreToolResult {
     fn from(value: GitRestoreResult) -> Self {
-        let crate::server::WarningMessages(warnings) =
-            crate::server::WarningMessages::from(value.warnings);
+        let crate::server::WarningMessages(warnings) = crate::server::WarningMessages::from(value.warnings);
         Self {
             diff: value.diff,
             applied: value.applied,

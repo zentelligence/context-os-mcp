@@ -5,9 +5,9 @@ use tempfile::tempdir;
 
 fn sole_root(path: PathBuf) -> Result<VaultSet, PathError> {
     // `tempdir()` names its directory something like `.tmpjFXxK1` on
-    // Windows, whose leading `.` is not a valid URI scheme token (`FR-96`),
-    // so tests that do not care about the vault name give it an explicit,
-    // valid one rather than relying on the temp directory's own basename.
+    // Windows, whose leading `.` is not a valid URI scheme token, so tests
+    // that do not care about the vault name give it an explicit, valid one
+    // rather than relying on the temp directory's own basename.
     VaultSet::try_from(vec![VaultRoot::try_from(VaultRootInput {
         path,
         managed: true,
@@ -31,7 +31,7 @@ fn two_named_roots(first: (PathBuf, &str), second: (PathBuf, &str)) -> Result<Va
 }
 
 #[test]
-fn nfr_01_accepts_relative_path_beneath_sole_root() -> Result<(), Box<dyn std::error::Error>> {
+fn accepts_relative_path_beneath_sole_root() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let notes = vault.path().join("notes");
     std::fs::create_dir(&notes)?;
@@ -51,7 +51,7 @@ fn nfr_01_accepts_relative_path_beneath_sole_root() -> Result<(), Box<dyn std::e
 }
 
 #[test]
-fn nfr_01_accepts_absolute_path_beneath_a_root() -> Result<(), Box<dyn std::error::Error>> {
+fn accepts_absolute_path_beneath_a_root() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let note = vault.path().join("welcome.md");
     std::fs::write(&note, "hello")?;
@@ -69,7 +69,7 @@ fn nfr_01_accepts_absolute_path_beneath_a_root() -> Result<(), Box<dyn std::erro
 }
 
 #[test]
-fn nfr_01_allows_a_missing_leaf_for_create_operations() -> Result<(), Box<dyn std::error::Error>> {
+fn allows_a_missing_leaf_for_create_operations() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let roots = sole_root(vault.path().to_path_buf())?;
 
@@ -95,8 +95,7 @@ fn nfr_01_allows_a_missing_leaf_for_create_operations() -> Result<(), Box<dyn st
 }
 
 #[test]
-fn nfr_01_rejects_parent_traversal_before_filesystem_access()
--> Result<(), Box<dyn std::error::Error>> {
+fn rejects_parent_traversal_before_filesystem_access() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let roots = sole_root(vault.path().to_path_buf())?;
 
@@ -106,16 +105,12 @@ fn nfr_01_rejects_parent_traversal_before_filesystem_access()
     });
 
     assert!(matches!(result, Err(PathError::Traversal { .. })));
-    assert_eq!(
-        result.map_err(|error| error.code()),
-        Err("path/outside-root")
-    );
+    assert_eq!(result.map_err(|error| error.code()), Err("path/outside-root"));
     Ok(())
 }
 
 #[test]
-fn nfr_01_rejects_windows_backslash_traversal_on_every_platform()
--> Result<(), Box<dyn std::error::Error>> {
+fn rejects_windows_backslash_traversal_on_every_platform() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let roots = sole_root(vault.path().to_path_buf())?;
 
@@ -129,8 +124,7 @@ fn nfr_01_rejects_windows_backslash_traversal_on_every_platform()
 }
 
 #[test]
-fn nfr_01_rejects_windows_verbatim_prefixes_on_every_platform()
--> Result<(), Box<dyn std::error::Error>> {
+fn rejects_windows_verbatim_prefixes_on_every_platform() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let roots = sole_root(vault.path().to_path_buf())?;
 
@@ -144,8 +138,7 @@ fn nfr_01_rejects_windows_verbatim_prefixes_on_every_platform()
 }
 
 #[test]
-fn nfr_01_rejects_windows_alternate_data_streams_on_every_platform()
--> Result<(), Box<dyn std::error::Error>> {
+fn rejects_windows_alternate_data_streams_on_every_platform() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let roots = sole_root(vault.path().to_path_buf())?;
 
@@ -160,8 +153,7 @@ fn nfr_01_rejects_windows_alternate_data_streams_on_every_platform()
 
 #[cfg(not(windows))]
 #[test]
-fn nfr_01_rejects_windows_drive_paths_on_non_windows_hosts()
--> Result<(), Box<dyn std::error::Error>> {
+fn rejects_windows_drive_paths_on_non_windows_hosts() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let roots = sole_root(vault.path().to_path_buf())?;
 
@@ -170,17 +162,13 @@ fn nfr_01_rejects_windows_drive_paths_on_non_windows_hosts()
         raw: r"C:\vault\note.md",
     });
 
-    assert!(matches!(
-        result,
-        Err(PathError::UnsupportedWindowsPath { .. })
-    ));
+    assert!(matches!(result, Err(PathError::UnsupportedWindowsPath { .. })));
     Ok(())
 }
 
 #[cfg(not(windows))]
 #[test]
-fn nfr_01_rejects_windows_unc_paths_on_non_windows_hosts() -> Result<(), Box<dyn std::error::Error>>
-{
+fn rejects_windows_unc_paths_on_non_windows_hosts() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let roots = sole_root(vault.path().to_path_buf())?;
 
@@ -189,23 +177,16 @@ fn nfr_01_rejects_windows_unc_paths_on_non_windows_hosts() -> Result<(), Box<dyn
         raw: r"\\server\share\note.md",
     });
 
-    assert!(matches!(
-        result,
-        Err(PathError::UnsupportedWindowsPath { .. })
-    ));
+    assert!(matches!(result, Err(PathError::UnsupportedWindowsPath { .. })));
     Ok(())
 }
 
 #[test]
-fn nfr_01_rejects_absolute_path_outside_every_root() -> Result<(), Box<dyn std::error::Error>> {
+fn rejects_absolute_path_outside_every_root() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let outside = tempdir()?;
     let roots = sole_root(vault.path().to_path_buf())?;
-    let raw = outside
-        .path()
-        .join("secret.md")
-        .to_string_lossy()
-        .into_owned();
+    let raw = outside.path().join("secret.md").to_string_lossy().into_owned();
 
     let result = VaultPath::try_from(VaultPathInput {
         roots: &roots,
@@ -217,8 +198,7 @@ fn nfr_01_rejects_absolute_path_outside_every_root() -> Result<(), Box<dyn std::
 }
 
 #[test]
-fn nfr_01_requires_absolute_paths_when_more_than_one_root_is_configured()
--> Result<(), Box<dyn std::error::Error>> {
+fn requires_absolute_paths_when_more_than_one_root_is_configured() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     let roots = VaultSet::try_from(vec![
@@ -244,8 +224,7 @@ fn nfr_01_requires_absolute_paths_when_more_than_one_root_is_configured()
 }
 
 #[test]
-fn fr_97_a_named_prefix_resolves_against_that_vault_without_an_absolute_path()
--> Result<(), Box<dyn std::error::Error>> {
+fn a_named_prefix_resolves_against_that_vault_without_an_absolute_path() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     std::fs::write(second.path().join("welcome.md"), "hello")?;
@@ -260,16 +239,13 @@ fn fr_97_a_named_prefix_resolves_against_that_vault_without_an_absolute_path()
     })?;
     let resolved: &Path = (&path).into();
 
-    assert_eq!(
-        resolved,
-        dunce::canonicalize(second.path().join("welcome.md"))?
-    );
+    assert_eq!(resolved, dunce::canonicalize(second.path().join("welcome.md"))?);
     assert_eq!(path.relative(), Path::new("welcome.md"));
     Ok(())
 }
 
 #[test]
-fn fr_99_root_returns_the_configured_root_by_id() -> Result<(), Box<dyn std::error::Error>> {
+fn root_returns_the_configured_root_by_id() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     let roots = two_named_roots(
@@ -288,7 +264,7 @@ fn fr_99_root_returns_the_configured_root_by_id() -> Result<(), Box<dyn std::err
 }
 
 #[test]
-fn fr_98_a_bare_vault_name_selects_that_vaults_root() -> Result<(), Box<dyn std::error::Error>> {
+fn a_bare_vault_name_selects_that_vaults_root() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     let roots = two_named_roots(
@@ -305,8 +281,7 @@ fn fr_98_a_bare_vault_name_selects_that_vaults_root() -> Result<(), Box<dyn std:
 }
 
 #[test]
-fn fr_98_a_bare_vault_name_selector_is_case_insensitive() -> Result<(), Box<dyn std::error::Error>>
-{
+fn a_bare_vault_name_selector_is_case_insensitive() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     let roots = two_named_roots(
@@ -322,8 +297,7 @@ fn fr_98_a_bare_vault_name_selector_is_case_insensitive() -> Result<(), Box<dyn 
 }
 
 #[test]
-fn fr_98_a_non_matching_selector_falls_back_to_ordinary_path_resolution()
--> Result<(), Box<dyn std::error::Error>> {
+fn a_non_matching_selector_falls_back_to_ordinary_path_resolution() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let notes = vault.path().join("notes");
     std::fs::create_dir(&notes)?;
@@ -338,8 +312,7 @@ fn fr_98_a_non_matching_selector_falls_back_to_ordinary_path_resolution()
 }
 
 #[test]
-fn fr_98_the_named_prefix_form_still_works_through_the_vault_selector()
--> Result<(), Box<dyn std::error::Error>> {
+fn the_named_prefix_form_still_works_through_the_vault_selector() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     std::fs::write(second.path().join("welcome.md"), "hello")?;
@@ -351,15 +324,12 @@ fn fr_98_the_named_prefix_form_still_works_through_the_vault_selector()
     let path = VaultPath::try_from_vault_selector(&roots, "second://welcome.md")?;
     let resolved: &Path = (&path).into();
 
-    assert_eq!(
-        resolved,
-        dunce::canonicalize(second.path().join("welcome.md"))?
-    );
+    assert_eq!(resolved, dunce::canonicalize(second.path().join("welcome.md"))?);
     Ok(())
 }
 
 #[test]
-fn fr_97_a_named_prefix_is_case_insensitive() -> Result<(), Box<dyn std::error::Error>> {
+fn a_named_prefix_is_case_insensitive() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     std::fs::write(second.path().join("welcome.md"), "hello")?;
@@ -374,15 +344,12 @@ fn fr_97_a_named_prefix_is_case_insensitive() -> Result<(), Box<dyn std::error::
     })?;
     let resolved: &Path = (&path).into();
 
-    assert_eq!(
-        resolved,
-        dunce::canonicalize(second.path().join("welcome.md"))?
-    );
+    assert_eq!(resolved, dunce::canonicalize(second.path().join("welcome.md"))?);
     Ok(())
 }
 
 #[test]
-fn fr_97_an_unknown_vault_name_prefix_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+fn an_unknown_vault_name_prefix_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     let roots = two_named_roots(
@@ -396,16 +363,12 @@ fn fr_97_an_unknown_vault_name_prefix_is_rejected() -> Result<(), Box<dyn std::e
     });
 
     assert!(matches!(result, Err(PathError::UnknownVaultName { .. })));
-    assert_eq!(
-        result.map_err(|error| error.code()),
-        Err("path/unknown-vault-name")
-    );
+    assert_eq!(result.map_err(|error| error.code()), Err("path/unknown-vault-name"));
     Ok(())
 }
 
 #[test]
-fn fr_97_a_named_prefix_still_rejects_traversal_in_the_remainder()
--> Result<(), Box<dyn std::error::Error>> {
+fn a_named_prefix_still_rejects_traversal_in_the_remainder() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     let roots = two_named_roots(
@@ -423,8 +386,7 @@ fn fr_97_a_named_prefix_still_rejects_traversal_in_the_remainder()
 }
 
 #[test]
-fn fr_97_a_named_prefix_is_not_misclassified_as_an_alternate_data_stream()
--> Result<(), Box<dyn std::error::Error>> {
+fn a_named_prefix_is_not_misclassified_as_an_alternate_data_stream() -> Result<(), Box<dyn std::error::Error>> {
     // Regression for the specific risk the phase 9 change brief calls out:
     // `validate_windows_input` rejects any raw string containing `:` outside
     // a drive-letter position as `AlternateDataStream`, so a `name://` prefix
@@ -448,10 +410,9 @@ fn fr_97_a_named_prefix_is_not_misclassified_as_an_alternate_data_stream()
 }
 
 #[test]
-fn fr_97_a_named_prefix_with_no_remainder_is_a_distinct_actionable_error()
--> Result<(), Box<dyn std::error::Error>> {
+fn a_named_prefix_with_no_remainder_is_a_distinct_actionable_error() -> Result<(), Box<dyn std::error::Error>> {
     // Regression: an ordinary `path`-parameter chokepoint call (not the
-    // `FR-98` vault-selector entry point) with a bare `{name}://` and no
+    // vault-selector entry point) with a bare `{name}://` and no
     // remainder used to fall through to `PathError::Invalid`'s generic
     // "path is empty or contains a null byte" message, which reports the
     // already-stripped empty remainder rather than the caller's actual
@@ -473,16 +434,12 @@ fn fr_97_a_named_prefix_with_no_remainder_is_a_distinct_actionable_error()
         result,
         Err(PathError::EmptyNamedPrefixRemainder { ref name }) if name == "second"
     ));
-    assert_eq!(
-        result.map_err(|error| error.code()),
-        Err("path/empty-named-prefix")
-    );
+    assert_eq!(result.map_err(|error| error.code()), Err("path/empty-named-prefix"));
     Ok(())
 }
 
 #[test]
-fn fr_97_an_absolute_remainder_must_still_fall_within_the_named_root()
--> Result<(), Box<dyn std::error::Error>> {
+fn an_absolute_remainder_must_still_fall_within_the_named_root() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     std::fs::write(first.path().join("secret.md"), "private")?;
@@ -490,10 +447,7 @@ fn fr_97_an_absolute_remainder_must_still_fall_within_the_named_root()
         (first.path().to_path_buf(), "first"),
         (second.path().to_path_buf(), "second"),
     )?;
-    let raw = format!(
-        "second://{}",
-        first.path().join("secret.md").to_string_lossy()
-    );
+    let raw = format!("second://{}", first.path().join("secret.md").to_string_lossy());
 
     let result = VaultPath::try_from(VaultPathInput {
         roots: &roots,
@@ -506,7 +460,7 @@ fn fr_97_an_absolute_remainder_must_still_fall_within_the_named_root()
 
 #[cfg(unix)]
 #[test]
-fn nfr_01_rejects_file_symlink_escape() -> Result<(), Box<dyn std::error::Error>> {
+fn rejects_file_symlink_escape() -> Result<(), Box<dyn std::error::Error>> {
     use std::os::unix::fs::symlink;
 
     let vault = tempdir()?;
@@ -527,7 +481,7 @@ fn nfr_01_rejects_file_symlink_escape() -> Result<(), Box<dyn std::error::Error>
 
 #[cfg(unix)]
 #[test]
-fn nfr_01_rejects_nested_directory_symlink_escape() -> Result<(), Box<dyn std::error::Error>> {
+fn rejects_nested_directory_symlink_escape() -> Result<(), Box<dyn std::error::Error>> {
     use std::os::unix::fs::symlink;
 
     let vault = tempdir()?;
@@ -546,7 +500,7 @@ fn nfr_01_rejects_nested_directory_symlink_escape() -> Result<(), Box<dyn std::e
 
 #[cfg(windows)]
 #[test]
-fn nfr_01_rejects_file_symlink_escape_on_windows() -> Result<(), Box<dyn std::error::Error>> {
+fn rejects_file_symlink_escape_on_windows() -> Result<(), Box<dyn std::error::Error>> {
     use std::os::windows::fs::symlink_file;
 
     let vault = tempdir()?;
@@ -566,8 +520,7 @@ fn nfr_01_rejects_file_symlink_escape_on_windows() -> Result<(), Box<dyn std::er
 }
 
 #[test]
-fn fr_96_vault_name_defaults_to_the_root_directorys_basename()
--> Result<(), Box<dyn std::error::Error>> {
+fn vault_name_defaults_to_the_root_directorys_basename() -> Result<(), Box<dyn std::error::Error>> {
     // A bare `tempdir()` is unsuitable here: `tempfile` names it something
     // like `.tmpjFXxK1` on Windows, whose leading `.` is not a valid URI
     // scheme token, so the vault root itself needs a deliberately valid
@@ -582,7 +535,7 @@ fn fr_96_vault_name_defaults_to_the_root_directorys_basename()
 }
 
 #[test]
-fn fr_96_an_explicit_vault_name_overrides_the_default() -> Result<(), Box<dyn std::error::Error>> {
+fn an_explicit_vault_name_overrides_the_default() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     let root = VaultRoot::try_from(VaultRootInput {
         path: vault.path().to_path_buf(),
@@ -595,7 +548,7 @@ fn fr_96_an_explicit_vault_name_overrides_the_default() -> Result<(), Box<dyn st
 }
 
 #[test]
-fn fr_96_an_invalid_explicit_vault_name_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+fn an_invalid_explicit_vault_name_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
 
     let result = VaultRoot::try_from(VaultRootInput {
@@ -605,16 +558,12 @@ fn fr_96_an_invalid_explicit_vault_name_is_rejected() -> Result<(), Box<dyn std:
     });
 
     assert!(matches!(result, Err(PathError::InvalidName { .. })));
-    assert_eq!(
-        result.map_err(|error| error.code()),
-        Err("path/invalid-vault-name")
-    );
+    assert_eq!(result.map_err(|error| error.code()), Err("path/invalid-vault-name"));
     Ok(())
 }
 
 #[test]
-fn fr_96_an_invalid_default_derived_name_is_rejected_not_sanitised()
--> Result<(), Box<dyn std::error::Error>> {
+fn an_invalid_default_derived_name_is_rejected_not_sanitised() -> Result<(), Box<dyn std::error::Error>> {
     // `tempdir()`'s own basename starts with `.` on Windows, which is not a
     // valid URI scheme token; this pins the "no silent sanitisation"
     // behaviour the default derivation deliberately does not have.
@@ -627,7 +576,7 @@ fn fr_96_an_invalid_default_derived_name_is_rejected_not_sanitised()
 }
 
 #[test]
-fn fr_96_duplicate_vault_names_are_rejected_at_startup() -> Result<(), Box<dyn std::error::Error>> {
+fn duplicate_vault_names_are_rejected_at_startup() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
 
@@ -645,16 +594,12 @@ fn fr_96_duplicate_vault_names_are_rejected_at_startup() -> Result<(), Box<dyn s
     ]);
 
     assert!(matches!(result, Err(PathError::DuplicateName { .. })));
-    assert_eq!(
-        result.map_err(|error| error.code()),
-        Err("path/duplicate-vault-name")
-    );
+    assert_eq!(result.map_err(|error| error.code()), Err("path/duplicate-vault-name"));
     Ok(())
 }
 
 #[test]
-fn fr_96_root_by_name_finds_the_configured_root_case_insensitively()
--> Result<(), Box<dyn std::error::Error>> {
+fn root_by_name_finds_the_configured_root_case_insensitively() -> Result<(), Box<dyn std::error::Error>> {
     let first = tempdir()?;
     let second = tempdir()?;
     let roots = VaultSet::try_from(vec![
@@ -670,23 +615,17 @@ fn fr_96_root_by_name_finds_the_configured_root_case_insensitively()
         })?,
     ])?;
 
-    let (id, root) = roots
-        .root_by_name("FAMILY")
-        .ok_or("family vault is configured")?;
+    let (id, root) = roots.root_by_name("FAMILY").ok_or("family vault is configured")?;
 
     assert_eq!(root.name(), "family");
-    assert_eq!(
-        roots.root_by_name("family").map(|(found_id, _)| found_id),
-        Some(id)
-    );
+    assert_eq!(roots.root_by_name("family").map(|(found_id, _)| found_id), Some(id));
     assert!(roots.root_by_name("nobody").is_none());
     Ok(())
 }
 
 #[cfg(windows)]
 #[test]
-fn nfr_01_rejects_nested_directory_symlink_escape_on_windows()
--> Result<(), Box<dyn std::error::Error>> {
+fn rejects_nested_directory_symlink_escape_on_windows() -> Result<(), Box<dyn std::error::Error>> {
     use std::os::windows::fs::symlink_dir;
 
     let vault = tempdir()?;

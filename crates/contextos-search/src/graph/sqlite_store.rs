@@ -42,8 +42,8 @@ use std::time::{Duration, Instant};
 use rusqlite::{Connection, ErrorCode, OptionalExtension, params};
 
 use super::{
-    GraphChange, GraphDelta, GraphEdge, GraphNode, GraphRecords, STORE_FORMAT, StoredGraphMetadata,
-    StoresGraph, encode, graph_storage_error,
+    GraphChange, GraphDelta, GraphEdge, GraphNode, GraphRecords, STORE_FORMAT, StoredGraphMetadata, StoresGraph,
+    encode, graph_storage_error,
 };
 use crate::SearchError;
 
@@ -83,8 +83,7 @@ impl SqliteGraphStore {
             source,
         })?;
         let file_path = directory.join(FILE_NAME);
-        let connection = Self::open_connection(&file_path)
-            .map_err(|source| graph_storage_error(directory, source))?;
+        let connection = Self::open_connection(&file_path).map_err(|source| graph_storage_error(directory, source))?;
 
         Ok(Self {
             connection: Mutex::new(connection),
@@ -174,47 +173,26 @@ impl SqliteGraphStore {
                     params![node.path, value],
                 )
                 .map_err(|source| graph_storage_error(&self.directory, source))?;
-                self.record_change(
-                    tx,
-                    generation_value,
-                    "upsert_node",
-                    &node.path,
-                    Some(&value),
-                )?;
+                self.record_change(tx, generation_value, "upsert_node", &node.path, Some(&value))?;
             }
             GraphChange::RemoveEdge { store_id } => {
-                let store_id_value = i64::try_from(*store_id)
+                let store_id_value =
+                    i64::try_from(*store_id).map_err(|source| graph_storage_error(&self.directory, source))?;
+                tx.execute("DELETE FROM edges WHERE store_id = ?1", params![store_id_value])
                     .map_err(|source| graph_storage_error(&self.directory, source))?;
-                tx.execute(
-                    "DELETE FROM edges WHERE store_id = ?1",
-                    params![store_id_value],
-                )
-                .map_err(|source| graph_storage_error(&self.directory, source))?;
-                self.record_change(
-                    tx,
-                    generation_value,
-                    "remove_edge",
-                    &store_id.to_string(),
-                    None,
-                )?;
+                self.record_change(tx, generation_value, "remove_edge", &store_id.to_string(), None)?;
             }
             GraphChange::UpsertEdge { store_id, edge } => {
                 let value = encode(edge, &self.directory)?;
-                let store_id_value = i64::try_from(*store_id)
-                    .map_err(|source| graph_storage_error(&self.directory, source))?;
+                let store_id_value =
+                    i64::try_from(*store_id).map_err(|source| graph_storage_error(&self.directory, source))?;
                 tx.execute(
                     "INSERT INTO edges (store_id, value) VALUES (?1, ?2) \
                      ON CONFLICT(store_id) DO UPDATE SET value = excluded.value",
                     params![store_id_value, value],
                 )
                 .map_err(|source| graph_storage_error(&self.directory, source))?;
-                self.record_change(
-                    tx,
-                    generation_value,
-                    "upsert_edge",
-                    &store_id.to_string(),
-                    Some(&value),
-                )?;
+                self.record_change(tx, generation_value, "upsert_edge", &store_id.to_string(), Some(&value))?;
             }
         }
         Ok(())
@@ -246,8 +224,8 @@ impl SqliteGraphStore {
         next_edge_id: u64,
         generation_value: i64,
     ) -> Result<(), SearchError> {
-        let next_edge_id_value = i64::try_from(next_edge_id)
-            .map_err(|source| graph_storage_error(&self.directory, source))?;
+        let next_edge_id_value =
+            i64::try_from(next_edge_id).map_err(|source| graph_storage_error(&self.directory, source))?;
         for (key, value) in [
             (FORMAT_KEY, i64::from(STORE_FORMAT)),
             (NEXT_EDGE_ID_KEY, next_edge_id_value),
@@ -264,26 +242,16 @@ impl SqliteGraphStore {
     }
 
     /// Deletes `changelog` rows older than [`RETENTION_GENERATIONS`].
-    fn prune_changelog(
-        &self,
-        tx: &rusqlite::Transaction<'_>,
-        generation: u64,
-    ) -> Result<(), SearchError> {
+    fn prune_changelog(&self, tx: &rusqlite::Transaction<'_>, generation: u64) -> Result<(), SearchError> {
         let retain_after = i64::try_from(generation.saturating_sub(RETENTION_GENERATIONS))
             .map_err(|source| graph_storage_error(&self.directory, source))?;
-        tx.execute(
-            "DELETE FROM changelog WHERE generation <= ?1",
-            params![retain_after],
-        )
-        .map_err(|source| graph_storage_error(&self.directory, source))?;
+        tx.execute("DELETE FROM changelog WHERE generation <= ?1", params![retain_after])
+            .map_err(|source| graph_storage_error(&self.directory, source))?;
         Ok(())
     }
 
     fn persist_once(&self, changes: &[GraphChange], next_edge_id: u64) -> Result<(), SearchError> {
-        let mut connection = self
-            .connection
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let mut connection = self.connection.lock().unwrap_or_else(PoisonError::into_inner);
         let tx = connection
             .transaction()
             .map_err(|source| graph_storage_error(&self.directory, source))?;
@@ -292,8 +260,8 @@ impl SqliteGraphStore {
             .map_err(|source| graph_storage_error(&self.directory, source))?
             .unwrap_or(0);
         let generation = previous_generation.saturating_add(1);
-        let generation_value = i64::try_from(generation)
-            .map_err(|source| graph_storage_error(&self.directory, source))?;
+        let generation_value =
+            i64::try_from(generation).map_err(|source| graph_storage_error(&self.directory, source))?;
 
         for change in changes {
             self.apply_one_change(&tx, generation_value, change)?;
@@ -335,21 +303,16 @@ fn is_transient_busy_search_error(error: &SearchError) -> bool {
 /// (never written yet) or the value does not fit `u64`.
 fn read_metadata_u64(connection: &Connection, key: &str) -> Result<Option<u64>, rusqlite::Error> {
     let value: Option<i64> = connection
-        .query_row(
-            "SELECT value FROM metadata WHERE key = ?1",
-            params![key],
-            |row| row.get(0),
-        )
+        .query_row("SELECT value FROM metadata WHERE key = ?1", params![key], |row| {
+            row.get(0)
+        })
         .optional()?;
     Ok(value.and_then(|value| u64::try_from(value).ok()))
 }
 
 impl StoresGraph for SqliteGraphStore {
     fn read_metadata(&self) -> Option<StoredGraphMetadata> {
-        let connection = self
-            .connection
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let connection = self.connection.lock().unwrap_or_else(PoisonError::into_inner);
 
         let format = read_metadata_u64(&connection, FORMAT_KEY).ok()??;
         if u32::try_from(format).ok()? != STORE_FORMAT {
@@ -374,10 +337,7 @@ impl StoresGraph for SqliteGraphStore {
     }
 
     fn load_all(&self) -> Option<GraphRecords> {
-        let connection = self
-            .connection
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let connection = self.connection.lock().unwrap_or_else(PoisonError::into_inner);
 
         let mut nodes_stmt = connection.prepare("SELECT value FROM nodes").ok()?;
         let nodes = nodes_stmt
@@ -389,13 +349,9 @@ impl StoresGraph for SqliteGraphStore {
             })
             .collect::<Option<Vec<_>>>()?;
 
-        let mut edges_stmt = connection
-            .prepare("SELECT store_id, value FROM edges")
-            .ok()?;
+        let mut edges_stmt = connection.prepare("SELECT store_id, value FROM edges").ok()?;
         let edges = edges_stmt
-            .query_map([], |row| {
-                Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?))
-            })
+            .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?)))
             .ok()?
             .map(|row| {
                 let (store_id, value) = row.ok()?;
@@ -409,10 +365,7 @@ impl StoresGraph for SqliteGraphStore {
     }
 
     fn clear(&self) -> Result<(), SearchError> {
-        let connection = self
-            .connection
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let connection = self.connection.lock().unwrap_or_else(PoisonError::into_inner);
         connection
             .execute_batch("DELETE FROM nodes; DELETE FROM edges;")
             .map_err(|source| self.storage_error(source))
@@ -432,9 +385,7 @@ impl StoresGraph for SqliteGraphStore {
         loop {
             match self.persist_once(changes, next_edge_id) {
                 Ok(()) => return Ok(()),
-                Err(error)
-                    if is_transient_busy_search_error(&error) && Instant::now() < deadline =>
-                {
+                Err(error) if is_transient_busy_search_error(&error) && Instant::now() < deadline => {
                     std::thread::sleep(Duration::from_millis(20));
                 }
                 Err(error) => return Err(error),
@@ -443,18 +394,12 @@ impl StoresGraph for SqliteGraphStore {
     }
 
     fn current_generation(&self) -> Option<u64> {
-        let connection = self
-            .connection
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let connection = self.connection.lock().unwrap_or_else(PoisonError::into_inner);
         read_metadata_u64(&connection, GENERATION_KEY).ok()?
     }
 
     fn changes_since(&self, since: u64) -> Option<GraphDelta> {
-        let connection = self
-            .connection
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let connection = self.connection.lock().unwrap_or_else(PoisonError::into_inner);
 
         let current = read_metadata_u64(&connection, GENERATION_KEY).ok()??;
         if since >= current {

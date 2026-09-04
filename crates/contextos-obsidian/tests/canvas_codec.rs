@@ -1,16 +1,13 @@
 use contextos_obsidian::{CanvasDocument, CanvasOperation};
 use serde_json::{Map, json};
 
-const EVERY_FEATURE: &str =
-    include_str!("../../../fixtures/obsidian-formats/canvases/every-feature.canvas");
-const GROUP_NESTING: &str =
-    include_str!("../../../fixtures/obsidian-formats/canvases/group-nesting.canvas");
-const DANGLING_EDGE: &str =
-    include_str!("../../../fixtures/obsidian-formats/canvases/dangling-edge.canvas");
+const EVERY_FEATURE: &str = include_str!("../../../fixtures/obsidian-formats/canvases/every-feature.canvas");
+const GROUP_NESTING: &str = include_str!("../../../fixtures/obsidian-formats/canvases/group-nesting.canvas");
+const DANGLING_EDGE: &str = include_str!("../../../fixtures/obsidian-formats/canvases/dangling-edge.canvas");
 
 #[test]
-fn fr_45_json_canvas_1_round_trip_covers_every_node_edge_and_nested_group_feature()
--> Result<(), Box<dyn std::error::Error>> {
+fn json_canvas_1_round_trip_covers_every_node_edge_and_nested_group_feature() -> Result<(), Box<dyn std::error::Error>>
+{
     for source in [EVERY_FEATURE, GROUP_NESTING] {
         let document = CanvasDocument::try_from(source)?;
         assert!(document.diagnostics().is_empty());
@@ -25,8 +22,7 @@ fn fr_45_json_canvas_1_round_trip_covers_every_node_edge_and_nested_group_featur
 }
 
 #[test]
-fn fr_46_canvas_validation_reports_a_dangling_edge_at_the_specific_endpoint()
--> Result<(), Box<dyn std::error::Error>> {
+fn canvas_validation_reports_a_dangling_edge_at_the_specific_endpoint() -> Result<(), Box<dyn std::error::Error>> {
     let document = CanvasDocument::try_from(DANGLING_EDGE)?;
 
     assert_eq!(document.diagnostics().len(), 1);
@@ -36,7 +32,7 @@ fn fr_46_canvas_validation_reports_a_dangling_edge_at_the_specific_endpoint()
 }
 
 #[test]
-fn fr_45_canvas_apply_auto_positions_nodes_groups_members_and_rolls_back_invalid_edges()
+fn canvas_apply_auto_positions_nodes_groups_members_and_rolls_back_invalid_edges()
 -> Result<(), Box<dyn std::error::Error>> {
     let mut document = CanvasDocument::try_from(EVERY_FEATURE)?;
     let mut node = Map::new();
@@ -56,11 +52,7 @@ fn fr_45_canvas_apply_auto_positions_nodes_groups_members_and_rolls_back_invalid
         .ok_or("generated node ID missing")?
         .to_owned();
     assert_eq!(added_id.len(), 16);
-    assert!(
-        added_id
-            .chars()
-            .all(|character| character.is_ascii_hexdigit())
-    );
+    assert!(added_id.chars().all(|character| character.is_ascii_hexdigit()));
     assert_eq!(added.get("y"), Some(&json!(0)));
 
     document.apply(vec![CanvasOperation::AddNode {
@@ -113,8 +105,7 @@ fn fr_45_canvas_apply_auto_positions_nodes_groups_members_and_rolls_back_invalid
 }
 
 #[test]
-fn fr_45_every_canvas_operation_composes_and_node_removal_cascades_edges()
--> Result<(), Box<dyn std::error::Error>> {
+fn every_canvas_operation_composes_and_node_removal_cascades_edges() -> Result<(), Box<dyn std::error::Error>> {
     let mut document = CanvasDocument::try_from(
         json!({
             "nodes": [
@@ -146,9 +137,7 @@ fn fr_45_every_canvas_operation_composes_and_node_removal_cascades_edges()
             id: "c-a".to_owned(),
             patch: serde_json::from_value(json!({"label": "after", "toEnd": "arrow"}))?,
         },
-        CanvasOperation::RemoveEdge {
-            id: "c-a".to_owned(),
-        },
+        CanvasOperation::RemoveEdge { id: "c-a".to_owned() },
         CanvasOperation::Group {
             group: serde_json::from_value(json!({
                 "id": "a-c", "type": "group", "label": "A and C"
@@ -161,8 +150,7 @@ fn fr_45_every_canvas_operation_composes_and_node_removal_cascades_edges()
     assert!(document.diagnostics().is_empty());
     assert!(document.edges().is_empty());
     assert!(document.nodes().iter().any(|node| {
-        node.pointer("/id") == Some(&json!("c"))
-            && node.pointer("/text") == Some(&json!("Updated C"))
+        node.pointer("/id") == Some(&json!("c")) && node.pointer("/text") == Some(&json!("Updated C"))
     }));
     assert_eq!(document.nodes()[0].pointer("/id"), Some(&json!("a-c")));
     let rendered = String::try_from(&document)?;
@@ -172,8 +160,7 @@ fn fr_45_every_canvas_operation_composes_and_node_removal_cascades_edges()
 }
 
 #[test]
-fn fr_46_json_canvas_validation_reaches_every_documented_schema_error_class()
--> Result<(), Box<dyn std::error::Error>> {
+fn json_canvas_validation_reaches_every_documented_schema_error_class() -> Result<(), Box<dyn std::error::Error>> {
     let cases = [
         (
             json!({

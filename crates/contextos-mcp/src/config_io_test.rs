@@ -5,8 +5,7 @@ use tempfile::tempdir;
 use super::*;
 
 #[test]
-fn load_config_document_starts_fresh_when_the_file_does_not_exist()
--> Result<(), Box<dyn std::error::Error>> {
+fn load_config_document_starts_fresh_when_the_file_does_not_exist() -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempdir()?;
     let path = directory.path().join("config.toml");
 
@@ -41,8 +40,7 @@ fn load_config_document_rejects_malformed_toml() -> Result<(), Box<dyn std::erro
 }
 
 #[test]
-fn write_config_document_creates_missing_parent_directories()
--> Result<(), Box<dyn std::error::Error>> {
+fn write_config_document_creates_missing_parent_directories() -> Result<(), Box<dyn std::error::Error>> {
     let directory = tempdir()?;
     let path = directory.path().join("nested").join("config.toml");
     let document = ConfigDocument::new();
@@ -81,8 +79,7 @@ fn write_config_document_overwrites_existing_content() -> Result<(), Box<dyn std
 }
 
 #[test]
-fn write_config_document_leaves_no_temporary_file_behind() -> Result<(), Box<dyn std::error::Error>>
-{
+fn write_config_document_leaves_no_temporary_file_behind() -> Result<(), Box<dyn std::error::Error>> {
     let config_dir = tempdir()?;
     let path = config_dir.path().join("config.toml");
     let document = ConfigDocument::new();

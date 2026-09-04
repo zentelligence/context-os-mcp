@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use fjall::{Database, Keyspace, KeyspaceCreateOptions, PersistMode, Readable};
 
 use super::{
-    GraphChange, GraphDelta, GraphEdge, GraphNode, GraphRecords, STORE_FORMAT, StoredGraphMetadata,
-    StoresGraph, encode, graph_storage_error,
+    GraphChange, GraphDelta, GraphEdge, GraphNode, GraphRecords, STORE_FORMAT, StoredGraphMetadata, StoresGraph,
+    encode, graph_storage_error,
 };
 use crate::SearchError;
 
@@ -151,11 +151,7 @@ impl StoresGraph for FjallGraphStore {
         }
 
         batch.insert(&self.metadata, META_FORMAT_KEY, STORE_FORMAT.to_be_bytes());
-        batch.insert(
-            &self.metadata,
-            META_NEXT_EDGE_ID_KEY,
-            next_edge_id.to_be_bytes(),
-        );
+        batch.insert(&self.metadata, META_NEXT_EDGE_ID_KEY, next_edge_id.to_be_bytes());
 
         batch
             .commit()

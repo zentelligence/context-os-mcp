@@ -108,10 +108,7 @@ impl OperationRoute {
     #[must_use]
     pub const fn includes(self, service: OperationService) -> bool {
         match (self.kind, service) {
-            (
-                OperationRouteKind::Internal,
-                OperationService::Index | OperationService::OperationLog,
-            ) => false,
+            (OperationRouteKind::Internal, OperationService::Index | OperationService::OperationLog) => false,
             (
                 OperationRouteKind::Tool | OperationRouteKind::Internal,
                 OperationService::Index

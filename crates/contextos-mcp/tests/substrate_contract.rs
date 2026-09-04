@@ -1,10 +1,9 @@
 //! Substrate contract tests for the cross-cutting services every mutating
 //! tool routes through: Git staging/commit/restore and root-restore
-//! exclusions (`FR-30` to `FR-34`), the operation log (`FR-23`,
-//! `FR-24`), managed `index.md` reconciliation and rebuild (`FR-20` to
-//! `FR-22`), and the Obsidian note/Base/Canvas format tools (`FR-40` to
-//! `FR-46`). Split from `tool_contract.rs` to keep both files under the
-//! project's file-size limit.
+//! exclusions, the operation log, managed `index.md` reconciliation and
+//! rebuild, and the Obsidian note/Base/Canvas format tools. Split from
+//! `tool_contract.rs` to keep both files under the project's file-size
+//! limit.
 
 use contextos_mcp::{Config, ContextOsServer};
 use rmcp::ServiceExt;
@@ -12,7 +11,7 @@ use rmcp::model::{CallToolRequestParams, CallToolResult};
 use serde_json::{Map, json};
 
 #[tokio::test]
-async fn fr_30_to_fr_34_git_tools_stage_commit_and_restore_through_substrates()
+async fn to_fr_34_git_tools_stage_commit_and_restore_through_substrates()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -86,17 +85,14 @@ async fn fr_30_to_fr_34_git_tools_stage_commit_and_restore_through_substrates()
     .await?;
 
     assert_eq!(restored.is_error, Some(false));
-    assert_eq!(
-        std::fs::read_to_string(vault.path().join("note.md"))?,
-        "original\n"
-    );
+    assert_eq!(std::fs::read_to_string(vault.path().join("note.md"))?, "original\n");
     assert!(vault.path().join("index.md").exists());
     assert!(vault.path().join("memory/log").exists());
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_33_root_restore_preserves_the_default_active_exclusion_list()
+async fn root_restore_preserves_the_default_active_exclusion_list()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     for directory in ["memory/log", "memory/sessions", "memory/coding"] {
@@ -126,10 +122,7 @@ async fn fr_33_root_restore_preserves_the_default_active_exclusion_list()
     .await?;
 
     assert_eq!(restored.is_error, Some(false));
-    assert_eq!(
-        std::fs::read_to_string(vault.path().join("note.md"))?,
-        "baseline\n"
-    );
+    assert_eq!(std::fs::read_to_string(vault.path().join("note.md"))?, "baseline\n");
     for directory in ["memory/log", "memory/sessions", "memory/coding"] {
         assert_eq!(
             std::fs::read_to_string(vault.path().join(directory).join("state.md"))?,
@@ -140,8 +133,7 @@ async fn fr_33_root_restore_preserves_the_default_active_exclusion_list()
 }
 
 #[tokio::test(start_paused = true)]
-async fn fr_30_zero_quiet_period_debounces_to_one_automatic_commit()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn zero_quiet_period_debounces_to_one_automatic_commit() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
     config.vaults[0].git.commit_debounce_s = 0;
@@ -178,8 +170,8 @@ async fn fr_30_zero_quiet_period_debounces_to_one_automatic_commit()
 }
 
 #[tokio::test]
-async fn fr_30_graceful_flush_commits_pending_paths_before_shutdown()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn graceful_flush_commits_pending_paths_before_shutdown() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
     call_tool(server.clone(), "git_init", Map::new()).await?;
@@ -204,14 +196,11 @@ async fn fr_30_graceful_flush_commits_pending_paths_before_shutdown()
 }
 
 #[tokio::test]
-async fn fr_30_graceful_flush_attempts_every_vault_before_reporting_a_failure()
+async fn graceful_flush_attempts_every_vault_before_reporting_a_failure()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let first = tempfile::Builder::new().prefix("first").tempdir()?;
     let second = tempfile::Builder::new().prefix("second").tempdir()?;
-    let mut config = Config::try_from(vec![
-        first.path().to_path_buf(),
-        second.path().to_path_buf(),
-    ])?;
+    let mut config = Config::try_from(vec![first.path().to_path_buf(), second.path().to_path_buf()])?;
     config.vaults[0].git.commit_debounce_s = 3600;
     config.vaults[1].git.commit_debounce_s = 3600;
     let server = ContextOsServer::try_from(config)?;
@@ -244,14 +233,11 @@ async fn fr_30_graceful_flush_attempts_every_vault_before_reporting_a_failure()
 }
 
 #[tokio::test]
-async fn fr_30_cross_vault_move_stages_source_and_destination_in_their_own_repositories()
+async fn cross_vault_move_stages_source_and_destination_in_their_own_repositories()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let first = tempfile::Builder::new().prefix("first").tempdir()?;
     let second = tempfile::Builder::new().prefix("second").tempdir()?;
-    let mut config = Config::try_from(vec![
-        first.path().to_path_buf(),
-        second.path().to_path_buf(),
-    ])?;
+    let mut config = Config::try_from(vec![first.path().to_path_buf(), second.path().to_path_buf()])?;
     config.vaults[0].git.commit_debounce_s = 3600;
     config.vaults[1].git.commit_debounce_s = 3600;
     let server = ContextOsServer::try_from(config)?;
@@ -336,7 +322,7 @@ async fn fr_30_cross_vault_move_stages_source_and_destination_in_their_own_repos
 }
 
 #[tokio::test]
-async fn fr_40_to_fr_43_note_tools_preserve_defaults_body_order_and_links()
+async fn to_fr_43_note_tools_preserve_defaults_body_order_and_links()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(vault.path().join("Plan.md"), "# Plan\n")?;
@@ -425,7 +411,7 @@ async fn fr_40_to_fr_43_note_tools_preserve_defaults_body_order_and_links()
     clippy::too_many_lines,
     reason = "one end-to-end Base scenario keeps quoting, conflict, and rollback evidence together"
 )]
-async fn fr_44_base_tools_round_trip_and_reject_a_transaction_that_dangles_a_formula()
+async fn base_tools_round_trip_and_reject_a_transaction_that_dangles_a_formula()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -485,10 +471,7 @@ async fn fr_44_base_tools_round_trip_and_reject_a_transaction_that_dangles_a_for
     .await?;
     assert_eq!(stale.is_error, Some(true));
     assert_eq!(
-        stale
-            .structured_content
-            .as_ref()
-            .and_then(|value| value.get("code")),
+        stale.structured_content.as_ref().and_then(|value| value.get("code")),
         Some(&json!("io/conflict"))
     );
 
@@ -573,10 +556,7 @@ async fn fr_44_base_tools_round_trip_and_reject_a_transaction_that_dangles_a_for
     .await?;
     assert_eq!(failed.is_error, Some(true));
     assert_eq!(
-        failed
-            .structured_content
-            .as_ref()
-            .and_then(|value| value.get("code")),
+        failed.structured_content.as_ref().and_then(|value| value.get("code")),
         Some(&json!("format/base-schema"))
     );
     assert_eq!(std::fs::read(vault.path().join("projects.base"))?, before);
@@ -603,7 +583,7 @@ async fn fr_44_base_tools_round_trip_and_reject_a_transaction_that_dangles_a_for
 }
 
 #[tokio::test]
-async fn fr_45_canvas_tools_group_nodes_cascade_edges_and_report_dangling_endpoints()
+async fn canvas_tools_group_nodes_cascade_edges_and_report_dangling_endpoints()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -643,9 +623,7 @@ async fn fr_45_canvas_tools_group_nodes_cascade_edges_and_report_dangling_endpoi
     )
     .await?;
     assert_eq!(
-        read.structured_content
-            .as_ref()
-            .and_then(|value| value.get("edges")),
+        read.structured_content.as_ref().and_then(|value| value.get("edges")),
         Some(&json!([]))
     );
     assert_eq!(
@@ -677,9 +655,9 @@ async fn fr_45_canvas_tools_group_nodes_cascade_edges_and_report_dangling_endpoi
 }
 
 #[tokio::test]
-async fn d_31_base_and_canvas_read_report_parse_failures_as_diagnostics_and_enforce_extensions()
+async fn base_and_canvas_read_report_parse_failures_as_diagnostics_and_enforce_extensions()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // D-31: a `.base`/`.canvas` file that fails to parse at all (not just soft
+    // A `.base`/`.canvas` file that fails to parse at all (not just soft
     // schema diagnostics) is reported by `base_read`/`canvas_read` as a
     // normal, non-error diagnostic result, not a tool error. This absorbed
     // `base_validate`/`canvas_validate`'s only capability `base_read`/
@@ -693,12 +671,7 @@ async fn d_31_base_and_canvas_read_report_parse_failures_as_diagnostics_and_enfo
         ("base_read", "broken.base", "format/base-schema"),
         ("canvas_read", "broken.canvas", "format/canvas-schema"),
     ] {
-        let result = call_tool(
-            server.clone(),
-            tool,
-            serde_json::from_value(json!({"path": path}))?,
-        )
-        .await?;
+        let result = call_tool(server.clone(), tool, serde_json::from_value(json!({"path": path}))?).await?;
         assert_eq!(result.is_error, Some(false));
         assert_eq!(
             result
@@ -727,7 +700,7 @@ async fn d_31_base_and_canvas_read_report_parse_failures_as_diagnostics_and_enfo
 }
 
 #[tokio::test]
-async fn fr_23_and_fr_24_mutations_and_manual_entries_share_the_same_daily_log()
+async fn and_fr_24_mutations_and_manual_entries_share_the_same_daily_log()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -770,7 +743,7 @@ async fn fr_23_and_fr_24_mutations_and_manual_entries_share_the_same_daily_log()
 }
 
 #[tokio::test]
-async fn fr_23_graceful_shutdown_flush_retries_buffered_operation_log_entries()
+async fn graceful_shutdown_flush_retries_buffered_operation_log_entries()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -803,7 +776,7 @@ async fn fr_23_graceful_shutdown_flush_retries_buffered_operation_log_entries()
 }
 
 #[tokio::test]
-async fn fr_20_to_fr_22_mcp_rebuild_renames_legacy_index_and_covers_every_folder()
+async fn to_fr_22_mcp_rebuild_renames_legacy_index_and_covers_every_folder()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::create_dir_all(vault.path().join("projects/nested"))?;
@@ -850,7 +823,7 @@ async fn fr_20_to_fr_22_mcp_rebuild_renames_legacy_index_and_covers_every_folder
 }
 
 #[tokio::test]
-async fn fr_20_directory_creation_automatically_indexes_root_ancestors_and_leaf()
+async fn directory_creation_automatically_indexes_root_ancestors_and_leaf()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;

@@ -32,24 +32,19 @@ fn structured(
         .ok_or_else(|| std::io::Error::other("tool result omitted structured content").into())
 }
 
-const VALID_FLOWCHART: &str =
-    include_str!("../../../fixtures/obsidian-formats/mermaid/valid-flowchart.mmd");
-const INVALID_FLOWCHART: &str =
-    include_str!("../../../fixtures/obsidian-formats/mermaid/invalid-flowchart.mmd");
+const VALID_FLOWCHART: &str = include_str!("../../../fixtures/obsidian-formats/mermaid/valid-flowchart.mmd");
+const INVALID_FLOWCHART: &str = include_str!("../../../fixtures/obsidian-formats/mermaid/invalid-flowchart.mmd");
 
 #[tokio::test]
-async fn catalogue_advertises_mermaid_tools_with_object_schemas()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn catalogue_advertises_mermaid_tools_with_object_schemas() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     let catalogue = ContextOsServer::catalogue();
 
     let validate = catalogue
         .get("mermaid_validate")
         .ok_or_else(|| std::io::Error::other("missing tool mermaid_validate"))?;
     assert_eq!(
-        validate
-            .input_schema
-            .get("type")
-            .and_then(serde_json::Value::as_str),
+        validate.input_schema.get("type").and_then(serde_json::Value::as_str),
         Some("object")
     );
     assert!(validate.description.is_some());
@@ -72,24 +67,14 @@ async fn catalogue_advertises_mermaid_tools_with_object_schemas()
     // path populates `structured_content` with that shape too.
     assert_eq!(
         fields,
-        vec![
-            "code",
-            "diagnostics",
-            "message",
-            "path",
-            "remediation",
-            "valid"
-        ]
+        vec!["code", "diagnostics", "message", "path", "remediation", "valid"]
     );
 
     let render = catalogue
         .get("mermaid_render")
         .ok_or_else(|| std::io::Error::other("missing tool mermaid_render"))?;
     assert_eq!(
-        render
-            .input_schema
-            .get("type")
-            .and_then(serde_json::Value::as_str),
+        render.input_schema.get("type").and_then(serde_json::Value::as_str),
         Some("object")
     );
     assert!(render.description.is_some());
@@ -98,7 +83,7 @@ async fn catalogue_advertises_mermaid_tools_with_object_schemas()
 }
 
 #[tokio::test]
-async fn fr_70_validate_accepts_inline_source_and_reports_a_well_formed_diagram()
+async fn validate_accepts_inline_source_and_reports_a_well_formed_diagram()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -117,7 +102,7 @@ async fn fr_70_validate_accepts_inline_source_and_reports_a_well_formed_diagram(
 }
 
 #[tokio::test]
-async fn fr_70_validate_reads_the_fenced_mermaid_block_from_a_vault_note()
+async fn validate_reads_the_fenced_mermaid_block_from_a_vault_note()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(
@@ -139,7 +124,7 @@ async fn fr_70_validate_reads_the_fenced_mermaid_block_from_a_vault_note()
 }
 
 #[tokio::test]
-async fn fr_70_a_decoy_mermaid_fence_nested_inside_an_unrelated_fenced_block_is_skipped()
+async fn a_decoy_mermaid_fence_nested_inside_an_unrelated_fenced_block_is_skipped()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(
@@ -172,8 +157,8 @@ async fn fr_70_a_decoy_mermaid_fence_nested_inside_an_unrelated_fenced_block_is_
 }
 
 #[tokio::test]
-async fn fr_70_validate_reports_a_stable_code_for_a_malformed_diagram()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn validate_reports_a_stable_code_for_a_malformed_diagram() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
 
@@ -187,19 +172,17 @@ async fn fr_70_validate_reports_a_stable_code_for_a_malformed_diagram()
     assert_eq!(result.is_error, Some(false));
     assert_eq!(structured(&result)?.get("valid"), Some(&json!(false)));
     assert_eq!(
-        structured(&result)?
-            .get("diagnostics")
-            .and_then(|value| value
-                .as_array()
-                .and_then(|items| items.first())
-                .and_then(|item| item.get("code"))),
+        structured(&result)?.get("diagnostics").and_then(|value| value
+            .as_array()
+            .and_then(|items| items.first())
+            .and_then(|item| item.get("code"))),
         Some(&json!("mermaid/diagram-parse"))
     );
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_70_validate_rejects_oversized_inline_source_with_the_resource_limit_code()
+async fn validate_rejects_oversized_inline_source_with_the_resource_limit_code()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -215,19 +198,17 @@ async fn fr_70_validate_rejects_oversized_inline_source_with_the_resource_limit_
     assert_eq!(result.is_error, Some(false));
     assert_eq!(structured(&result)?.get("valid"), Some(&json!(false)));
     assert_eq!(
-        structured(&result)?
-            .get("diagnostics")
-            .and_then(|value| value
-                .as_array()
-                .and_then(|items| items.first())
-                .and_then(|item| item.get("code"))),
+        structured(&result)?.get("diagnostics").and_then(|value| value
+            .as_array()
+            .and_then(|items| items.first())
+            .and_then(|item| item.get("code"))),
         Some(&json!("mermaid/resource-limit"))
     );
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_71_render_returns_an_embedded_svg_resource_free_of_foreign_object_and_script()
+async fn render_returns_an_embedded_svg_resource_free_of_foreign_object_and_script()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -246,9 +227,9 @@ async fn fr_71_render_returns_an_embedded_svg_resource_free_of_foreign_object_an
         .and_then(rmcp::model::ContentBlock::as_resource)
         .ok_or_else(|| std::io::Error::other("render did not return an embedded resource"))?;
     let (mime_type, svg) = match &resource.resource {
-        rmcp::model::ResourceContents::TextResourceContents {
-            mime_type, text, ..
-        } => (mime_type.clone(), text.clone()),
+        rmcp::model::ResourceContents::TextResourceContents { mime_type, text, .. } => {
+            (mime_type.clone(), text.clone())
+        }
         _ => {
             return Err(std::io::Error::other("render returned a blob, not text SVG").into());
         }
@@ -261,7 +242,7 @@ async fn fr_71_render_returns_an_embedded_svg_resource_free_of_foreign_object_an
 }
 
 #[tokio::test]
-async fn fr_71_render_returns_the_same_diagnostics_as_validate_on_failure()
+async fn render_returns_the_same_diagnostics_as_validate_on_failure()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
@@ -276,25 +257,20 @@ async fn fr_71_render_returns_the_same_diagnostics_as_validate_on_failure()
     assert_eq!(result.is_error, Some(false));
     assert_eq!(structured(&result)?.get("valid"), Some(&json!(false)));
     assert_eq!(
-        structured(&result)?
-            .get("diagnostics")
-            .and_then(|value| value
-                .as_array()
-                .and_then(|items| items.first())
-                .and_then(|item| item.get("code"))),
+        structured(&result)?.get("diagnostics").and_then(|value| value
+            .as_array()
+            .and_then(|items| items.first())
+            .and_then(|item| item.get("code"))),
         Some(&json!("mermaid/diagram-parse"))
     );
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_70_a_note_without_a_fenced_mermaid_block_reports_the_stable_schema_code()
+async fn a_note_without_a_fenced_mermaid_block_reports_the_stable_schema_code()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
-    std::fs::write(
-        vault.path().join("plain.md"),
-        "# Title\n\nNo diagram here.\n",
-    )?;
+    std::fs::write(vault.path().join("plain.md"), "# Title\n\nNo diagram here.\n")?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
 
     let result = call_tool(
@@ -305,15 +281,12 @@ async fn fr_70_a_note_without_a_fenced_mermaid_block_reports_the_stable_schema_c
     .await?;
 
     assert_eq!(result.is_error, Some(true));
-    assert_eq!(
-        structured(&result)?.get("code"),
-        Some(&json!("format/mermaid-schema"))
-    );
+    assert_eq!(structured(&result)?.get("code"), Some(&json!("format/mermaid-schema")));
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_70_supplying_both_path_and_source_is_a_stable_invalid_argument_error()
+async fn supplying_both_path_and_source_is_a_stable_invalid_argument_error()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(
@@ -330,37 +303,25 @@ async fn fr_70_supplying_both_path_and_source_is_a_stable_invalid_argument_error
     .await?;
 
     assert_eq!(result.is_error, Some(true));
-    assert_eq!(
-        structured(&result)?.get("code"),
-        Some(&json!("io/invalid-argument"))
-    );
+    assert_eq!(structured(&result)?.get("code"), Some(&json!("io/invalid-argument")));
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_70_supplying_neither_path_nor_source_is_a_stable_invalid_argument_error()
+async fn supplying_neither_path_nor_source_is_a_stable_invalid_argument_error()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
 
-    let result = call_tool(
-        server,
-        "mermaid_validate",
-        serde_json::from_value(json!({}))?,
-    )
-    .await?;
+    let result = call_tool(server, "mermaid_validate", serde_json::from_value(json!({}))?).await?;
 
     assert_eq!(result.is_error, Some(true));
-    assert_eq!(
-        structured(&result)?.get("code"),
-        Some(&json!("io/invalid-argument"))
-    );
+    assert_eq!(structured(&result)?.get("code"), Some(&json!("io/invalid-argument")));
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_70_a_path_outside_every_configured_root_is_rejected()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn a_path_outside_every_configured_root_is_rejected() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
 
@@ -372,16 +333,12 @@ async fn fr_70_a_path_outside_every_configured_root_is_rejected()
     .await?;
 
     assert_eq!(result.is_error, Some(true));
-    assert_eq!(
-        structured(&result)?.get("code"),
-        Some(&json!("path/outside-root"))
-    );
+    assert_eq!(structured(&result)?.get("code"), Some(&json!("path/outside-root")));
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_70_unknown_fields_are_rejected() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
-{
+async fn unknown_fields_are_rejected() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
 

@@ -8,8 +8,7 @@ use super::build_router;
 use crate::mcp_client::McpClientSet;
 
 #[tokio::test]
-async fn the_proxy_route_is_reachable_through_the_assembled_router()
--> Result<(), Box<dyn std::error::Error>> {
+async fn the_proxy_route_is_reachable_through_the_assembled_router() -> Result<(), Box<dyn std::error::Error>> {
     let clients = Arc::new(McpClientSet::connect(&[]).await?);
     let dir = tempfile::tempdir()?;
     let router = build_router(
@@ -37,8 +36,7 @@ async fn the_proxy_route_is_reachable_through_the_assembled_router()
 }
 
 #[tokio::test]
-async fn the_static_route_is_reachable_through_the_assembled_router()
--> Result<(), Box<dyn std::error::Error>> {
+async fn the_static_route_is_reachable_through_the_assembled_router() -> Result<(), Box<dyn std::error::Error>> {
     let clients = Arc::new(McpClientSet::connect(&[]).await?);
     let dir = tempfile::tempdir()?;
     std::fs::write(dir.path().join("app.js"), b"console.log('hi');")?;
@@ -50,11 +48,7 @@ async fn the_static_route_is_reachable_through_the_assembled_router()
     );
 
     let response = router
-        .oneshot(
-            Request::builder()
-                .uri("/static/app.js")
-                .body(Body::empty())?,
-        )
+        .oneshot(Request::builder().uri("/static/app.js").body(Body::empty())?)
         .await?;
 
     assert_eq!(response.status(), StatusCode::OK);

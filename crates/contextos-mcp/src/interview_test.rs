@@ -37,27 +37,19 @@ impl ScriptedInterviewer {
 
 impl Interviewer for ScriptedInterviewer {
     fn confirm(&mut self, prompt: &str, _default: bool) -> Result<bool, InterviewError> {
-        self.confirms
-            .pop_front()
-            .ok_or_else(|| script_exhausted(prompt))
+        self.confirms.pop_front().ok_or_else(|| script_exhausted(prompt))
     }
 
     fn ask(&mut self, prompt: &str) -> Result<String, InterviewError> {
-        self.texts
-            .pop_front()
-            .ok_or_else(|| script_exhausted(prompt))
+        self.texts.pop_front().ok_or_else(|| script_exhausted(prompt))
     }
 
     fn ask_with_default(&mut self, prompt: &str, _default: &str) -> Result<String, InterviewError> {
-        self.texts
-            .pop_front()
-            .ok_or_else(|| script_exhausted(prompt))
+        self.texts.pop_front().ok_or_else(|| script_exhausted(prompt))
     }
 
     fn choose(&mut self, prompt: &str, _options: &[&str]) -> Result<usize, InterviewError> {
-        self.choices
-            .pop_front()
-            .ok_or_else(|| script_exhausted(prompt))
+        self.choices.pop_front().ok_or_else(|| script_exhausted(prompt))
     }
 }
 
@@ -126,9 +118,7 @@ fn run_interview_strips_quotes_from_a_manually_entered_host_path_once_discovery_
     let config_path = config_dir.path().join("config.toml");
     let host_path = host_dir.path().join("claude_desktop_config.json");
 
-    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
-        Err(ModelCliError::NoRequiredFiles)
-    };
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> { Err(ModelCliError::NoRequiredFiles) };
     let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
         Ok(HostPathResolution::NotFound {
             reason: "no install found".to_owned(),
@@ -185,9 +175,8 @@ fn run_interview_completes_the_full_happy_path_with_no_terminal_or_network_acces
     let host_path = host_dir.path().join("claude_desktop_config.json");
 
     let model_dir_for_closure = model_dir.path().to_path_buf();
-    let download_model = move |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
-        Ok(model_dir_for_closure.clone())
-    };
+    let download_model =
+        move |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> { Ok(model_dir_for_closure.clone()) };
     let host_path_for_closure = host_path.clone();
     let resolve_host_path = move || -> Result<HostPathResolution, HostPathError> {
         Ok(HostPathResolution::Found(host_path_for_closure.clone()))
@@ -216,10 +205,7 @@ fn run_interview_completes_the_full_happy_path_with_no_terminal_or_network_acces
     let report = run_interview(&mut interviewer, &environment)?;
 
     assert_eq!(report.added_vaults, vec!["mine".to_owned()]);
-    assert_eq!(
-        report.semantic_model_directory.as_deref(),
-        Some(model_dir.path())
-    );
+    assert_eq!(report.semantic_model_directory.as_deref(), Some(model_dir.path()));
     assert_eq!(
         report.host_registration,
         HostRegistrationOutcome::Registered {
@@ -258,12 +244,9 @@ fn run_interview_skips_every_optional_step_and_touches_neither_network_nor_host(
     // regression that does call one of these surfaces as a normal `?`-
     // propagated test failure, not a panic, matching this crate's
     // never-panic convention.
-    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
-        Err(ModelCliError::NoRequiredFiles)
-    };
-    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
-        Err(HostPathError::HomeDirectoryUnavailable)
-    };
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> { Err(ModelCliError::NoRequiredFiles) };
+    let resolve_host_path =
+        || -> Result<HostPathResolution, HostPathError> { Err(HostPathError::HomeDirectoryUnavailable) };
     let detector = NeverRunning;
     let environment = InterviewEnvironment {
         config_path: config_path.clone(),
@@ -299,8 +282,8 @@ fn run_interview_skips_every_optional_step_and_touches_neither_network_nor_host(
 }
 
 #[test]
-fn run_interview_reports_host_running_instead_of_failing_the_whole_interview()
--> Result<(), Box<dyn std::error::Error>> {
+fn run_interview_reports_host_running_instead_of_failing_the_whole_interview() -> Result<(), Box<dyn std::error::Error>>
+{
     struct AlwaysRunning;
     impl DetectsRunningProcesses for AlwaysRunning {
         fn is_running(&self, _name_needle: &str) -> bool {
@@ -318,9 +301,7 @@ fn run_interview_reports_host_running_instead_of_failing_the_whole_interview()
     // `run_interview` should never reach the download step. See the
     // sibling minimal-path test's comment for why this returns a typed
     // error instead of panicking.
-    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
-        Err(ModelCliError::NoRequiredFiles)
-    };
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> { Err(ModelCliError::NoRequiredFiles) };
     let host_path_for_closure = host_path.clone();
     let resolve_host_path = move || -> Result<HostPathResolution, HostPathError> {
         Ok(HostPathResolution::Found(host_path_for_closure.clone()))
@@ -384,32 +365,21 @@ fn no_network_environment<'a>(
 }
 
 #[test]
-fn run_interview_prefills_a_single_existing_vault_and_accepts_every_default()
--> Result<(), Box<dyn std::error::Error>> {
+fn run_interview_prefills_a_single_existing_vault_and_accepts_every_default() -> Result<(), Box<dyn std::error::Error>>
+{
     let config_dir = tempdir()?;
     let vault_dir = tempdir()?;
     let config_path = config_dir.path().join("config.toml");
     write_existing_config(
         &config_path,
-        &format!(
-            "[[vault]]\npath = {:?}\nname = \"mine\"\n",
-            vault_dir.path()
-        ),
+        &format!("[[vault]]\npath = {:?}\nname = \"mine\"\n", vault_dir.path()),
     )?;
 
-    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
-        Err(ModelCliError::NoRequiredFiles)
-    };
-    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
-        Err(HostPathError::HomeDirectoryUnavailable)
-    };
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> { Err(ModelCliError::NoRequiredFiles) };
+    let resolve_host_path =
+        || -> Result<HostPathResolution, HostPathError> { Err(HostPathError::HomeDirectoryUnavailable) };
     let detector = NeverRunning;
-    let environment = no_network_environment(
-        config_path.clone(),
-        &detector,
-        &download_model,
-        &resolve_host_path,
-    );
+    let environment = no_network_environment(config_path.clone(), &detector, &download_model, &resolve_host_path);
 
     let mut interviewer = ScriptedInterviewer::new(
         vec![
@@ -436,32 +406,20 @@ fn run_interview_prefills_a_single_existing_vault_and_accepts_every_default()
 }
 
 #[test]
-fn run_interview_prefills_a_single_existing_vault_and_renames_it()
--> Result<(), Box<dyn std::error::Error>> {
+fn run_interview_prefills_a_single_existing_vault_and_renames_it() -> Result<(), Box<dyn std::error::Error>> {
     let config_dir = tempdir()?;
     let vault_dir = tempdir()?;
     let config_path = config_dir.path().join("config.toml");
     write_existing_config(
         &config_path,
-        &format!(
-            "[[vault]]\npath = {:?}\nname = \"mine\"\n",
-            vault_dir.path()
-        ),
+        &format!("[[vault]]\npath = {:?}\nname = \"mine\"\n", vault_dir.path()),
     )?;
 
-    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
-        Err(ModelCliError::NoRequiredFiles)
-    };
-    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
-        Err(HostPathError::HomeDirectoryUnavailable)
-    };
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> { Err(ModelCliError::NoRequiredFiles) };
+    let resolve_host_path =
+        || -> Result<HostPathResolution, HostPathError> { Err(HostPathError::HomeDirectoryUnavailable) };
     let detector = NeverRunning;
-    let environment = no_network_environment(
-        config_path.clone(),
-        &detector,
-        &download_model,
-        &resolve_host_path,
-    );
+    let environment = no_network_environment(config_path.clone(), &detector, &download_model, &resolve_host_path);
 
     let mut interviewer = ScriptedInterviewer::new(
         vec![
@@ -482,8 +440,7 @@ fn run_interview_prefills_a_single_existing_vault_and_renames_it()
 }
 
 #[test]
-fn run_interview_multi_vault_focus_edits_general_server_settings()
--> Result<(), Box<dyn std::error::Error>> {
+fn run_interview_multi_vault_focus_edits_general_server_settings() -> Result<(), Box<dyn std::error::Error>> {
     let config_dir = tempdir()?;
     let first_dir = tempdir()?;
     let second_dir = tempdir()?;
@@ -497,19 +454,11 @@ fn run_interview_multi_vault_focus_edits_general_server_settings()
         ),
     )?;
 
-    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
-        Err(ModelCliError::NoRequiredFiles)
-    };
-    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
-        Err(HostPathError::HomeDirectoryUnavailable)
-    };
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> { Err(ModelCliError::NoRequiredFiles) };
+    let resolve_host_path =
+        || -> Result<HostPathResolution, HostPathError> { Err(HostPathError::HomeDirectoryUnavailable) };
     let detector = NeverRunning;
-    let environment = no_network_environment(
-        config_path.clone(),
-        &detector,
-        &download_model,
-        &resolve_host_path,
-    );
+    let environment = no_network_environment(config_path.clone(), &detector, &download_model, &resolve_host_path);
 
     let mut interviewer = ScriptedInterviewer::with_choices(
         vec![
@@ -555,19 +504,11 @@ fn run_interview_general_server_settings_focus_lowercases_a_mixed_case_log_level
         ),
     )?;
 
-    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
-        Err(ModelCliError::NoRequiredFiles)
-    };
-    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
-        Err(HostPathError::HomeDirectoryUnavailable)
-    };
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> { Err(ModelCliError::NoRequiredFiles) };
+    let resolve_host_path =
+        || -> Result<HostPathResolution, HostPathError> { Err(HostPathError::HomeDirectoryUnavailable) };
     let detector = NeverRunning;
-    let environment = no_network_environment(
-        config_path.clone(),
-        &detector,
-        &download_model,
-        &resolve_host_path,
-    );
+    let environment = no_network_environment(config_path.clone(), &detector, &download_model, &resolve_host_path);
 
     let mut interviewer = ScriptedInterviewer::with_choices(
         vec![
@@ -592,8 +533,7 @@ fn run_interview_general_server_settings_focus_lowercases_a_mixed_case_log_level
 }
 
 #[test]
-fn run_interview_multi_vault_focus_edits_all_vaults_in_turn()
--> Result<(), Box<dyn std::error::Error>> {
+fn run_interview_multi_vault_focus_edits_all_vaults_in_turn() -> Result<(), Box<dyn std::error::Error>> {
     let config_dir = tempdir()?;
     let first_dir = tempdir()?;
     let second_dir = tempdir()?;
@@ -607,19 +547,11 @@ fn run_interview_multi_vault_focus_edits_all_vaults_in_turn()
         ),
     )?;
 
-    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
-        Err(ModelCliError::NoRequiredFiles)
-    };
-    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
-        Err(HostPathError::HomeDirectoryUnavailable)
-    };
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> { Err(ModelCliError::NoRequiredFiles) };
+    let resolve_host_path =
+        || -> Result<HostPathResolution, HostPathError> { Err(HostPathError::HomeDirectoryUnavailable) };
     let detector = NeverRunning;
-    let environment = no_network_environment(
-        config_path.clone(),
-        &detector,
-        &download_model,
-        &resolve_host_path,
-    );
+    let environment = no_network_environment(config_path.clone(), &detector, &download_model, &resolve_host_path);
 
     let mut interviewer = ScriptedInterviewer::with_choices(
         vec![
@@ -640,16 +572,12 @@ fn run_interview_multi_vault_focus_edits_all_vaults_in_turn()
 
     let report = run_interview(&mut interviewer, &environment)?;
 
-    assert_eq!(
-        report.edited_vaults,
-        vec!["first".to_owned(), "second".to_owned()]
-    );
+    assert_eq!(report.edited_vaults, vec!["first".to_owned(), "second".to_owned()]);
     Ok(())
 }
 
 #[test]
-fn run_interview_multi_vault_focus_removes_a_specific_vault()
--> Result<(), Box<dyn std::error::Error>> {
+fn run_interview_multi_vault_focus_removes_a_specific_vault() -> Result<(), Box<dyn std::error::Error>> {
     let config_dir = tempdir()?;
     let first_dir = tempdir()?;
     let second_dir = tempdir()?;
@@ -663,19 +591,11 @@ fn run_interview_multi_vault_focus_removes_a_specific_vault()
         ),
     )?;
 
-    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
-        Err(ModelCliError::NoRequiredFiles)
-    };
-    let resolve_host_path = || -> Result<HostPathResolution, HostPathError> {
-        Err(HostPathError::HomeDirectoryUnavailable)
-    };
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> { Err(ModelCliError::NoRequiredFiles) };
+    let resolve_host_path =
+        || -> Result<HostPathResolution, HostPathError> { Err(HostPathError::HomeDirectoryUnavailable) };
     let detector = NeverRunning;
-    let environment = no_network_environment(
-        config_path.clone(),
-        &detector,
-        &download_model,
-        &resolve_host_path,
-    );
+    let environment = no_network_environment(config_path.clone(), &detector, &download_model, &resolve_host_path);
 
     let mut interviewer = ScriptedInterviewer::with_choices(
         vec![
@@ -726,16 +646,12 @@ fn run_interview_waits_for_claude_desktop_to_close_then_registers_automatically(
     let config_path = config_dir.path().join("config.toml");
     let host_path = host_dir.path().join("claude_desktop_config.json");
 
-    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> {
-        Err(ModelCliError::NoRequiredFiles)
-    };
+    let download_model = |_cache_dir: &Path| -> Result<PathBuf, ModelCliError> { Err(ModelCliError::NoRequiredFiles) };
     let host_path_for_closure = host_path.clone();
     let resolve_host_path = move || -> Result<HostPathResolution, HostPathError> {
         Ok(HostPathResolution::Found(host_path_for_closure.clone()))
     };
-    let detector = RunningThenNotRunning {
-        calls: Cell::new(0),
-    };
+    let detector = RunningThenNotRunning { calls: Cell::new(0) };
     let wait_ticks = Cell::new(0u32);
     let wait_tick = || wait_ticks.set(wait_ticks.get() + 1);
     let environment = InterviewEnvironment {
@@ -767,10 +683,7 @@ fn run_interview_waits_for_claude_desktop_to_close_then_registers_automatically(
         }
     );
     assert!(host_path.exists());
-    assert!(
-        wait_ticks.get() > 0,
-        "the wait loop must have polled at least once"
-    );
+    assert!(wait_ticks.get() > 0, "the wait loop must have polled at least once");
 
     Ok(())
 }

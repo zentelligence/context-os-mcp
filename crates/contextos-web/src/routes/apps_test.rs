@@ -27,11 +27,7 @@ fn a_supported_spa_entry_is_servable_and_labelled_spa() {
 
 #[test]
 fn a_not_yet_supported_htmx_entry_is_not_servable_and_labelled_htmx() {
-    let entry = list_entry(&app(
-        AppKind::Htmx,
-        AppTarget::Embed,
-        AppStatus::NotYetSupported,
-    ));
+    let entry = list_entry(&app(AppKind::Htmx, AppTarget::Embed, AppStatus::NotYetSupported));
     assert!(!entry.servable);
     assert_eq!(entry.kind_label, "htmx");
     assert_eq!(entry.target_attr, "_self");

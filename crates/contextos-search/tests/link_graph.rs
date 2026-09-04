@@ -1,24 +1,15 @@
 use std::path::PathBuf;
 
 use contextos_obsidian::{LinkCollection, ObsidianLink};
-use contextos_search::{
-    CatchUpKind, GraphBackend, GraphDirection, GraphEdgeKind, LinkGraph, LinkGraphConfig,
-};
+use contextos_search::{CatchUpKind, GraphBackend, GraphDirection, GraphEdgeKind, LinkGraph, LinkGraphConfig};
 
-/// Every backend FR-52's behaviour suite must pass identically under
-/// (FR-108).
-const BACKENDS: [GraphBackend; 3] = [
-    GraphBackend::Serde,
-    GraphBackend::Fjall,
-    GraphBackend::Sqlite,
-];
+/// Every backend runs the same behaviour suite, which must pass identically
+/// under each one.
+const BACKENDS: [GraphBackend; 3] = [GraphBackend::Serde, GraphBackend::Fjall, GraphBackend::Sqlite];
 
 /// Builds a fresh `LinkGraph` backed by `dir/.contextos/graph`, under the
 /// given `backend`.
-fn graph_at(
-    dir: &tempfile::TempDir,
-    backend: GraphBackend,
-) -> Result<LinkGraph, Box<dyn std::error::Error>> {
+fn graph_at(dir: &tempfile::TempDir, backend: GraphBackend) -> Result<LinkGraph, Box<dyn std::error::Error>> {
     let store_directory: PathBuf = dir.path().join(".contextos").join("graph");
     Ok(LinkGraph::try_from(LinkGraphConfig {
         store_directory,
@@ -32,7 +23,7 @@ fn links(markdown: &str) -> Result<Vec<ObsidianLink>, Box<dyn std::error::Error>
 }
 
 #[test]
-fn fr_52_neighbours_bounded_by_depth_and_direction() -> Result<(), Box<dyn std::error::Error>> {
+fn neighbours_bounded_by_depth_and_direction() -> Result<(), Box<dyn std::error::Error>> {
     for backend in BACKENDS {
         let dir = tempfile::tempdir()?;
         let mut graph = graph_at(&dir, backend)?;
@@ -47,20 +38,12 @@ fn fr_52_neighbours_bounded_by_depth_and_direction() -> Result<(), Box<dyn std::
         graph.upsert_note("e.md", "E", &links("[[a]]\n")?)?;
 
         let out_one = graph.neighbours("a.md", 1, GraphDirection::Out)?;
-        let mut paths: Vec<&str> = out_one
-            .nodes
-            .iter()
-            .map(|node| node.path.as_str())
-            .collect();
+        let mut paths: Vec<&str> = out_one.nodes.iter().map(|node| node.path.as_str()).collect();
         paths.sort_unstable();
         assert_eq!(paths, vec!["a.md", "b.md"], "backend {backend:?}");
 
         let out_two = graph.neighbours("a.md", 2, GraphDirection::Out)?;
-        let paths: Vec<&str> = out_two
-            .nodes
-            .iter()
-            .map(|node| node.path.as_str())
-            .collect();
+        let paths: Vec<&str> = out_two.nodes.iter().map(|node| node.path.as_str()).collect();
         assert!(paths.contains(&"c.md"), "backend {backend:?}");
         assert!(!paths.contains(&"d.md"), "backend {backend:?}");
 
@@ -70,11 +53,7 @@ fn fr_52_neighbours_bounded_by_depth_and_direction() -> Result<(), Box<dyn std::
         assert_eq!(paths, vec!["a.md", "e.md"], "backend {backend:?}");
 
         let both_one = graph.neighbours("a.md", 1, GraphDirection::Both)?;
-        let mut paths: Vec<&str> = both_one
-            .nodes
-            .iter()
-            .map(|node| node.path.as_str())
-            .collect();
+        let mut paths: Vec<&str> = both_one.nodes.iter().map(|node| node.path.as_str()).collect();
         paths.sort_unstable();
         assert_eq!(paths, vec!["a.md", "b.md", "e.md"], "backend {backend:?}");
         let mut edge_pairs: Vec<(&str, &str)> = both_one
@@ -94,7 +73,7 @@ fn fr_52_neighbours_bounded_by_depth_and_direction() -> Result<(), Box<dyn std::
 }
 
 #[test]
-fn fr_52_depth_outside_bounds_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+fn depth_outside_bounds_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
     for backend in BACKENDS {
         let dir = tempfile::tempdir()?;
         let mut graph = graph_at(&dir, backend)?;
@@ -103,35 +82,25 @@ fn fr_52_depth_outside_bounds_is_rejected() -> Result<(), Box<dyn std::error::Er
         let Err(too_shallow) = graph.neighbours("a.md", 0, GraphDirection::Out) else {
             return Err(format!("backend {backend:?}: expected depth 0 to be rejected").into());
         };
-        assert_eq!(
-            too_shallow.code(),
-            "index/invalid-query",
-            "backend {backend:?}"
-        );
+        assert_eq!(too_shallow.code(), "index/invalid-query", "backend {backend:?}");
 
         let Err(too_deep) = graph.neighbours("a.md", 5, GraphDirection::Out) else {
             return Err(format!("backend {backend:?}: expected depth 5 to be rejected").into());
         };
-        assert_eq!(
-            too_deep.code(),
-            "index/invalid-query",
-            "backend {backend:?}"
-        );
+        assert_eq!(too_deep.code(), "index/invalid-query", "backend {backend:?}");
     }
 
     Ok(())
 }
 
 #[test]
-fn fr_52_unknown_note_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+fn unknown_note_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
     for backend in BACKENDS {
         let dir = tempfile::tempdir()?;
         let mut graph = graph_at(&dir, backend)?;
 
         let Err(error) = graph.neighbours("missing.md", 1, GraphDirection::Out) else {
-            return Err(
-                format!("backend {backend:?}: expected an unknown note to be rejected").into(),
-            );
+            return Err(format!("backend {backend:?}: expected an unknown note to be rejected").into());
         };
         assert_eq!(error.code(), "path/not-found", "backend {backend:?}");
     }
@@ -140,7 +109,7 @@ fn fr_52_unknown_note_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn fr_52_backlinks_reports_incoming_kinds() -> Result<(), Box<dyn std::error::Error>> {
+fn backlinks_reports_incoming_kinds() -> Result<(), Box<dyn std::error::Error>> {
     for backend in BACKENDS {
         let dir = tempfile::tempdir()?;
         let mut graph = graph_at(&dir, backend)?;
@@ -170,7 +139,7 @@ fn fr_52_backlinks_reports_incoming_kinds() -> Result<(), Box<dyn std::error::Er
 }
 
 #[test]
-fn fr_52_path_between_finds_shortest_route() -> Result<(), Box<dyn std::error::Error>> {
+fn path_between_finds_shortest_route() -> Result<(), Box<dyn std::error::Error>> {
     for backend in BACKENDS {
         let dir = tempfile::tempdir()?;
         let mut graph = graph_at(&dir, backend)?;
@@ -207,7 +176,7 @@ fn fr_52_path_between_finds_shortest_route() -> Result<(), Box<dyn std::error::E
 }
 
 #[test]
-fn fr_52_orphans_lists_unlinked_notes_only() -> Result<(), Box<dyn std::error::Error>> {
+fn orphans_lists_unlinked_notes_only() -> Result<(), Box<dyn std::error::Error>> {
     for backend in BACKENDS {
         let dir = tempfile::tempdir()?;
         let mut graph = graph_at(&dir, backend)?;
@@ -227,7 +196,7 @@ fn fr_52_orphans_lists_unlinked_notes_only() -> Result<(), Box<dyn std::error::E
 }
 
 #[test]
-fn fr_52_unresolved_link_becomes_phantom_then_resolves() -> Result<(), Box<dyn std::error::Error>> {
+fn unresolved_link_becomes_phantom_then_resolves() -> Result<(), Box<dyn std::error::Error>> {
     for backend in BACKENDS {
         let dir = tempfile::tempdir()?;
         let mut graph = graph_at(&dir, backend)?;
@@ -236,10 +205,7 @@ fn fr_52_unresolved_link_becomes_phantom_then_resolves() -> Result<(), Box<dyn s
 
         let view = graph.neighbours("a.md", 1, GraphDirection::Out)?;
         let Some(ghost) = view.nodes.iter().find(|node| node.path == "ghost") else {
-            return Err(format!(
-                "backend {backend:?}: expected a phantom node for the unresolved target"
-            )
-            .into());
+            return Err(format!("backend {backend:?}: expected a phantom node for the unresolved target").into());
         };
         assert!(ghost.phantom, "backend {backend:?}");
         assert_eq!(
@@ -252,23 +218,17 @@ fn fr_52_unresolved_link_becomes_phantom_then_resolves() -> Result<(), Box<dyn s
 
         let view = graph.neighbours("a.md", 1, GraphDirection::Out)?;
         let Some(ghost) = view.nodes.iter().find(|node| node.path == "ghost") else {
-            return Err(format!(
-                "backend {backend:?}: expected the resolved ghost node to remain reachable"
-            )
-            .into());
+            return Err(format!("backend {backend:?}: expected the resolved ghost node to remain reachable").into());
         };
         assert!(!ghost.phantom, "backend {backend:?}");
-        assert!(
-            graph.unresolved_targets("a.md")?.is_empty(),
-            "backend {backend:?}"
-        );
+        assert!(graph.unresolved_targets("a.md")?.is_empty(), "backend {backend:?}");
     }
 
     Ok(())
 }
 
 #[test]
-fn fr_52_bare_name_resolves_to_nested_note() -> Result<(), Box<dyn std::error::Error>> {
+fn bare_name_resolves_to_nested_note() -> Result<(), Box<dyn std::error::Error>> {
     for backend in BACKENDS {
         let dir = tempfile::tempdir()?;
         let mut graph = graph_at(&dir, backend)?;
@@ -280,10 +240,7 @@ fn fr_52_bare_name_resolves_to_nested_note() -> Result<(), Box<dyn std::error::E
         let mut paths: Vec<&str> = view.nodes.iter().map(|node| node.path.as_str()).collect();
         paths.sort_unstable();
         assert_eq!(paths, vec!["b.md", "notes/alpha.md"], "backend {backend:?}");
-        assert!(
-            view.nodes.iter().all(|node| !node.phantom),
-            "backend {backend:?}"
-        );
+        assert!(view.nodes.iter().all(|node| !node.phantom), "backend {backend:?}");
         assert_eq!(view.edges.len(), 1, "backend {backend:?}");
         assert_eq!(view.edges[0].from, "b.md", "backend {backend:?}");
         assert_eq!(view.edges[0].to, "notes/alpha.md", "backend {backend:?}");
@@ -293,7 +250,7 @@ fn fr_52_bare_name_resolves_to_nested_note() -> Result<(), Box<dyn std::error::E
 }
 
 #[test]
-fn fr_52_upsert_replaces_previous_outgoing_links() -> Result<(), Box<dyn std::error::Error>> {
+fn upsert_replaces_previous_outgoing_links() -> Result<(), Box<dyn std::error::Error>> {
     for backend in BACKENDS {
         let dir = tempfile::tempdir()?;
         let mut graph = graph_at(&dir, backend)?;
@@ -318,7 +275,7 @@ fn fr_52_upsert_replaces_previous_outgoing_links() -> Result<(), Box<dyn std::er
 }
 
 #[test]
-fn fr_52_remove_note_keeps_phantom_when_referenced() -> Result<(), Box<dyn std::error::Error>> {
+fn remove_note_keeps_phantom_when_referenced() -> Result<(), Box<dyn std::error::Error>> {
     for backend in BACKENDS {
         let dir = tempfile::tempdir()?;
         let mut graph = graph_at(&dir, backend)?;
@@ -330,10 +287,7 @@ fn fr_52_remove_note_keeps_phantom_when_referenced() -> Result<(), Box<dyn std::
 
         let view = graph.neighbours("a.md", 1, GraphDirection::Out)?;
         let Some(b_node) = view.nodes.iter().find(|node| node.path == "b.md") else {
-            return Err(format!(
-                "backend {backend:?}: expected the phantom b.md node to remain reachable"
-            )
-            .into());
+            return Err(format!("backend {backend:?}: expected the phantom b.md node to remain reachable").into());
         };
         assert!(b_node.phantom, "backend {backend:?}");
 
@@ -342,10 +296,7 @@ fn fr_52_remove_note_keeps_phantom_when_referenced() -> Result<(), Box<dyn std::
         let orphans = graph.orphans()?;
         assert!(orphans.nodes.is_empty(), "backend {backend:?}");
         let Err(error) = graph.neighbours("b.md", 1, GraphDirection::Out) else {
-            return Err(format!(
-                "backend {backend:?}: expected the pruned phantom b.md node to be unknown"
-            )
-            .into());
+            return Err(format!("backend {backend:?}: expected the pruned phantom b.md node to be unknown").into());
         };
         assert_eq!(error.code(), "path/not-found", "backend {backend:?}");
     }
@@ -360,9 +311,9 @@ fn fr_52_remove_note_keeps_phantom_when_referenced() -> Result<(), Box<dyn std::
 /// key-value persistence layer keyed only by `(from, to, kind)` would
 /// collapse both writes into one record and silently lose the second edge
 /// on reopen; this test targets exactly that failure mode, for every
-/// backend (FR-108).
+/// backend.
 #[test]
-fn fr_52_parallel_links_survive_persistence_round_trip() -> Result<(), Box<dyn std::error::Error>> {
+fn parallel_links_survive_persistence_round_trip() -> Result<(), Box<dyn std::error::Error>> {
     for backend in BACKENDS {
         let dir = tempfile::tempdir()?;
         let store_directory = dir.path().join(".contextos").join("graph");
@@ -410,7 +361,7 @@ fn fr_52_parallel_links_survive_persistence_round_trip() -> Result<(), Box<dyn s
 /// below covers the same "untrustworthy store yields a rebuild flag, not an
 /// error" contract in a way that is backend-agnostic.
 #[test]
-fn fr_52_store_round_trips_and_flags_rebuild() -> Result<(), Box<dyn std::error::Error>> {
+fn store_round_trips_and_flags_rebuild() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempfile::tempdir()?;
     let store_directory = dir.path().join(".contextos").join("graph");
 
@@ -448,9 +399,7 @@ fn fr_52_store_round_trips_and_flags_rebuild() -> Result<(), Box<dyn std::error:
     {
         let database = fjall::Database::builder(&store_directory).open()?;
         let metadata = database.keyspace("metadata", fjall::KeyspaceCreateOptions::default)?;
-        let mut batch = database
-            .batch()
-            .durability(Some(fjall::PersistMode::SyncAll));
+        let mut batch = database.batch().durability(Some(fjall::PersistMode::SyncAll));
         batch.insert(&metadata, "format_version", 999u32.to_be_bytes());
         batch.commit()?;
     }
@@ -468,17 +417,16 @@ fn fr_52_store_round_trips_and_flags_rebuild() -> Result<(), Box<dyn std::error:
     Ok(())
 }
 
-/// FR-108: switching a vault's configured `graph_backend` between runs
-/// performs no migration. Each backend lives at its own location under the
-/// shared store directory (`fjall`'s own directory contents, `sqlite`'s
+/// Switching a vault's configured `graph_backend` between runs performs no
+/// migration. Each backend lives at its own location under the shared
+/// store directory (`fjall`'s own directory contents, `sqlite`'s
 /// `graph.sqlite3`, `serde`'s `graph.json`), so reopening under a different
 /// backend simply finds nothing there yet and comes up flagged for rebuild,
 /// the same recoverable-derived-state contract a corrupted or deleted store
-/// already has (D-09); it is never an error, and it never silently returns
-/// a partial graph.
+/// already has; it is never an error, and it never silently returns a
+/// partial graph.
 #[test]
-fn fr_108_switching_backend_flags_rebuild_without_data_loss()
--> Result<(), Box<dyn std::error::Error>> {
+fn switching_backend_flags_rebuild_without_data_loss() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempfile::tempdir()?;
     let store_directory = dir.path().join(".contextos").join("graph");
 
@@ -530,8 +478,8 @@ fn fr_108_switching_backend_flags_rebuild_without_data_loss()
     Ok(())
 }
 
-/// FR-108/D-26: the whole reason `sqlite` exists as a backend option.
-/// Opening two independent `LinkGraph` instances against the same
+/// The whole reason `sqlite` exists as a backend option: opening two
+/// independent `LinkGraph` instances against the same
 /// `sqlite`-backed store at once both succeed, unlike `fjall`, whose
 /// single-process-exclusive lock rejects the second with
 /// `SearchError::GraphLocked` (proven at the service layer by
@@ -539,8 +487,7 @@ fn fr_108_switching_backend_flags_rebuild_without_data_loss()
 /// `vault_search_service.rs`; this test proves the positive case at the
 /// `LinkGraph` layer directly).
 #[test]
-fn fr_108_two_sqlite_backed_instances_open_concurrently() -> Result<(), Box<dyn std::error::Error>>
-{
+fn two_sqlite_backed_instances_open_concurrently() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempfile::tempdir()?;
     let store_directory = dir.path().join(".contextos").join("graph");
 
@@ -562,13 +509,7 @@ fn fr_108_two_sqlite_backed_instances_open_concurrently() -> Result<(), Box<dyn 
         backend: GraphBackend::Sqlite,
     })?;
     assert!(!reopened.needs_rebuild());
-    assert_eq!(
-        reopened
-            .neighbours("a.md", 1, GraphDirection::Out)?
-            .nodes
-            .len(),
-        1
-    );
+    assert_eq!(reopened.neighbours("a.md", 1, GraphDirection::Out)?.nodes.len(), 1);
 
     Ok(())
 }
@@ -586,8 +527,7 @@ fn fr_108_two_sqlite_backed_instances_open_concurrently() -> Result<(), Box<dyn 
 /// Fixed by retrying the whole open-and-initialise sequence, not just a
 /// single statement, on that specific error.
 #[test]
-fn fr_108_two_sqlite_backed_instances_open_and_write_under_genuine_concurrency()
--> Result<(), Box<dyn std::error::Error>> {
+fn two_sqlite_backed_instances_open_and_write_under_genuine_concurrency() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempfile::tempdir()?;
     let store_directory = dir.path().join(".contextos").join("graph");
     let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
@@ -601,9 +541,7 @@ fn fr_108_two_sqlite_backed_instances_open_and_write_under_genuine_concurrency()
             backend: GraphBackend::Sqlite,
         })
         .map_err(|error| error.to_string())?;
-        graph
-            .upsert_note("a.md", "A", &[])
-            .map_err(|error| error.to_string())
+        graph.upsert_note("a.md", "A", &[]).map_err(|error| error.to_string())
     });
 
     let second_directory = store_directory.clone();
@@ -615,39 +553,29 @@ fn fr_108_two_sqlite_backed_instances_open_and_write_under_genuine_concurrency()
             backend: GraphBackend::Sqlite,
         })
         .map_err(|error| error.to_string())?;
-        graph
-            .upsert_note("b.md", "B", &[])
-            .map_err(|error| error.to_string())
+        graph.upsert_note("b.md", "B", &[]).map_err(|error| error.to_string())
     });
 
     first_thread.join().map_err(|_| "first thread panicked")??;
-    second_thread
-        .join()
-        .map_err(|_| "second thread panicked")??;
+    second_thread.join().map_err(|_| "second thread panicked")??;
 
     let mut reopened = LinkGraph::try_from(LinkGraphConfig {
         store_directory,
         backend: GraphBackend::Sqlite,
     })?;
-    let mut paths: Vec<String> = reopened
-        .full_view()?
-        .nodes
-        .into_iter()
-        .map(|node| node.path)
-        .collect();
+    let mut paths: Vec<String> = reopened.full_view()?.nodes.into_iter().map(|node| node.path).collect();
     paths.sort_unstable();
     assert_eq!(paths, vec!["a.md".to_owned(), "b.md".to_owned()]);
 
     Ok(())
 }
 
-/// FR-110: a sibling `sqlite`-backed instance observes another instance's
-/// persisted change on its own next call, without reopening. Phase 11 only
-/// fixed availability (both instances can hold the store open); this is the
-/// first proof of cross-instance *consistency*.
+/// A sibling `sqlite`-backed instance observes another instance's
+/// persisted change on its own next call, without reopening. Both
+/// instances being able to hold the store open only fixed availability;
+/// this is the first proof of cross-instance *consistency*.
 #[test]
-fn fr_110_a_sibling_sqlite_instance_observes_a_change_without_reopening()
--> Result<(), Box<dyn std::error::Error>> {
+fn a_sibling_sqlite_instance_observes_a_change_without_reopening() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempfile::tempdir()?;
     let store_directory = dir.path().join(".contextos").join("graph");
 
@@ -667,7 +595,7 @@ fn fr_110_a_sibling_sqlite_instance_observes_a_change_without_reopening()
 
     // No reopen: `reader` is the same long-lived instance from before the
     // write, exactly the general-connector-instance-plus-per-task-instance
-    // shape D-26/D-27 name.
+    // shape this store must support.
     let view = reader.neighbours("a.md", 1, GraphDirection::Out)?;
     assert_eq!(view.nodes.len(), 1);
     assert_eq!(view.nodes[0].path, "a.md");
@@ -680,12 +608,12 @@ fn fr_110_a_sibling_sqlite_instance_observes_a_change_without_reopening()
     Ok(())
 }
 
-/// FR-110: a removal (not just an upsert) propagates to a sibling instance,
+/// A removal (not just an upsert) propagates to a sibling instance,
 /// the case a naive "diff the current rows" approach would miss, since a
 /// plain SQL `DELETE` leaves nothing to diff against; `changelog` rows exist
 /// specifically so a removal has its own durable record.
 #[test]
-fn fr_110_a_removal_propagates_to_a_sibling_instance() -> Result<(), Box<dyn std::error::Error>> {
+fn a_removal_propagates_to_a_sibling_instance() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempfile::tempdir()?;
     let store_directory = dir.path().join(".contextos").join("graph");
 
@@ -710,15 +638,14 @@ fn fr_110_a_removal_propagates_to_a_sibling_instance() -> Result<(), Box<dyn std
     Ok(())
 }
 
-/// FR-110/D-27: a `rebuild` (which clears the store directly,
-/// `StoresGraph::clear`, bypassing the ordinary upsert/remove vocabulary)
-/// forces a sibling's next catch-up to a full reload rather than a stale
-/// partial merge of old-plus-new content. Without the `Reset` marker this
-/// would fail differently: the reader would still show `old.md` (never told
-/// it was dropped) alongside whatever the rebuild added.
+/// A `rebuild` (which clears the store directly, `StoresGraph::clear`,
+/// bypassing the ordinary upsert/remove vocabulary) forces a sibling's
+/// next catch-up to a full reload rather than a stale partial merge of
+/// old-plus-new content. Without the `Reset` marker this would fail
+/// differently: the reader would still show `old.md` (never told it was
+/// dropped) alongside whatever the rebuild added.
 #[test]
-fn fr_110_a_rebuild_forces_a_sibling_to_a_full_reload_not_a_stale_merge()
--> Result<(), Box<dyn std::error::Error>> {
+fn a_rebuild_forces_a_sibling_to_a_full_reload_not_a_stale_merge() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempfile::tempdir()?;
     let store_directory = dir.path().join(".contextos").join("graph");
 
@@ -736,12 +663,7 @@ fn fr_110_a_rebuild_forces_a_sibling_to_a_full_reload_not_a_stale_merge()
 
     writer.rebuild(&[("new.md".to_owned(), "New".to_owned(), Vec::new())])?;
 
-    let paths: Vec<String> = reader
-        .orphans()?
-        .nodes
-        .into_iter()
-        .map(|node| node.path)
-        .collect();
+    let paths: Vec<String> = reader.orphans()?.nodes.into_iter().map(|node| node.path).collect();
     assert_eq!(
         paths,
         vec!["new.md".to_owned()],
@@ -757,13 +679,12 @@ fn fr_110_a_rebuild_forces_a_sibling_to_a_full_reload_not_a_stale_merge()
     Ok(())
 }
 
-/// FR-110: mutations catch up before applying their own local change, not
+/// Mutations catch up before applying their own local change, not
 /// just queries. Without this, `reader`'s local mutation below would
 /// operate on stale in-memory state and its own subsequent read would still
 /// miss `writer`'s already-persisted note.
 #[test]
-fn fr_110_a_local_mutation_catches_up_before_applying_its_own_change()
--> Result<(), Box<dyn std::error::Error>> {
+fn a_local_mutation_catches_up_before_applying_its_own_change() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempfile::tempdir()?;
     let store_directory = dir.path().join(".contextos").join("graph");
 
@@ -782,28 +703,22 @@ fn fr_110_a_local_mutation_catches_up_before_applying_its_own_change()
     // enough to observe `writer`'s already-persisted note.
     reader.upsert_note("mine.md", "Mine", &[])?;
 
-    let mut paths: Vec<String> = reader
-        .orphans()?
-        .nodes
-        .into_iter()
-        .map(|node| node.path)
-        .collect();
+    let mut paths: Vec<String> = reader.orphans()?.nodes.into_iter().map(|node| node.path).collect();
     paths.sort_unstable();
     assert_eq!(paths, vec!["mine.md".to_owned(), "shared.md".to_owned()]);
 
     Ok(())
 }
 
-/// FR-110/D-27: a sibling that has fallen further behind than the
-/// changelog's retention window still ends up correct, via the full-reload
-/// fallback, never an error and never a silently incomplete graph. `10_001`
-/// must stay above `sqlite_store.rs`'s own private `RETENTION_GENERATIONS`
+/// A sibling that has fallen further behind than the changelog's
+/// retention window still ends up correct, via the full-reload fallback,
+/// never an error and never a silently incomplete graph. `10_001` must
+/// stay above `sqlite_store.rs`'s own private `RETENTION_GENERATIONS`
 /// (`10_000`): there is no public constant to reference directly, since the
 /// retention window is an internal tuning knob, not part of this crate's
 /// public contract.
 #[test]
-fn fr_110_a_sibling_past_the_retention_window_falls_back_to_a_full_reload()
--> Result<(), Box<dyn std::error::Error>> {
+fn a_sibling_past_the_retention_window_falls_back_to_a_full_reload() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempfile::tempdir()?;
     let store_directory = dir.path().join(".contextos").join("graph");
 
@@ -836,14 +751,13 @@ fn fr_110_a_sibling_past_the_retention_window_falls_back_to_a_full_reload()
     Ok(())
 }
 
-/// FR-110/D-27: `fjall` and `serde` are deliberately unaffected by
-/// propagation (`fjall`'s exclusive lock means a sibling can never be
-/// concurrently open; `serde` already loses data outright under concurrent
-/// instances, a different problem this phase does not solve). `sync_status`
-/// reports `None` for both, confirmed directly rather than assumed from the
-/// design alone.
+/// `fjall` and `serde` are deliberately unaffected by propagation
+/// (`fjall`'s exclusive lock means a sibling can never be concurrently
+/// open; `serde` already loses data outright under concurrent instances,
+/// a different problem not solved here). `sync_status` reports `None`
+/// for both, confirmed directly rather than assumed from the design alone.
 #[test]
-fn fr_110_fjall_and_serde_report_no_sync_status() -> Result<(), Box<dyn std::error::Error>> {
+fn fjall_and_serde_report_no_sync_status() -> Result<(), Box<dyn std::error::Error>> {
     for backend in [GraphBackend::Fjall, GraphBackend::Serde] {
         let dir = tempfile::tempdir()?;
         let mut graph = graph_at(&dir, backend)?;
@@ -866,7 +780,7 @@ fn fr_110_fjall_and_serde_report_no_sync_status() -> Result<(), Box<dyn std::err
 /// `fr_14_trash_delete_child`/`nfr_03_process_kill_child` already establish
 /// in this workspace.
 #[test]
-fn fr_110_genuine_two_process_child_writer() -> Result<(), Box<dyn std::error::Error>> {
+fn genuine_two_process_child_writer() -> Result<(), Box<dyn std::error::Error>> {
     let (Some(store_directory), Some(note_path)) = (
         std::env::var_os("CONTEXTOS_PROPAGATION_TEST_DIR"),
         std::env::var_os("CONTEXTOS_PROPAGATION_TEST_NOTE"),
@@ -881,8 +795,8 @@ fn fr_110_genuine_two_process_child_writer() -> Result<(), Box<dyn std::error::E
     Ok(())
 }
 
-/// FR-110/D-27, closing the one gap `phase-11-graph-backend-benchmark.md`'s
-/// own "What this benchmark does not establish" section flagged: every
+/// Closing the one gap flagged elsewhere as "what this benchmark does not
+/// establish": every
 /// other propagation test in this file uses two `LinkGraph` instances
 /// within one OS process (threads or plain sequential opens), a faithful
 /// proxy since `sqlite`'s WAL locking is connection-scoped, not
@@ -894,8 +808,7 @@ fn fr_110_genuine_two_process_child_writer() -> Result<(), Box<dyn std::error::E
 /// observes that external process's write on its own next call, with no
 /// reopen.
 #[test]
-fn fr_110_genuine_two_process_propagation_observed_by_an_already_open_sibling()
--> Result<(), Box<dyn std::error::Error>> {
+fn genuine_two_process_propagation_observed_by_an_already_open_sibling() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempfile::tempdir()?;
     let store_directory = dir.path().join(".contextos").join("graph");
 
@@ -909,7 +822,7 @@ fn fr_110_genuine_two_process_propagation_observed_by_an_already_open_sibling()
     );
 
     let status = std::process::Command::new(std::env::current_exe()?)
-        .args(["--exact", "fr_110_genuine_two_process_child_writer"])
+        .args(["--exact", "genuine_two_process_child_writer"])
         .env("CONTEXTOS_PROPAGATION_TEST_DIR", &store_directory)
         .env("CONTEXTOS_PROPAGATION_TEST_NOTE", "from-another-process.md")
         .status()?;

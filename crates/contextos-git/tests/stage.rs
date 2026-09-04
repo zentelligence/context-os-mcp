@@ -7,8 +7,7 @@ use time::macros::datetime;
 mod support;
 
 #[test]
-fn fr_30_stages_only_the_event_paths_without_disturbing_operator_staging()
--> Result<(), Box<dyn std::error::Error>> {
+fn stages_only_the_event_paths_without_disturbing_operator_staging() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("managed.md"), "baseline\n")?;
     std::fs::write(vault.path().join("operator.md"), "baseline\n")?;

@@ -1,5 +1,5 @@
-//! FR-53, D-04: the embedding queue and background worker, decoupled from
-//! the event stream. Every test drives the worker synchronously
+//! The embedding queue and background worker, decoupled from the event
+//! stream. Every test drives the worker synchronously
 //! (`process_one` / `drain`) through an injected `contextos_core::Clock`,
 //! never a real thread or a real sleep.
 
@@ -10,8 +10,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use contextos_core::Clock;
 use contextos_search::{
-    Chunk, EmbeddingWorker, EmbeddingWorkerConfig, PathEmbeddingOutcome, ReadsChunkSource,
-    SearchError, SqliteVecConfig, SqliteVecStore, StoresVectors,
+    Chunk, EmbeddingWorker, EmbeddingWorkerConfig, PathEmbeddingOutcome, ReadsChunkSource, SearchError,
+    SqliteVecConfig, SqliteVecStore, StoresVectors,
 };
 use tempfile::tempdir;
 use time::OffsetDateTime;
@@ -123,10 +123,7 @@ impl contextos_search::EmbedsText for SpyEmbedder {
                 reason: "forced test failure".to_owned(),
             });
         }
-        let mut calls = self
-            .calls
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut calls = self.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut vectors = Vec::with_capacity(chunks.len());
         for chunk in chunks {
             calls.push((chunk.path().to_owned(), chunk.ordinal()));
@@ -213,9 +210,7 @@ fn hash_unchanged_chunks_are_not_re_embedded() -> Result<(), Box<dyn Error>> {
     worker.enqueue("note.md");
     let outcome = worker.process_one().ok_or("expected second pass")?;
     match outcome {
-        PathEmbeddingOutcome::Embedded {
-            embedded, skipped, ..
-        } => {
+        PathEmbeddingOutcome::Embedded { embedded, skipped, .. } => {
             assert_eq!(embedded, 0, "unchanged chunks must not be re-embedded");
             assert!(skipped > 0);
         }
@@ -274,9 +269,7 @@ fn a_shrunk_document_prunes_trailing_ordinals() -> Result<(), Box<dyn Error>> {
 
     // The document shrinks to one section: re-chunking now produces only
     // ordinal 0, so ordinal 1's previously stored chunk is now stale.
-    worker
-        .content()
-        .set("note.md", "# First\n\nFirst section prose.\n");
+    worker.content().set("note.md", "# First\n\nFirst section prose.\n");
     worker.enqueue("note.md");
     worker.process_one().ok_or("expected second pass")?;
 
@@ -301,9 +294,7 @@ fn a_deleted_path_removes_its_stored_vectors() -> Result<(), Box<dyn Error>> {
 
     worker.content().remove("note.md");
     worker.enqueue("note.md");
-    let outcome = worker
-        .process_one()
-        .ok_or("expected second pass to remove")?;
+    let outcome = worker.process_one().ok_or("expected second pass to remove")?;
     match outcome {
         PathEmbeddingOutcome::Removed { path } => assert_eq!(path, "note.md"),
         other => return Err(format!("expected Removed outcome, got {other:?}").into()),
@@ -320,12 +311,7 @@ fn a_failing_path_does_not_stop_processing_of_other_queued_paths() -> Result<(),
         ("bad.md", "# Bad\n\nThis path's embedding always fails.\n"),
         ("good.md", "# Good\n\nThis path embeds fine.\n"),
     ]);
-    let worker = worker(
-        &root,
-        &db_directory,
-        SpyEmbedder::failing_on("bad.md"),
-        content,
-    )?;
+    let worker = worker(&root, &db_directory, SpyEmbedder::failing_on("bad.md"), content)?;
 
     worker.enqueue("bad.md");
     worker.enqueue("good.md");
@@ -379,8 +365,7 @@ fn drain_processes_everything_queued_before_returning() -> Result<(), Box<dyn Er
 }
 
 #[test]
-fn drain_until_guarantees_at_least_one_item_then_stops_at_the_budget() -> Result<(), Box<dyn Error>>
-{
+fn drain_until_guarantees_at_least_one_item_then_stops_at_the_budget() -> Result<(), Box<dyn Error>> {
     let root = vault_root_dir()?;
     let db_directory = tempdir()?;
     let content = MapContentSource::new([
@@ -478,8 +463,7 @@ fn process_one_returns_none_when_the_queue_is_empty() -> Result<(), Box<dyn Erro
 }
 
 #[test]
-fn enqueueing_the_same_path_twice_before_processing_only_queues_it_once()
--> Result<(), Box<dyn Error>> {
+fn enqueueing_the_same_path_twice_before_processing_only_queues_it_once() -> Result<(), Box<dyn Error>> {
     let root = vault_root_dir()?;
     let db_directory = tempdir()?;
     let content = MapContentSource::new([("one.md", "# One\n\nFirst note.\n")]);

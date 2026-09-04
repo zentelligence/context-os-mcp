@@ -88,10 +88,7 @@ impl MermanParser {
         if let Some(diagnostic) = oversized_source_diagnostic(source) {
             return Err(vec![diagnostic]);
         }
-        match self
-            .engine
-            .parse_diagram_sync(source, ParseOptions::strict())
-        {
+        match self.engine.parse_diagram_sync(source, ParseOptions::strict()) {
             Ok(Some(diagram)) => Ok(diagram),
             Ok(None) => Err(vec![no_diagram_diagnostic()]),
             Err(error) => Err(vec![MermaidDiagnostic::from(error)]),
@@ -136,8 +133,7 @@ impl RendersMermaid for MermanParser {
     fn render(&self, source: &str) -> Result<Vec<u8>, Vec<MermaidDiagnostic>> {
         let parsed = self.parse(source)?;
         let layout_options = LayoutOptions::default();
-        let layouted = layout_parsed(&parsed, &layout_options)
-            .map_err(|error| vec![MermaidDiagnostic::from(error)])?;
+        let layouted = layout_parsed(&parsed, &layout_options).map_err(|error| vec![MermaidDiagnostic::from(error)])?;
         let svg = render_layouted_svg(
             &layouted,
             layout_options.text_measurer.as_ref(),
@@ -187,9 +183,9 @@ impl From<RenderError> for MermaidDiagnostic {
         let code = match &error {
             RenderError::UnsupportedDiagram { .. } => "mermaid/unsupported-diagram",
             RenderError::ResourceLimitExceeded(_) => "mermaid/resource-limit",
-            RenderError::InvalidModel { .. }
-            | RenderError::SvgPostprocess { .. }
-            | RenderError::Json(_) => "mermaid/render",
+            RenderError::InvalidModel { .. } | RenderError::SvgPostprocess { .. } | RenderError::Json(_) => {
+                "mermaid/render"
+            }
         };
         Self {
             code: code.to_owned(),

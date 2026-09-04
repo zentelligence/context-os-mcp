@@ -151,11 +151,7 @@ pub(crate) fn detect_atx_heading(trimmed: &str) -> Option<(usize, &str)> {
         return None;
     }
     let text = strip_closing_hashes(text.trim());
-    if text.is_empty() {
-        None
-    } else {
-        Some((hashes, text))
-    }
+    if text.is_empty() { None } else { Some((hashes, text)) }
 }
 
 /// Removes a `CommonMark` closing-hash sequence, which must follow whitespace.

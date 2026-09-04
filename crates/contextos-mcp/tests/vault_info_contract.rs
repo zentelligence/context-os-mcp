@@ -1,6 +1,6 @@
 //! Contract tests for `vault_info`, `fs_list_allowed_directories`, and
-//! `{name}://` vault-selector resolution (`FR-26`, `FR-83`, `FR-98`,
-//! `FR-100`): effective health reporting without secret exposure,
+//! `{name}://` vault-selector resolution: effective health reporting
+//! without secret exposure,
 //! resource-link threshold reporting, configured vault naming, and a
 //! bare vault name correctly routing every real tool handler. Split from
 //! `tool_contract.rs` to keep both files under the project's file-size
@@ -12,7 +12,7 @@ use rmcp::model::{CallToolRequestParams, CallToolResult};
 use serde_json::{Map, json};
 
 #[tokio::test]
-async fn fr_26_vault_info_reports_effective_health_without_exposing_secrets()
+async fn vault_info_reports_effective_health_without_exposing_secrets()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
@@ -32,10 +32,7 @@ async fn fr_26_vault_info_reports_effective_health_without_exposing_secrets()
         .ok_or_else(|| std::io::Error::other("vault_info omitted configured vault"))?;
 
     assert_eq!(result.is_error, Some(false));
-    assert_eq!(
-        content.get("version"),
-        Some(&json!(env!("CARGO_PKG_VERSION")))
-    );
+    assert_eq!(content.get("version"), Some(&json!(env!("CARGO_PKG_VERSION"))));
     assert_eq!(
         content.get("protocol_version"),
         Some(&json!(rmcp::model::ProtocolVersion::LATEST.as_str()))
@@ -71,9 +68,7 @@ async fn fr_26_vault_info_reports_effective_health_without_exposing_secrets()
         Some(&json!(true))
     );
     assert_eq!(
-        indexes
-            .get("graph")
-            .and_then(|graph| graph.get("needs_rebuild")),
+        indexes.get("graph").and_then(|graph| graph.get("needs_rebuild")),
         Some(&json!(true))
     );
     // `search.semantic` defaults to `false` for this vault, so the
@@ -96,9 +91,9 @@ async fn fr_26_vault_info_reports_effective_health_without_exposing_secrets()
 }
 
 /// Asserts `vault_info`'s `config_summary` fields exercised by
-/// `fr_26_vault_info_reports_effective_health_without_exposing_secrets`,
+/// `vault_info_reports_effective_health_without_exposing_secrets`,
 /// extracted so that test stays under clippy's line-count lint as new
-/// fields (most recently `search.graph_backend`, FR-109) are added.
+/// fields (most recently `search.graph_backend`) are added.
 fn assert_config_summary_fields(reported_vault: &serde_json::Value) {
     assert_eq!(
         reported_vault
@@ -127,7 +122,7 @@ fn assert_config_summary_fields(reported_vault: &serde_json::Value) {
             .and_then(|search| search.get("rebuild_budget_seconds")),
         Some(&json!(25))
     );
-    // FR-109: the effective (here, defaulted) graph_backend is reported
+    // The effective (here, defaulted) graph_backend is reported
     // alongside the existing graph boolean.
     assert_eq!(
         reported_vault
@@ -139,19 +134,16 @@ fn assert_config_summary_fields(reported_vault: &serde_json::Value) {
 }
 
 #[tokio::test]
-async fn fr_83_vault_info_reports_resource_link_threshold_and_eligible_file_count()
+async fn vault_info_reports_resource_link_threshold_and_eligible_file_count()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     std::fs::write(vault.path().join("a.txt"), "a")?;
     std::fs::write(vault.path().join("b.md"), "b")?;
     std::fs::create_dir(vault.path().join(".git"))?;
-    std::fs::write(
-        vault.path().join(".git/config"),
-        "ignored, matches default hidden",
-    )?;
+    std::fs::write(vault.path().join(".git/config"), "ignored, matches default hidden")?;
     let mut config = Config::try_from(vec![vault.path().to_path_buf()])?;
     config.server.resource_link_threshold_kb = 7;
-    // `FR-107`: `resource_eligible_files` now counts what
+    // `resource_eligible_files` now counts what
     // `resources_list_include` enumerates, not every hidden-excluded file;
     // this test's own concern is the threshold/count reporting mechanism,
     // not the allowlist's scoping, so opt in broadly.
@@ -171,15 +163,12 @@ async fn fr_83_vault_info_reports_resource_link_threshold_and_eligible_file_coun
 
     assert_eq!(result.is_error, Some(false));
     assert_eq!(content.get("resource_link_threshold_kb"), Some(&json!(7)));
-    assert_eq!(
-        reported_vault.get("resource_eligible_files"),
-        Some(&json!(2))
-    );
+    assert_eq!(reported_vault.get("resource_eligible_files"), Some(&json!(2)));
     Ok(())
 }
 
 #[tokio::test]
-async fn fr_100_vault_info_and_allowed_directories_report_the_configured_vault_name()
+async fn vault_info_and_allowed_directories_report_the_configured_vault_name()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let vault = tempfile::Builder::new().prefix("vault").tempdir()?;
     let source = format!("[[vault]]\npath = {:?}\nname = \"mine\"\n", vault.path());
@@ -198,9 +187,10 @@ async fn fr_100_vault_info_and_allowed_directories_report_the_configured_vault_n
     assert_eq!(reported_vault.get("name"), Some(&json!("mine")));
 
     let allowed = call_tool(server, "fs_list_allowed_directories", Map::new()).await?;
-    let allowed_content = allowed.structured_content.as_ref().ok_or_else(|| {
-        std::io::Error::other("fs_list_allowed_directories omitted structured content")
-    })?;
+    let allowed_content = allowed
+        .structured_content
+        .as_ref()
+        .ok_or_else(|| std::io::Error::other("fs_list_allowed_directories omitted structured content"))?;
     let reported_directory = allowed_content
         .get("directories")
         .and_then(serde_json::Value::as_array)
@@ -211,16 +201,16 @@ async fn fr_100_vault_info_and_allowed_directories_report_the_configured_vault_n
     Ok(())
 }
 
-/// `FR-98`: the Git tools' `vault` selector, `vault_index_rebuild`'s
+/// The Git tools' `vault` selector, `vault_index_rebuild`'s
 /// `path`, and `doctor_resolve`'s `path` all accept a bare configured
 /// vault name, not just an absolute path or the `{name}://` prefixed
-/// form (`FR-97`). Proven end to end through the real MCP handlers, not
+/// form. Proven end to end through the real MCP handlers, not
 /// just `VaultPath::try_from_vault_selector`'s own `contextos-core` unit
 /// tests: each check confirms the *correct* vault was selected, not only
 /// that the call succeeded, so a bug that silently picked the wrong root
 /// would still fail this test.
 #[tokio::test]
-async fn fr_98_a_bare_vault_name_selects_the_right_vault_through_the_real_tool_handlers()
+async fn a_bare_vault_name_selects_the_right_vault_through_the_real_tool_handlers()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mine = tempfile::Builder::new().prefix("mine").tempdir()?;
     let family = tempfile::Builder::new().prefix("family").tempdir()?;
@@ -245,7 +235,7 @@ async fn fr_98_a_bare_vault_name_selects_the_right_vault_through_the_real_tool_h
     // only, before either vault has any other file written to it: mine's
     // freshly created index.md exists, family's does not. (Writing a file
     // elsewhere first would auto-create index.md via the write pipeline's
-    // own indexing, FR-20, independent of this call; order matters here
+    // own indexing, independent of this call; order matters here
     // so the assertion is not accidentally satisfied for the wrong reason.)
     let rebuild = call_tool(
         server.clone(),
@@ -260,9 +250,7 @@ async fn fr_98_a_bare_vault_name_selects_the_right_vault_through_the_real_tool_h
     call_tool(
         server.clone(),
         "fs_write_file",
-        serde_json::from_value(
-            json!({"path": family.path().join("note.md"), "content": "family only\n"}),
-        )?,
+        serde_json::from_value(json!({"path": family.path().join("note.md"), "content": "family only\n"}))?,
     )
     .await?;
 

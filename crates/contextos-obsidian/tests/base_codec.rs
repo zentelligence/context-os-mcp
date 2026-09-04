@@ -1,12 +1,10 @@
 use contextos_obsidian::{BaseDocument, BaseOperation};
 use serde_json::{Map, json};
 
-const EVERY_FEATURE: &str =
-    include_str!("../../../fixtures/obsidian-formats/bases/every-feature.base");
+const EVERY_FEATURE: &str = include_str!("../../../fixtures/obsidian-formats/bases/every-feature.base");
 
 #[test]
-fn fr_44_base_round_trip_preserves_every_schema_feature_and_expression_value()
--> Result<(), Box<dyn std::error::Error>> {
+fn base_round_trip_preserves_every_schema_feature_and_expression_value() -> Result<(), Box<dyn std::error::Error>> {
     let mut document = BaseDocument::try_from(EVERY_FEATURE)?;
 
     assert!(document.diagnostics().is_empty());
@@ -33,8 +31,8 @@ fn fr_44_base_round_trip_preserves_every_schema_feature_and_expression_value()
 }
 
 #[test]
-fn fr_46_base_apply_is_transactional_when_a_formula_removal_would_dangle_references()
--> Result<(), Box<dyn std::error::Error>> {
+fn base_apply_is_transactional_when_a_formula_removal_would_dangle_references() -> Result<(), Box<dyn std::error::Error>>
+{
     let mut document = BaseDocument::try_from(EVERY_FEATURE)?;
     let original = document.definition().clone();
 
@@ -54,8 +52,7 @@ fn fr_46_base_apply_is_transactional_when_a_formula_removal_would_dangle_referen
 }
 
 #[test]
-fn fr_44_every_base_operation_composes_in_one_valid_transaction()
--> Result<(), Box<dyn std::error::Error>> {
+fn every_base_operation_composes_in_one_valid_transaction() -> Result<(), Box<dyn std::error::Error>> {
     let mut initial = Map::new();
     initial.insert(
         "views".to_owned(),
@@ -123,8 +120,7 @@ fn fr_44_every_base_operation_composes_in_one_valid_transaction()
 }
 
 #[test]
-fn fr_44_bracket_quoted_formula_references_are_validated_transactionally()
--> Result<(), Box<dyn std::error::Error>> {
+fn bracket_quoted_formula_references_are_validated_transactionally() -> Result<(), Box<dyn std::error::Error>> {
     let mut document = BaseDocument::try_from(
         r#"
 formulas:
@@ -148,7 +144,7 @@ views:
 }
 
 #[test]
-fn fr_44_remove_property_and_remove_summary_remove_the_named_entry_and_leave_others_untouched()
+fn remove_property_and_remove_summary_remove_the_named_entry_and_leave_others_untouched()
 -> Result<(), Box<dyn std::error::Error>> {
     let mut initial = Map::new();
     initial.insert(
@@ -193,8 +189,7 @@ fn fr_44_remove_property_and_remove_summary_remove_the_named_entry_and_leave_oth
 }
 
 #[test]
-fn fr_44_remove_property_and_remove_summary_reject_a_name_that_does_not_exist()
--> Result<(), Box<dyn std::error::Error>> {
+fn remove_property_and_remove_summary_reject_a_name_that_does_not_exist() -> Result<(), Box<dyn std::error::Error>> {
     let mut initial = Map::new();
     initial.insert(
         "views".to_owned(),
@@ -218,11 +213,10 @@ fn fr_44_remove_property_and_remove_summary_reject_a_name_that_does_not_exist()
 }
 
 #[test]
-fn fr_46_base_validation_rejects_unknown_sections_missing_views_and_unknown_view_types()
+fn base_validation_rejects_unknown_sections_missing_views_and_unknown_view_types()
 -> Result<(), Box<dyn std::error::Error>> {
     let missing_views = BaseDocument::try_from("unexpected: true\n")?;
-    let invalid_view =
-        BaseDocument::try_from("views:\n  - type: timeline\n    name: Unsupported\n")?;
+    let invalid_view = BaseDocument::try_from("views:\n  - type: timeline\n    name: Unsupported\n")?;
 
     assert!(
         missing_views
@@ -246,8 +240,7 @@ fn fr_46_base_validation_rejects_unknown_sections_missing_views_and_unknown_view
 }
 
 #[test]
-fn fr_46_formula_reference_validation_ignores_human_facing_labels()
--> Result<(), Box<dyn std::error::Error>> {
+fn formula_reference_validation_ignores_human_facing_labels() -> Result<(), Box<dyn std::error::Error>> {
     let document = BaseDocument::try_from(
         r#"
 properties:
@@ -265,13 +258,9 @@ views:
 }
 
 #[test]
-fn fr_46_base_validation_reaches_every_documented_schema_error_class()
--> Result<(), Box<dyn std::error::Error>> {
+fn base_validation_reaches_every_documented_schema_error_class() -> Result<(), Box<dyn std::error::Error>> {
     let cases = [
-        (
-            "filters: {xor: []}\nviews: [{type: table, name: All}]\n",
-            "filters",
-        ),
+        ("filters: {xor: []}\nviews: [{type: table, name: All}]\n", "filters"),
         (
             "formulas: {broken: 4}\nviews: [{type: table, name: All}]\n",
             "formulas.broken",
@@ -284,18 +273,12 @@ fn fr_46_base_validation_reaches_every_documented_schema_error_class()
             "views: [{type: table, name: Same}, {type: list, name: Same}]\n",
             "views[1].name",
         ),
-        (
-            "views: [{type: table, name: All, limit: 0}]\n",
-            "views[0].limit",
-        ),
+        ("views: [{type: table, name: All, limit: 0}]\n", "views[0].limit"),
         (
             "views: [{type: table, name: All, groupBy: {property: 4, direction: DOWN}}]\n",
             "views[0].groupBy.property",
         ),
-        (
-            "views: [{type: table, name: All, sort: wrong}]\n",
-            "views[0].sort",
-        ),
+        ("views: [{type: table, name: All, sort: wrong}]\n", "views[0].sort"),
         (
             "views: [{type: table, name: All, summaries: {price: Missing}}]\n",
             "views[0].summaries.price",

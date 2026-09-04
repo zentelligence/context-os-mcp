@@ -8,38 +8,24 @@ use std::sync::Arc;
 
 use base64::Engine;
 use contextos_core::{VaultPath, VaultPathInput, VaultSet};
-use contextos_fs::{
-    Filesystem, FsError, ReadTextRequest, SearchFilesRequest, mime_type_for_extension,
-};
+use contextos_fs::{Filesystem, FsError, ReadTextRequest, SearchFilesRequest, mime_type_for_extension};
 use rmcp::model::{
-    Implementation, ListResourceTemplatesResult, ListResourcesResult, ListToolsResult,
-    PaginatedRequestParams, ReadResourceRequestParams, ReadResourceResult, Resource,
-    ResourceContents, ResourceTemplate, ServerCapabilities, ServerInfo,
+    Implementation, ListResourceTemplatesResult, ListResourcesResult, ListToolsResult, PaginatedRequestParams,
+    ReadResourceRequestParams, ReadResourceResult, Resource, ResourceContents, ResourceTemplate, ServerCapabilities,
+    ServerInfo,
 };
 use rmcp::service::RequestContext;
 use rmcp::{ErrorData, RoleServer, ServerHandler, tool_handler};
 
-use crate::resource_support::{
-    ResourceError, path_for_resource_uri, resource_uri, resource_uri_template,
-};
+use crate::resource_support::{ResourceError, path_for_resource_uri, resource_uri, resource_uri_template};
 use crate::server::ContextOsServer;
 
 #[tool_handler(router = self.effective_catalogue())]
 impl ServerHandler for ContextOsServer {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(
-            ServerCapabilities::builder()
-                .enable_tools()
-                .enable_resources()
-                .build(),
-        )
-        .with_server_info(Implementation::new(
-            "ContextOS MCP",
-            env!("CARGO_PKG_VERSION"),
-        ))
-        .with_instructions(
-            "Safe filesystem operations over configured ContextOS vault roots".to_owned(),
-        )
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().enable_resources().build())
+            .with_server_info(Implementation::new("ContextOS MCP", env!("CARGO_PKG_VERSION")))
+            .with_instructions("Safe filesystem operations over configured ContextOS vault roots".to_owned())
     }
 
     /// Lists the effective tool catalogue (core tools plus every registered
@@ -80,12 +66,11 @@ impl ServerHandler for ContextOsServer {
         let roots = Arc::clone(&self.roots);
         let filesystem = Arc::clone(&self.filesystem);
         let include_patterns = Arc::clone(&self.resources_list_include);
-        let resources = tokio::task::spawn_blocking(move || {
-            list_vault_resources(&roots, &filesystem, &include_patterns)
-        })
-        .await
-        .map_err(|_| ErrorData::internal_error("resource listing task failed", None))?
-        .map_err(ResourceError::into_error_data)?;
+        let resources =
+            tokio::task::spawn_blocking(move || list_vault_resources(&roots, &filesystem, &include_patterns))
+                .await
+                .map_err(|_| ErrorData::internal_error("resource listing task failed", None))?
+                .map_err(ResourceError::into_error_data)?;
         Ok(ListResourcesResult::with_all_items(resources))
     }
 
@@ -147,16 +132,10 @@ pub(crate) fn list_vault_resources(
         if patterns.is_empty() {
             continue;
         }
-        let root_text = root
-            .path()
-            .to_str()
-            .ok_or_else(|| ResourceError::InvalidPath {
-                path: root.path().to_path_buf(),
-            })?;
-        let root_path = VaultPath::try_from(VaultPathInput {
-            roots,
-            raw: root_text,
+        let root_text = root.path().to_str().ok_or_else(|| ResourceError::InvalidPath {
+            path: root.path().to_path_buf(),
         })?;
+        let root_path = VaultPath::try_from(VaultPathInput { roots, raw: root_text })?;
         // A file matching more than one configured pattern must still be
         // listed once, not once per matching pattern.
         let mut seen = std::collections::BTreeSet::new();
@@ -186,8 +165,8 @@ pub(crate) fn list_vault_resources(
                     continue;
                 }
                 let uri = resource_uri(root.name(), std::path::Path::new(&relative));
-                let mime_type = mime_type_for_extension(&absolute)
-                    .unwrap_or_else(|| "application/octet-stream".to_owned());
+                let mime_type =
+                    mime_type_for_extension(&absolute).unwrap_or_else(|| "application/octet-stream".to_owned());
                 let size = metadata
                     .filter(std::fs::Metadata::is_file)
                     .map(|metadata| metadata.len());
@@ -211,12 +190,10 @@ fn vault_resource_templates(roots: &VaultSet) -> Vec<ResourceTemplate> {
         .into_iter()
         .map(|root| {
             let name = root.name();
-            ResourceTemplate::new(resource_uri_template(name), name.to_owned()).with_description(
-                format!(
-                    "Any file in the '{name}' vault, addressed by its vault-relative path; \
+            ResourceTemplate::new(resource_uri_template(name), name.to_owned()).with_description(format!(
+                "Any file in the '{name}' vault, addressed by its vault-relative path; \
                      read via resources/read."
-                ),
-            )
+            ))
         })
         .collect()
 }
@@ -257,8 +234,7 @@ fn read_vault_resource(
         limit: None,
     }) {
         Ok(result) => {
-            let mime_type =
-                mime_type_for_extension(absolute).unwrap_or_else(|| "text/plain".to_owned());
+            let mime_type = mime_type_for_extension(absolute).unwrap_or_else(|| "text/plain".to_owned());
             Ok(ReadResourceResult::new(vec![
                 ResourceContents::text(result.content, uri.to_owned()).with_mime_type(mime_type),
             ]))
@@ -270,8 +246,7 @@ fn read_vault_resource(
         // 10 MiB, not the configurable text-size cap, which the `Ok`
         // branch above still enforces unchanged for text content.
         Err(FsError::Binary { .. }) => {
-            let attachment =
-                filesystem.read_attachment(&contextos_fs::AttachmentRequest { path })?;
+            let attachment = filesystem.read_attachment(&contextos_fs::AttachmentRequest { path })?;
             let blob = base64::engine::general_purpose::STANDARD.encode(attachment.bytes);
             Ok(ReadResourceResult::new(vec![
                 ResourceContents::blob(blob, uri.to_owned()).with_mime_type(attachment.mime_type),

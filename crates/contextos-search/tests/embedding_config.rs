@@ -1,14 +1,12 @@
-//! FR-54, D-05: `EmbeddingProviderConfig`, the config-only provider
-//! selection swap. Constructing a provider from this enum is the one
-//! surface `contextos-mcp`'s configuration will eventually drive
-//! (a later stage); these tests prove the swap needs no code change, only a
-//! different enum variant, matching the plan's "gate's swap test is
-//! config-only" requirement.
+//! `EmbeddingProviderConfig`, the config-only provider selection swap.
+//! Constructing a provider from this enum is the one surface
+//! `contextos-mcp`'s configuration will eventually drive (a later stage);
+//! these tests prove the swap needs no code change, only a different enum
+//! variant.
 use contextos_search::{EmbeddingProviderConfig, EmbedsText};
 
 #[test]
-fn fr_54_openai_compatible_variant_selects_that_provider_and_surfaces_its_errors()
--> Result<(), Box<dyn std::error::Error>> {
+fn openai_compatible_variant_selects_that_provider_and_surfaces_its_errors() -> Result<(), Box<dyn std::error::Error>> {
     let variable = "CONTEXTOS_TEST_CONFIG_MISSING_KEY_FR54";
     assert!(
         std::env::var_os(variable).is_none(),
@@ -31,15 +29,13 @@ fn fr_54_openai_compatible_variant_selects_that_provider_and_surfaces_its_errors
 
 #[cfg(feature = "semantic-local")]
 #[test]
-fn fr_54_local_variant_selects_the_local_provider_and_surfaces_its_errors()
--> Result<(), Box<dyn std::error::Error>> {
+fn local_variant_selects_the_local_provider_and_surfaces_its_errors() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempfile::tempdir()?;
     let missing = vault.path().join("does-not-exist");
 
-    let provider: Result<Box<dyn EmbedsText>, _> =
-        Box::<dyn EmbedsText>::try_from(EmbeddingProviderConfig::Local {
-            model_directory: missing,
-        });
+    let provider: Result<Box<dyn EmbedsText>, _> = Box::<dyn EmbedsText>::try_from(EmbeddingProviderConfig::Local {
+        model_directory: missing,
+    });
 
     let Err(error) = provider else {
         return Err("expected the missing model directory to reject construction".into());
@@ -54,12 +50,10 @@ fn fr_54_local_variant_selects_the_local_provider_and_surfaces_its_errors()
 /// provider.
 #[cfg(not(feature = "semantic-local"))]
 #[test]
-fn fr_54_local_variant_is_rejected_when_semantic_local_feature_is_off()
--> Result<(), Box<dyn std::error::Error>> {
-    let provider: Result<Box<dyn EmbedsText>, _> =
-        Box::<dyn EmbedsText>::try_from(EmbeddingProviderConfig::Local {
-            model_directory: std::path::PathBuf::from("/nonexistent"),
-        });
+fn local_variant_is_rejected_when_semantic_local_feature_is_off() -> Result<(), Box<dyn std::error::Error>> {
+    let provider: Result<Box<dyn EmbedsText>, _> = Box::<dyn EmbedsText>::try_from(EmbeddingProviderConfig::Local {
+        model_directory: std::path::PathBuf::from("/nonexistent"),
+    });
 
     let Err(error) = provider else {
         return Err("expected the local provider to be unavailable without semantic-local".into());

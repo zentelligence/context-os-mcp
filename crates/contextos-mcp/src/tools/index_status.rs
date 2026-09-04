@@ -3,9 +3,7 @@
 //! result (`tools::query`): one conversion from `contextos_search`'s
 //! status types, reused by both tools rather than duplicated.
 
-use contextos_search::{
-    CatchUpKind, GraphIndexStatus, IndexStatusReport, SemanticIndexStatus, TextIndexStatus,
-};
+use contextos_search::{CatchUpKind, GraphIndexStatus, IndexStatusReport, SemanticIndexStatus, TextIndexStatus};
 use rmcp::schemars;
 use serde::Serialize;
 

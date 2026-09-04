@@ -1,5 +1,5 @@
-//! FR-50 relevance smoke harness (Phase 4 delivery-plan gate item: "20
-//! known-answer queries return the target file top-3").
+//! Relevance smoke harness: 20 known-answer queries must return the target
+//! file in the top 3 results.
 //!
 //! `fr_50_relevance_smoke_set_ranks_targets_top_three` runs the mock vault
 //! and query set checked in under `mock/` and is part of the ordinary
@@ -15,9 +15,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use contextos_core::{VaultPath, VaultPathInput, VaultRoot, VaultRootInput, VaultSet};
-use contextos_search::{
-    DocumentSource, IndexedDocument, IndexesText, TantivyIndex, TextIndexConfig, TextQuery,
-};
+use contextos_search::{DocumentSource, IndexedDocument, IndexesText, TantivyIndex, TextIndexConfig, TextQuery};
 use serde_json::{Map, Value};
 use time::OffsetDateTime;
 
@@ -66,10 +64,7 @@ fn copy_dir_recursive(
 
 /// Recursively collects every `.md` file under `root`, skipping any
 /// directory named in `skip_dirs` wherever it appears in the tree.
-fn collect_markdown_files(
-    root: &Path,
-    skip_dirs: &[&str],
-) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+fn collect_markdown_files(root: &Path, skip_dirs: &[&str]) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
     let mut files = Vec::new();
     let mut pending = vec![root.to_path_buf()];
     while let Some(directory) = pending.pop() {
@@ -84,9 +79,7 @@ fn collect_markdown_files(
                     continue;
                 }
                 pending.push(path);
-            } else if file_type.is_file()
-                && path.extension().and_then(|ext| ext.to_str()) == Some("md")
-            {
+            } else if file_type.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("md") {
                 files.push(path);
             }
         }
@@ -146,9 +139,7 @@ fn index_vault(
 fn load_queries(path: &Path) -> Result<Vec<KnownAnswerQuery>, Box<dyn std::error::Error>> {
     let raw = fs::read_to_string(path)?;
     let value: Value = serde_json::from_str(&raw)?;
-    let entries = value
-        .as_array()
-        .ok_or("queries.json must contain a JSON array")?;
+    let entries = value.as_array().ok_or("queries.json must contain a JSON array")?;
 
     let mut queries = Vec::with_capacity(entries.len());
     for entry in entries {
@@ -209,16 +200,12 @@ fn assert_targets_rank_top_three(
 }
 
 #[test]
-fn fr_50_relevance_smoke_set_ranks_targets_top_three() -> Result<(), Box<dyn std::error::Error>> {
+fn relevance_smoke_set_ranks_targets_top_three() -> Result<(), Box<dyn std::error::Error>> {
     let fixture_root = fixture_dir();
     let queries_path = fixture_root.join("queries.json");
 
     let vault_copy = tempfile::tempdir()?;
-    copy_dir_recursive(
-        &fixture_root,
-        vault_copy.path(),
-        &["README.md", "queries.json"],
-    )?;
+    copy_dir_recursive(&fixture_root, vault_copy.path(), &["README.md", "queries.json"])?;
 
     let index_directory = tempfile::tempdir()?;
     let index = index_vault(vault_copy.path(), &[], index_directory.path())?;

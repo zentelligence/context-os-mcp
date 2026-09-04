@@ -4,8 +4,7 @@ use contextos_index::{IndexDocument, IndexEntry, IndexEntryKind, IndexReconcileI
 use proptest::prelude::*;
 
 #[test]
-fn fr_20_reconciles_membership_order_and_preserves_operator_content()
--> Result<(), Box<dyn std::error::Error>> {
+fn reconciles_membership_order_and_preserves_operator_content() -> Result<(), Box<dyn std::error::Error>> {
     let source = concat!(
         "# Notes: Index\n\n",
         "Operator introduction.\n\n",
@@ -39,22 +38,17 @@ fn fr_20_reconciles_membership_order_and_preserves_operator_content()
 
     assert!(rendered.starts_with("# Notes: Index\n\nOperator introduction.\n\n"));
     assert!(rendered.ends_with("\n\nOperator footer.\n"));
-    assert!(
-        rendered.contains("| [sub-folder/](sub-folder/index.md) | New directory <!-- auto --> |")
-    );
+    assert!(rendered.contains("| [sub-folder/](sub-folder/index.md) | New directory <!-- auto --> |"));
     assert!(rendered.contains("| [keep.md](keep.md) | Hand-edited summary |"));
     assert!(!rendered.contains("gone.md"));
-    let directory_position = rendered
-        .find("sub-folder/")
-        .ok_or("directory row missing")?;
+    let directory_position = rendered.find("sub-folder/").ok_or("directory row missing")?;
     let file_position = rendered.find("keep.md").ok_or("file row missing")?;
     assert!(directory_position < file_position);
     Ok(())
 }
 
 #[test]
-fn fr_21_appends_a_managed_block_without_restructuring_existing_prose()
--> Result<(), Box<dyn std::error::Error>> {
+fn appends_a_managed_block_without_restructuring_existing_prose() -> Result<(), Box<dyn std::error::Error>> {
     let source = "# Bespoke landing page\n\nOperator prose without a final newline.";
     let input = IndexReconcileInput {
         source: Some(source),
@@ -74,7 +68,7 @@ fn fr_21_appends_a_managed_block_without_restructuring_existing_prose()
 }
 
 #[test]
-fn fr_20_creates_a_complete_index_when_none_exists() -> Result<(), Box<dyn std::error::Error>> {
+fn creates_a_complete_index_when_none_exists() -> Result<(), Box<dyn std::error::Error>> {
     let input = IndexReconcileInput {
         source: None,
         directory_name: "client-projects",
@@ -103,7 +97,7 @@ proptest! {
     })]
 
     #[test]
-    fn fr_21_operator_bytes_and_hand_edited_summaries_survive_random_sequences(
+    fn operator_bytes_and_hand_edited_summaries_survive_random_sequences(
         introduction in "[A-Za-z0-9 .,;:!?\\n]{0,160}",
         footer in "[A-Za-z0-9 .,;:!?\\n]{0,160}",
         operations in prop::collection::vec((0_u8..16, any::<bool>()), 0..64),

@@ -6,9 +6,8 @@
 use base64::Engine;
 use contextos_core::{DeleteOutcome, MoveOutcome, PipelineResult, VaultSet, WriteOutcome};
 use contextos_fs::{
-    AllowedDirectory, Attachment, DirectoryEntry, DirectoryListing, EditFileResult, EntryKind,
-    FileInfo, FsErrorInfo, LineRange, ReadLimit, ReadManyResult, ReadTextResult, SortBy, TextEdit,
-    TreeNode,
+    AllowedDirectory, Attachment, DirectoryEntry, DirectoryListing, EditFileResult, EntryKind, FileInfo, FsErrorInfo,
+    LineRange, ReadLimit, ReadManyResult, ReadTextResult, SortBy, TextEdit, TreeNode,
 };
 use rmcp::model::ResourceContents;
 use rmcp::schemars;
@@ -120,10 +119,7 @@ pub(crate) struct ReadManyToolResult {
 impl From<Vec<ReadManyResult>> for ReadManyToolResult {
     fn from(value: Vec<ReadManyResult>) -> Self {
         Self {
-            files: value
-                .into_iter()
-                .map(ReadManyItemToolResult::from)
-                .collect(),
+            files: value.into_iter().map(ReadManyItemToolResult::from).collect(),
         }
     }
 }
@@ -145,8 +141,7 @@ impl TryFrom<(Attachment, &VaultSet)> for AttachmentResource {
     type Error = ToolError;
 
     fn try_from((value, roots): (Attachment, &VaultSet)) -> Result<Self, Self::Error> {
-        let uri = resource_uri_for(&value.vault_path, roots)
-            .map_err(|_| ToolError::AttachmentUriInvalid)?;
+        let uri = resource_uri_for(&value.vault_path, roots).map_err(|_| ToolError::AttachmentUriInvalid)?;
         Ok(if value.text {
             match String::from_utf8(value.bytes) {
                 Ok(text) => Self::Text {
@@ -173,21 +168,13 @@ impl TryFrom<(Attachment, &VaultSet)> for AttachmentResource {
 impl From<AttachmentResource> for ResourceContents {
     fn from(value: AttachmentResource) -> Self {
         match value {
-            AttachmentResource::Text {
-                uri,
-                mime_type,
-                text,
-            } => Self::TextResourceContents {
+            AttachmentResource::Text { uri, mime_type, text } => Self::TextResourceContents {
                 uri,
                 mime_type: Some(mime_type),
                 text,
                 meta: None,
             },
-            AttachmentResource::Blob {
-                uri,
-                mime_type,
-                blob,
-            } => Self::BlobResourceContents {
+            AttachmentResource::Blob { uri, mime_type, blob } => Self::BlobResourceContents {
                 uri,
                 mime_type: Some(mime_type),
                 blob,
@@ -308,11 +295,7 @@ pub(crate) struct DirectoryListingToolResult {
 impl From<DirectoryListing> for DirectoryListingToolResult {
     fn from(value: DirectoryListing) -> Self {
         Self {
-            entries: value
-                .entries
-                .into_iter()
-                .map(DirectoryEntryToolResult::from)
-                .collect(),
+            entries: value.entries.into_iter().map(DirectoryEntryToolResult::from).collect(),
             rendered: value.rendered,
         }
     }
@@ -350,18 +333,8 @@ impl From<PipelineResult<MoveOutcome>> for MoveToolResult {
     fn from(result: PipelineResult<MoveOutcome>) -> Self {
         let WarningMessages(warnings) = WarningMessages::from(result.warnings);
         Self {
-            source: result
-                .value
-                .source
-                .relative()
-                .to_string_lossy()
-                .into_owned(),
-            destination: result
-                .value
-                .destination
-                .relative()
-                .to_string_lossy()
-                .into_owned(),
+            source: result.value.source.relative().to_string_lossy().into_owned(),
+            destination: result.value.destination.relative().to_string_lossy().into_owned(),
             warnings,
         }
     }
@@ -437,11 +410,7 @@ impl From<Vec<DeleteAttempt>> for DeleteToolResult {
             }
         }
         let (path, deleted, trashed) = match results.as_slice() {
-            [only] => (
-                Some(only.path.clone()),
-                Some(only.deleted),
-                Some(only.trashed),
-            ),
+            [only] => (Some(only.path.clone()), Some(only.deleted), Some(only.trashed)),
             _ => (None, None, None),
         };
         Self {
@@ -530,10 +499,7 @@ pub(crate) struct AllowedDirectoriesToolResult {
 impl From<Vec<AllowedDirectory>> for AllowedDirectoriesToolResult {
     fn from(value: Vec<AllowedDirectory>) -> Self {
         Self {
-            directories: value
-                .into_iter()
-                .map(AllowedDirectoryToolResult::from)
-                .collect(),
+            directories: value.into_iter().map(AllowedDirectoryToolResult::from).collect(),
         }
     }
 }
@@ -572,13 +538,10 @@ impl TryFrom<&ReadTextInput> for ToolReadLimit {
     type Error = ToolError;
 
     fn try_from(value: &ReadTextInput) -> Result<Self, Self::Error> {
-        let count = usize::from(value.head.is_some())
-            + usize::from(value.tail.is_some())
-            + usize::from(value.range.is_some());
+        let count =
+            usize::from(value.head.is_some()) + usize::from(value.tail.is_some()) + usize::from(value.range.is_some());
         if count > 1 {
-            return Err(ToolError::Invalid(
-                "head, tail, and range are mutually exclusive",
-            ));
+            return Err(ToolError::Invalid("head, tail, and range are mutually exclusive"));
         }
         if let Some(head) = value.head {
             return Ok(Self(Some(ReadLimit::Head(usize::try_from(head)?))));
@@ -590,12 +553,9 @@ impl TryFrom<&ReadTextInput> for ToolReadLimit {
             .range
             .as_ref()
             .map(|range| {
-                LineRange::try_from((
-                    usize::try_from(range.from_line)?,
-                    usize::try_from(range.to_line)?,
-                ))
-                .map(ReadLimit::Range)
-                .map_err(ToolError::from)
+                LineRange::try_from((usize::try_from(range.from_line)?, usize::try_from(range.to_line)?))
+                    .map(ReadLimit::Range)
+                    .map_err(ToolError::from)
             })
             .transpose()
             .map(Self)

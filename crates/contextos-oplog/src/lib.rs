@@ -5,8 +5,8 @@ use std::path::{Component, Path};
 use std::sync::{Arc, Mutex};
 
 use contextos_core::{
-    AppendMutation, AppendsVault, LogsOperations, OpKind, OperationEvent, OperationWarning, Origin,
-    VaultPath, VaultPathInput, VaultRoot, VaultRootId, VaultSet,
+    AppendMutation, AppendsVault, LogsOperations, OpKind, OperationEvent, OperationWarning, Origin, VaultPath,
+    VaultPathInput, VaultRoot, VaultRootId, VaultSet,
 };
 use thiserror::Error;
 use time::OffsetDateTime;
@@ -81,10 +81,7 @@ where
     A: AppendsVault,
     A::Error: std::error::Error + 'static,
 {
-    fn append_event(
-        &self,
-        event: &OperationEvent,
-    ) -> Result<Vec<OperationEvent>, OperationLogError<A::Error>> {
+    fn append_event(&self, event: &OperationEvent) -> Result<Vec<OperationEvent>, OperationLogError<A::Error>> {
         if matches!(event.origin, Origin::Internal(_)) {
             return Ok(Vec::new());
         }
@@ -102,13 +99,7 @@ where
             Origin::Internal(_) => return Ok(Vec::new()),
         };
         let operation = OperationName::from(event.kind);
-        self.append_record(
-            event.at,
-            &origin,
-            <&str>::from(&operation),
-            &event.summary,
-            &files,
-        )
+        self.append_record(event.at, &origin, <&str>::from(&operation), &event.summary, &files)
     }
 
     /// Appends one explicit caller-authored log entry with `manual` origin.
@@ -116,18 +107,11 @@ where
     /// # Errors
     ///
     /// Returns a typed validation, path, append, or retry-buffer error.
-    pub fn append_manual(
-        &self,
-        input: &ManualLogInput,
-    ) -> Result<Vec<OperationEvent>, OperationLogError<A::Error>> {
+    pub fn append_manual(&self, input: &ManualLogInput) -> Result<Vec<OperationEvent>, OperationLogError<A::Error>> {
         if input.entry.trim().is_empty() {
             return Err(OperationLogError::EmptyManualEntry);
         }
-        if input
-            .files
-            .iter()
-            .any(|path| path.root_id() != self.root_id)
-        {
+        if input.files.iter().any(|path| path.root_id() != self.root_id) {
             return Err(OperationLogError::WrongRoot);
         }
         self.append_record(input.at, "manual", "log", &input.entry, &input.files)
@@ -140,10 +124,7 @@ where
     /// Returns a typed append or retry-buffer error and leaves the failing and
     /// subsequent records buffered for another recovery attempt.
     pub fn flush(&self) -> Result<Vec<OperationEvent>, OperationLogError<A::Error>> {
-        let mut pending = self
-            .pending
-            .lock()
-            .map_err(|_| OperationLogError::BufferUnavailable)?;
+        let mut pending = self.pending.lock().map_err(|_| OperationLogError::BufferUnavailable)?;
         self.flush_pending(&mut pending)
     }
 
@@ -165,9 +146,7 @@ where
         let absolute = self.root.path().join(&relative);
         let raw = absolute
             .to_str()
-            .ok_or_else(|| OperationLogError::NonUtf8Path {
-                path: absolute.clone(),
-            })?;
+            .ok_or_else(|| OperationLogError::NonUtf8Path { path: absolute.clone() })?;
         let path = VaultPath::try_from(VaultPathInput {
             roots: &self.roots,
             raw,
@@ -188,10 +167,7 @@ where
             single_line(operation),
         );
         let preamble = format!("# {year:04}-{month:02}-{day:02}: Operation Log\n\n");
-        let mut pending = self
-            .pending
-            .lock()
-            .map_err(|_| OperationLogError::BufferUnavailable)?;
+        let mut pending = self.pending.lock().map_err(|_| OperationLogError::BufferUnavailable)?;
         pending.push_back(AppendMutation {
             path,
             preamble,
@@ -207,10 +183,7 @@ where
     ) -> Result<Vec<OperationEvent>, OperationLogError<A::Error>> {
         let mut events = Vec::new();
         while let Some(request) = pending.front() {
-            let result = self
-                .appender
-                .append(request)
-                .map_err(OperationLogError::Append)?;
+            let result = self.appender.append(request).map_err(OperationLogError::Append)?;
             events.extend(result.event);
             pending.pop_front();
         }

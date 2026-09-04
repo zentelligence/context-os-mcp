@@ -36,9 +36,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use contextos_core::{Clock, OperationWarning, VaultPath, VaultPathInput, VaultRoot, VaultSet};
 use time::OffsetDateTime;
 
-use crate::{
-    Chunk, ChunkSource, EmbedsText, SearchError, StoresVectors, VectorRecord, chunk_document,
-};
+use crate::{Chunk, ChunkSource, EmbedsText, SearchError, StoresVectors, VectorRecord, chunk_document};
 
 /// Port for reading a queued path's current markdown content, injected so
 /// worker tests need not touch real files (though a real filesystem
@@ -107,10 +105,7 @@ pub enum PathEmbeddingOutcome {
     /// Reading, chunking, embedding, or storing failed for this path. Other
     /// queued paths are unaffected: this outcome ends processing of `path`
     /// only.
-    Failed {
-        path: String,
-        warning: OperationWarning,
-    },
+    Failed { path: String, warning: OperationWarning },
 }
 
 /// Staleness-visibility counters for a Stage 4 `query_index_status` to
@@ -335,9 +330,7 @@ where
     fn process_path(&self, path: &str) -> PathEmbeddingOutcome {
         match self.content.read(path) {
             Ok(None) => match self.store.delete(path) {
-                Ok(()) => PathEmbeddingOutcome::Removed {
-                    path: path.to_owned(),
-                },
+                Ok(()) => PathEmbeddingOutcome::Removed { path: path.to_owned() },
                 Err(error) => Self::failed(path, error),
             },
             Ok(Some(content)) => self.embed_path(path, &content),
@@ -442,11 +435,9 @@ where
 /// duplicated here rather than shared, matching this crate's established
 /// convention of keeping each already-delivered module unchanged.
 fn resolve_single_root_set(root: &Path) -> Result<VaultSet, SearchError> {
-    let vault_root = VaultRoot::try_from(root.to_path_buf()).map_err(|source| {
-        SearchError::EmbeddingPathInvalid {
-            path: root.display().to_string(),
-            source,
-        }
+    let vault_root = VaultRoot::try_from(root.to_path_buf()).map_err(|source| SearchError::EmbeddingPathInvalid {
+        path: root.display().to_string(),
+        source,
     })?;
     VaultSet::try_from(vec![vault_root]).map_err(|source| SearchError::EmbeddingPathInvalid {
         path: root.display().to_string(),

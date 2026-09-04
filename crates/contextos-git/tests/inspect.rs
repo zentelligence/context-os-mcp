@@ -6,8 +6,7 @@ use time::macros::datetime;
 mod support;
 
 #[test]
-fn fr_30_to_fr_32_status_log_and_diff_report_owned_and_worktree_state()
--> Result<(), Box<dyn std::error::Error>> {
+fn to_fr_32_status_log_and_diff_report_owned_and_worktree_state() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("note.md"), "initial\n")?;
     let root = VaultRoot::try_from(VaultRootInput {
@@ -70,7 +69,7 @@ fn fr_30_to_fr_32_status_log_and_diff_report_owned_and_worktree_state()
 }
 
 #[test]
-fn fr_30_startup_recovers_staged_state_as_a_new_commit() -> Result<(), Box<dyn std::error::Error>> {
+fn startup_recovers_staged_state_as_a_new_commit() -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("note.md"), "initial\n")?;
     std::fs::write(vault.path().join("operator.md"), "baseline\n")?;
@@ -111,18 +110,11 @@ fn fr_30_startup_recovers_staged_state_as_a_new_commit() -> Result<(), Box<dyn s
     let restarted = Git2Vault::try_from(config)?;
     let recovered = restarted.recover_staged()?;
 
-    assert_eq!(
-        recovered.message.as_deref(),
-        Some("mcp: recovered staged changes")
-    );
-    assert_eq!(
-        recovered.committed_paths,
-        vec![std::path::PathBuf::from("note.md")]
-    );
+    assert_eq!(recovered.message.as_deref(), Some("mcp: recovered staged changes"));
+    assert_eq!(recovered.committed_paths, vec![std::path::PathBuf::from("note.md")]);
     let head = repository.head()?.peel_to_commit()?;
     let tree = head.tree()?;
-    let operator =
-        repository.find_blob(tree.get_path(std::path::Path::new("operator.md"))?.id())?;
+    let operator = repository.find_blob(tree.get_path(std::path::Path::new("operator.md"))?.id())?;
     assert_eq!(operator.content(), b"baseline\n");
     assert!(
         repository
@@ -133,7 +125,7 @@ fn fr_30_startup_recovers_staged_state_as_a_new_commit() -> Result<(), Box<dyn s
 }
 
 #[test]
-fn fr_30_startup_rejects_tampered_pending_ownership_without_staging_operator_content()
+fn startup_rejects_tampered_pending_ownership_without_staging_operator_content()
 -> Result<(), Box<dyn std::error::Error>> {
     let vault = tempdir()?;
     std::fs::write(vault.path().join("operator.md"), "baseline\n")?;

@@ -250,14 +250,7 @@ impl Filesystem {
         let mime_type = infer::get(&bytes)
             .map(|kind| kind.mime_type().to_owned())
             .or_else(|| mime_type_for_extension(path))
-            .unwrap_or_else(|| {
-                if text {
-                    "text/plain"
-                } else {
-                    "application/octet-stream"
-                }
-                .to_owned()
-            });
+            .unwrap_or_else(|| if text { "text/plain" } else { "application/octet-stream" }.to_owned());
         Ok(Attachment {
             path: request.path.relative().to_string_lossy().into_owned(),
             vault_path: request.path.clone(),
@@ -327,13 +320,12 @@ impl Filesystem {
 
         loop {
             buffer.clear();
-            let bytes_read =
-                reader
-                    .read_until(b'\n', &mut buffer)
-                    .map_err(|source| FsError::ReadContent {
-                        path: path.to_path_buf(),
-                        source,
-                    })?;
+            let bytes_read = reader
+                .read_until(b'\n', &mut buffer)
+                .map_err(|source| FsError::ReadContent {
+                    path: path.to_path_buf(),
+                    source,
+                })?;
             if bytes_read == 0 {
                 break;
             }
@@ -372,28 +364,25 @@ impl Filesystem {
                 continue;
             }
             let absolute: &std::path::Path = path.into();
-            let root_index =
-                usize::try_from(path.root_id()).map_err(|source| FsError::PathValidation {
-                    path: absolute.to_path_buf(),
-                    source,
-                })?;
-            let count = counts
-                .get_mut(root_index)
+            let root_index = usize::try_from(path.root_id()).map_err(|source| FsError::PathValidation {
+                path: absolute.to_path_buf(),
+                source,
+            })?;
+            let count = counts.get_mut(root_index).ok_or(FsError::LimitCountMismatch {
+                root_count: self.roots.len(),
+                limit_count: self.limits.len(),
+            })?;
+            *count += 1;
+        }
+        for (root_index, count) in counts.into_iter().enumerate() {
+            let limits = self
+                .limits
+                .get(root_index)
+                .copied()
                 .ok_or(FsError::LimitCountMismatch {
                     root_count: self.roots.len(),
                     limit_count: self.limits.len(),
                 })?;
-            *count += 1;
-        }
-        for (root_index, count) in counts.into_iter().enumerate() {
-            let limits =
-                self.limits
-                    .get(root_index)
-                    .copied()
-                    .ok_or(FsError::LimitCountMismatch {
-                        root_count: self.roots.len(),
-                        limit_count: self.limits.len(),
-                    })?;
             if count > limits.max_batch_files {
                 return Err(FsError::BatchTooLarge {
                     count,
@@ -427,18 +416,14 @@ impl Filesystem {
 
     pub(crate) fn limits(&self, path: &VaultPath) -> Result<FsLimits, FsError> {
         let absolute: &std::path::Path = path.into();
-        let root_index =
-            usize::try_from(path.root_id()).map_err(|source| FsError::PathValidation {
-                path: absolute.to_path_buf(),
-                source,
-            })?;
-        self.limits
-            .get(root_index)
-            .copied()
-            .ok_or(FsError::LimitCountMismatch {
-                root_count: self.roots.len(),
-                limit_count: self.limits.len(),
-            })
+        let root_index = usize::try_from(path.root_id()).map_err(|source| FsError::PathValidation {
+            path: absolute.to_path_buf(),
+            source,
+        })?;
+        self.limits.get(root_index).copied().ok_or(FsError::LimitCountMismatch {
+            root_count: self.roots.len(),
+            limit_count: self.limits.len(),
+        })
     }
 
     /// Returns the hidden path patterns configured for `path`'s vault root.
@@ -447,11 +432,10 @@ impl Filesystem {
     /// direct, explicit-path read never consults this.
     pub(crate) fn hidden(&self, path: &VaultPath) -> Result<&[String], FsError> {
         let absolute: &Path = path.into();
-        let root_index =
-            usize::try_from(path.root_id()).map_err(|source| FsError::PathValidation {
-                path: absolute.to_path_buf(),
-                source,
-            })?;
+        let root_index = usize::try_from(path.root_id()).map_err(|source| FsError::PathValidation {
+            path: absolute.to_path_buf(),
+            source,
+        })?;
         self.hidden
             .get(root_index)
             .map(Vec::as_slice)
@@ -494,9 +478,7 @@ impl ReadAccumulator {
                     self.tail.pop_front();
                 }
             }
-            Some(ReadLimit::Range(range))
-                if self.line_count >= range.from && self.line_count <= range.to =>
-            {
+            Some(ReadLimit::Range(range)) if self.line_count >= range.from && self.line_count <= range.to => {
                 self.select(line);
             }
             Some(ReadLimit::Head(_) | ReadLimit::Tail(_) | ReadLimit::Range(_)) => {}

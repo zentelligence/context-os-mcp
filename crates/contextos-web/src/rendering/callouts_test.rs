@@ -12,8 +12,7 @@ fn parses_a_callout_with_no_title() -> TestResult {
 
 #[test]
 fn parses_a_callout_with_a_title() -> TestResult {
-    let open =
-        parse_open_line("> [!warning] Breaking change").ok_or("expected a parsed open line")?;
+    let open = parse_open_line("> [!warning] Breaking change").ok_or("expected a parsed open line")?;
     assert_eq!(open.kind, "warning");
     assert_eq!(open.title.as_deref(), Some("Breaking change"));
     Ok(())
@@ -21,8 +20,7 @@ fn parses_a_callout_with_a_title() -> TestResult {
 
 #[test]
 fn parses_a_foldable_callout_ignoring_the_fold_marker() -> TestResult {
-    let open =
-        parse_open_line("> [!tip]- Collapsed by default").ok_or("expected a parsed open line")?;
+    let open = parse_open_line("> [!tip]- Collapsed by default").ok_or("expected a parsed open line")?;
     assert_eq!(open.kind, "tip");
     assert_eq!(open.title.as_deref(), Some("Collapsed by default"));
     Ok(())

@@ -3,8 +3,8 @@
 //! rather than directly under `tests/`, matching the standard Cargo
 //! convention for test-only shared code).
 //!
-//! `contextos-web` never depends on `contextos-mcp` in production (FR-200),
-//! so `CARGO_BIN_EXE_contextos` is not available here: Cargo only sets that
+//! `contextos-web` never depends on `contextos-mcp` in production, so
+//! `CARGO_BIN_EXE_contextos` is not available here: Cargo only sets that
 //! variable for a binary target owned by the package currently under test,
 //! not a sibling workspace package's binary. [`contextos_mcp_binary`]
 //! resolves the real `contextos` binary another way: it asks Cargo to build
@@ -28,11 +28,7 @@ pub fn contextos_mcp_binary() -> Result<PathBuf, BoxError> {
         return Err("building the contextos-mcp binary failed".into());
     }
 
-    let profile = if cfg!(debug_assertions) {
-        "debug"
-    } else {
-        "release"
-    };
+    let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
     let mut path = target_dir();
     path.push(profile);
     path.push(format!("contextos{}", std::env::consts::EXE_SUFFIX));
@@ -55,10 +51,7 @@ fn target_dir() -> PathBuf {
 
 /// Writes a minimal, valid `config.toml` naming one managed vault rooted at
 /// `vault_dir`, and returns the config file's path.
-pub fn write_vault_config(
-    dir: &std::path::Path,
-    vault_dir: &std::path::Path,
-) -> std::io::Result<PathBuf> {
+pub fn write_vault_config(dir: &std::path::Path, vault_dir: &std::path::Path) -> std::io::Result<PathBuf> {
     let path = dir.join("config.toml");
     // `Debug`, not `Display`, is the correct formatting here: it quotes and
     // backslash-escapes the path the way a TOML string value requires,
@@ -85,9 +78,6 @@ pub fn real_contextos_entry(
     Ok(contextos_web::McpServerConfig::Stdio {
         name: name.to_owned(),
         command: contextos_mcp_binary()?.to_string_lossy().into_owned(),
-        args: vec![
-            "--config".to_owned(),
-            config_path.to_string_lossy().into_owned(),
-        ],
+        args: vec!["--config".to_owned(), config_path.to_string_lossy().into_owned()],
     })
 }

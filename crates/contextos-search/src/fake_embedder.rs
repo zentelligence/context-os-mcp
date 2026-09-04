@@ -59,9 +59,7 @@ impl EmbedsText for FakeEmbedder {
 /// independent, so the function needs no running hash state and produces
 /// the same result regardless of call order.
 fn hash_vector(text: &str, dimension: usize) -> Vec<f32> {
-    (0..dimension)
-        .map(|index| hash_component(text, index))
-        .collect()
+    (0..dimension).map(|index| hash_component(text, index)).collect()
 }
 
 /// Derives one deterministic component in the closed range `[-1.0, 1.0]`

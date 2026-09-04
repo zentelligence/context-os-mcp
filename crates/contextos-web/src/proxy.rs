@@ -1,6 +1,6 @@
-//! `POST /mcp/{{server_name}}/{{tool_name}}` (FR-210 to FR-213): the MCP
-//! tool proxy every registered app's `callTool` (`FR-211`) and every direct
-//! API consumer dispatches through.
+//! `POST /mcp/{{server_name}}/{{tool_name}}`: the MCP tool proxy every
+//! registered app's `callTool` and every direct API consumer dispatches
+//! through.
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -29,22 +29,14 @@ struct ErrorBody<'a> {
 }
 
 fn error_response(status: StatusCode, code: &'static str, server: Option<&str>) -> Response {
-    (
-        status,
-        Json(ErrorBody {
-            error: code,
-            server,
-        }),
-    )
-        .into_response()
+    (status, Json(ErrorBody { error: code, server })).into_response()
 }
 
 /// Handles `POST /mcp/{{server_name}}/{{tool_name}}`.
 ///
 /// Every branch logs exactly one `INFO` line (method, server, tool,
 /// duration, outcome) before returning, and never includes the request
-/// body or the tool's result content in that log line (`FR-212`,
-/// `NFR-W04`).
+/// body or the tool's result content in that log line.
 pub async fn handle(
     State(clients): State<SharedClients>,
     Path((server_name, tool_name)): Path<(String, String)>,
@@ -59,11 +51,7 @@ pub async fn handle(
 
     let Some(client) = clients.get(&server_name) else {
         log_outcome(&server_name, &tool_name, start, "server-not-configured");
-        return error_response(
-            StatusCode::NOT_FOUND,
-            "mcp/server-not-configured",
-            Some(&server_name),
-        );
+        return error_response(StatusCode::NOT_FOUND, "mcp/server-not-configured", Some(&server_name));
     };
 
     match client.call_tool(tool_name.clone(), arguments).await {
@@ -78,11 +66,7 @@ pub async fn handle(
         }
         Err(McpCallError::Unreachable { .. }) => {
             log_outcome(&server_name, &tool_name, start, "unreachable");
-            error_response(
-                StatusCode::BAD_GATEWAY,
-                "mcp/unreachable",
-                Some(&server_name),
-            )
+            error_response(StatusCode::BAD_GATEWAY, "mcp/unreachable", Some(&server_name))
         }
     }
 }

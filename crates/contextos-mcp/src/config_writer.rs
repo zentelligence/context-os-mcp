@@ -97,17 +97,10 @@ impl ConfigDocument {
     /// unchanged when the resulting configuration would be invalid: a
     /// duplicate vault name, a duplicate resolved root, or a `path` that
     /// does not resolve to an existing directory.
-    pub fn add_vault(
-        &mut self,
-        name: &str,
-        path: &Path,
-        managed: bool,
-    ) -> Result<(), ConfigWriterError> {
-        let path = path
-            .to_str()
-            .ok_or_else(|| ConfigWriterError::NonUtf8Path {
-                path: path.to_path_buf(),
-            })?;
+    pub fn add_vault(&mut self, name: &str, path: &Path, managed: bool) -> Result<(), ConfigWriterError> {
+        let path = path.to_str().ok_or_else(|| ConfigWriterError::NonUtf8Path {
+            path: path.to_path_buf(),
+        })?;
         let backup = self.document.clone();
 
         let array = self
@@ -141,23 +134,13 @@ impl ConfigDocument {
         let target = name.to_ascii_lowercase();
         let backup = self.document.clone();
 
-        let Some(array) = self
-            .document
-            .get_mut("vault")
-            .and_then(Item::as_array_of_tables_mut)
-        else {
-            return Err(ConfigWriterError::UnknownVaultName {
-                name: name.to_owned(),
-            });
+        let Some(array) = self.document.get_mut("vault").and_then(Item::as_array_of_tables_mut) else {
+            return Err(ConfigWriterError::UnknownVaultName { name: name.to_owned() });
         };
         let before = array.len();
-        array.retain(|table| {
-            vault_display_name(table).map(|name| name.to_ascii_lowercase()) != Some(target.clone())
-        });
+        array.retain(|table| vault_display_name(table).map(|name| name.to_ascii_lowercase()) != Some(target.clone()));
         if array.len() == before {
-            return Err(ConfigWriterError::UnknownVaultName {
-                name: name.to_owned(),
-            });
+            return Err(ConfigWriterError::UnknownVaultName { name: name.to_owned() });
         }
 
         self.validate_or_rollback(backup)
@@ -175,17 +158,10 @@ impl ConfigDocument {
     /// no configured vault matches `name`. Returns
     /// [`ConfigWriterError::Invalid`] and leaves the document unchanged when
     /// the resulting configuration would be invalid.
-    pub fn enable_semantic_search(
-        &mut self,
-        name: &str,
-        model_directory: &Path,
-    ) -> Result<(), ConfigWriterError> {
-        let model_directory =
-            model_directory
-                .to_str()
-                .ok_or_else(|| ConfigWriterError::NonUtf8Path {
-                    path: model_directory.to_path_buf(),
-                })?;
+    pub fn enable_semantic_search(&mut self, name: &str, model_directory: &Path) -> Result<(), ConfigWriterError> {
+        let model_directory = model_directory.to_str().ok_or_else(|| ConfigWriterError::NonUtf8Path {
+            path: model_directory.to_path_buf(),
+        })?;
         let backup = self.document.clone();
         let table = self.find_vault_table_mut(name)?;
 
@@ -227,11 +203,9 @@ impl ConfigDocument {
         new_path: &Path,
         managed: bool,
     ) -> Result<(), ConfigWriterError> {
-        let new_path_str = new_path
-            .to_str()
-            .ok_or_else(|| ConfigWriterError::NonUtf8Path {
-                path: new_path.to_path_buf(),
-            })?;
+        let new_path_str = new_path.to_str().ok_or_else(|| ConfigWriterError::NonUtf8Path {
+            path: new_path.to_path_buf(),
+        })?;
         let backup = self.document.clone();
         let table = self.find_vault_table_mut(current_name)?;
 
@@ -410,18 +384,11 @@ impl ConfigDocument {
             .document
             .get_mut("vault")
             .and_then(Item::as_array_of_tables_mut)
-            .ok_or_else(|| ConfigWriterError::UnknownVaultName {
-                name: name.to_owned(),
-            })?;
+            .ok_or_else(|| ConfigWriterError::UnknownVaultName { name: name.to_owned() })?;
         array
             .iter_mut()
-            .find(|table| {
-                vault_display_name(table).map(|name| name.to_ascii_lowercase())
-                    == Some(target.clone())
-            })
-            .ok_or_else(|| ConfigWriterError::UnknownVaultName {
-                name: name.to_owned(),
-            })
+            .find(|table| vault_display_name(table).map(|name| name.to_ascii_lowercase()) == Some(target.clone()))
+            .ok_or_else(|| ConfigWriterError::UnknownVaultName { name: name.to_owned() })
     }
 
     fn validate_or_rollback(&mut self, backup: DocumentMut) -> Result<(), ConfigWriterError> {
@@ -443,8 +410,7 @@ impl Default for ConfigDocument {
 
 fn render_and_validate(document: &DocumentMut) -> Result<(), ConfigWriterError> {
     let text = document.to_string();
-    let config =
-        Config::try_from(text.as_str()).map_err(|source| ConfigWriterError::Invalid { source })?;
+    let config = Config::try_from(text.as_str()).map_err(|source| ConfigWriterError::Invalid { source })?;
     VaultSet::try_from(&config).map_err(|source| ConfigWriterError::Invalid { source })?;
     Ok(())
 }

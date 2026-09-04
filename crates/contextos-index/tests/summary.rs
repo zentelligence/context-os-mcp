@@ -1,8 +1,7 @@
 use contextos_index::{IndexSummary, IndexSummaryInput};
 
 #[test]
-fn fr_20_derives_summary_from_frontmatter_title_and_first_body_sentence()
--> Result<(), Box<dyn std::error::Error>> {
+fn derives_summary_from_frontmatter_title_and_first_body_sentence() -> Result<(), Box<dyn std::error::Error>> {
     let source = concat!(
         "---\n",
         "title: Better Title\n",
@@ -25,8 +24,7 @@ fn fr_20_derives_summary_from_frontmatter_title_and_first_body_sentence()
 }
 
 #[test]
-fn fr_20_derives_summary_from_heading_when_frontmatter_title_is_absent()
--> Result<(), Box<dyn std::error::Error>> {
+fn derives_summary_from_heading_when_frontmatter_title_is_absent() -> Result<(), Box<dyn std::error::Error>> {
     let source = "# Project Alpha\n\nTracks the active delivery work! More detail follows.\n";
 
     let summary = IndexSummary::try_from(IndexSummaryInput {
@@ -42,8 +40,7 @@ fn fr_20_derives_summary_from_heading_when_frontmatter_title_is_absent()
 }
 
 #[test]
-fn fr_20_humanises_filename_when_note_has_no_descriptive_content()
--> Result<(), Box<dyn std::error::Error>> {
+fn humanises_filename_when_note_has_no_descriptive_content() -> Result<(), Box<dyn std::error::Error>> {
     let summary = IndexSummary::try_from(IndexSummaryInput {
         filename: "client-project_status.md",
         source: Some("\n\n"),

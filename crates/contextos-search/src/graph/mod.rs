@@ -550,12 +550,7 @@ impl LinkGraph {
     ///
     /// Returns a storage error when the updated graph cannot be persisted
     /// to its store.
-    pub fn upsert_note(
-        &mut self,
-        path: &str,
-        title: &str,
-        links: &[ObsidianLink],
-    ) -> Result<(), SearchError> {
+    pub fn upsert_note(&mut self, path: &str, title: &str, links: &[ObsidianLink]) -> Result<(), SearchError> {
         self.catch_up()?;
         let mut changes = PendingChanges::default();
         let node_idx = self.ensure_real_node(path, title, &mut changes);
@@ -581,11 +576,7 @@ impl LinkGraph {
         let mut changes = PendingChanges::default();
         if let Some(&idx) = self.index.get(path) {
             self.clear_outgoing(idx, &mut changes);
-            let has_incoming = self
-                .graph
-                .edges_directed(idx, Direction::Incoming)
-                .next()
-                .is_some();
+            let has_incoming = self.graph.edges_directed(idx, Direction::Incoming).next().is_some();
             if has_incoming {
                 if let Some(node) = self.graph.node_weight_mut(idx) {
                     node.phantom = true;
@@ -621,10 +612,7 @@ impl LinkGraph {
     ///
     /// Returns a storage error when the store cannot be cleared, or the
     /// rebuilt graph cannot be persisted.
-    pub fn rebuild(
-        &mut self,
-        notes: &[(String, String, Vec<ObsidianLink>)],
-    ) -> Result<(), SearchError> {
+    pub fn rebuild(&mut self, notes: &[(String, String, Vec<ObsidianLink>)]) -> Result<(), SearchError> {
         self.graph.clear();
         self.index.clear();
         self.edge_by_store_id.clear();
@@ -658,12 +646,7 @@ impl LinkGraph {
     /// Returns [`SearchError::InvalidDepth`] when `depth` is outside
     /// `1..=4`, and [`SearchError::UnknownNote`] when `from` is not in the
     /// graph.
-    pub fn neighbours(
-        &mut self,
-        from: &str,
-        depth: u32,
-        direction: GraphDirection,
-    ) -> Result<GraphView, SearchError> {
+    pub fn neighbours(&mut self, from: &str, depth: u32, direction: GraphDirection) -> Result<GraphView, SearchError> {
         self.catch_up()?;
         if !(1..=4).contains(&depth) {
             return Err(SearchError::InvalidDepth { depth });
@@ -734,12 +717,7 @@ impl LinkGraph {
     ///
     /// Returns [`SearchError::UnknownNote`] when `from` or `to` is not in
     /// the graph.
-    pub fn path_between(
-        &mut self,
-        from: &str,
-        to: &str,
-        direction: GraphDirection,
-    ) -> Result<GraphView, SearchError> {
+    pub fn path_between(&mut self, from: &str, to: &str, direction: GraphDirection) -> Result<GraphView, SearchError> {
         self.catch_up()?;
         let start = self.require_node(from)?;
         let goal = self.require_node(to)?;
@@ -792,16 +770,8 @@ impl LinkGraph {
             .node_indices()
             .filter_map(|idx| {
                 let node = self.graph.node_weight(idx)?;
-                let no_outgoing = self
-                    .graph
-                    .edges_directed(idx, Direction::Outgoing)
-                    .next()
-                    .is_none();
-                let no_incoming = self
-                    .graph
-                    .edges_directed(idx, Direction::Incoming)
-                    .next()
-                    .is_none();
+                let no_outgoing = self.graph.edges_directed(idx, Direction::Outgoing).next().is_none();
+                let no_incoming = self.graph.edges_directed(idx, Direction::Incoming).next().is_none();
                 (!node.phantom && no_outgoing && no_incoming).then(|| node.clone())
             })
             .collect();
@@ -857,11 +827,7 @@ impl LinkGraph {
     /// the store's generation has advanced past what it last recorded (by
     /// its own write) and redundantly "catch up" to a change it already
     /// has in memory.
-    fn persist_changes(
-        &mut self,
-        changes: &PendingChanges,
-        reset: bool,
-    ) -> Result<(), SearchError> {
+    fn persist_changes(&mut self, changes: &PendingChanges, reset: bool) -> Result<(), SearchError> {
         let mut records: Vec<GraphChange> = Vec::with_capacity(
             usize::from(reset)
                 + changes.removed_node_keys.len()
@@ -972,15 +938,14 @@ impl LinkGraph {
             self.last_seen_generation = delta.generation;
             self.last_catch_up = Some(CatchUpKind::Partial);
         } else {
-            let snapshot =
-                load_snapshot(self.store.as_ref()).ok_or_else(|| SearchError::GraphStorage {
-                    path: "sqlite graph store".to_owned(),
-                    source: std::io::Error::other(
-                        "became unreadable during a cross-instance catch-up's full-reload \
+            let snapshot = load_snapshot(self.store.as_ref()).ok_or_else(|| SearchError::GraphStorage {
+                path: "sqlite graph store".to_owned(),
+                source: std::io::Error::other(
+                    "became unreadable during a cross-instance catch-up's full-reload \
                          fallback, having been readable moments earlier when its generation \
                          was checked",
-                    ),
-                })?;
+                ),
+            })?;
             self.graph = snapshot.graph;
             self.index = snapshot.index;
             self.edge_by_store_id = snapshot.edge_by_store_id;
@@ -1086,12 +1051,7 @@ impl LinkGraph {
     /// Resolves `path` to its node index, upgrading an existing phantom to
     /// a real note in place, or creating a new real node. Records the node
     /// as touched in `changes` either way, so it is (re-)persisted.
-    fn ensure_real_node(
-        &mut self,
-        path: &str,
-        title: &str,
-        changes: &mut PendingChanges,
-    ) -> NodeIndex {
+    fn ensure_real_node(&mut self, path: &str, title: &str, changes: &mut PendingChanges) -> NodeIndex {
         let idx = if let Some(&idx) = self.index.get(path) {
             if let Some(node) = self.graph.node_weight_mut(idx) {
                 node.phantom = false;
@@ -1133,12 +1093,7 @@ impl LinkGraph {
     /// monotonic, store-persisted allocator: this is what lets two
     /// parallel edges (a note linking to the same target twice) each keep
     /// a distinct, stable identity across a persist/reopen round trip.
-    fn wire_links(
-        &mut self,
-        node_idx: NodeIndex,
-        links: &[ObsidianLink],
-        changes: &mut PendingChanges,
-    ) {
+    fn wire_links(&mut self, node_idx: NodeIndex, links: &[ObsidianLink], changes: &mut PendingChanges) {
         for link in links {
             if link.target.is_empty() {
                 continue;
@@ -1151,9 +1106,7 @@ impl LinkGraph {
             };
             let store_id = self.next_edge_id;
             self.next_edge_id += 1;
-            let edge_idx = self
-                .graph
-                .add_edge(node_idx, target_idx, EdgeRecord { kind, store_id });
+            let edge_idx = self.graph.add_edge(node_idx, target_idx, EdgeRecord { kind, store_id });
             self.edge_by_store_id.insert(store_id, edge_idx);
             changes.upserted_edges.push(edge_idx);
         }
@@ -1166,16 +1119,8 @@ impl LinkGraph {
             .node_indices()
             .filter(|&idx| {
                 self.graph.node_weight(idx).is_some_and(|node| node.phantom)
-                    && self
-                        .graph
-                        .edges_directed(idx, Direction::Outgoing)
-                        .next()
-                        .is_none()
-                    && self
-                        .graph
-                        .edges_directed(idx, Direction::Incoming)
-                        .next()
-                        .is_none()
+                    && self.graph.edges_directed(idx, Direction::Outgoing).next().is_none()
+                    && self.graph.edges_directed(idx, Direction::Incoming).next().is_none()
             })
             .collect();
         for idx in stale {
@@ -1263,9 +1208,7 @@ impl LinkGraph {
         self.index
             .get(path)
             .copied()
-            .ok_or_else(|| SearchError::UnknownNote {
-                path: path.to_owned(),
-            })
+            .ok_or_else(|| SearchError::UnknownNote { path: path.to_owned() })
     }
 
     /// Builds the externally rendered `GraphEdge` for one internal edge
@@ -1282,12 +1225,7 @@ impl LinkGraph {
     /// breaking ties by exploring each node's neighbours in lexicographic
     /// path order. Returns the ordered edge ids of the route, or `None`
     /// when `goal` is unreachable.
-    fn shortest_route(
-        &self,
-        start: NodeIndex,
-        goal: NodeIndex,
-        direction: GraphDirection,
-    ) -> Option<Vec<EdgeIndex>> {
+    fn shortest_route(&self, start: NodeIndex, goal: NodeIndex, direction: GraphDirection) -> Option<Vec<EdgeIndex>> {
         let mut visited: HashSet<NodeIndex> = HashSet::new();
         visited.insert(start);
         let mut queue: VecDeque<NodeIndex> = VecDeque::new();
@@ -1308,14 +1246,8 @@ impl LinkGraph {
                 }
             }
             candidates.sort_by(|(a, _), (b, _)| {
-                let a_path = self
-                    .graph
-                    .node_weight(*a)
-                    .map_or("", |node| node.path.as_str());
-                let b_path = self
-                    .graph
-                    .node_weight(*b)
-                    .map_or("", |node| node.path.as_str());
+                let a_path = self.graph.node_weight(*a).map_or("", |node| node.path.as_str());
+                let b_path = self.graph.node_weight(*b).map_or("", |node| node.path.as_str());
                 a_path.cmp(b_path)
             });
 
@@ -1358,11 +1290,7 @@ impl LinkGraph {
     fn into_view(mut nodes: Vec<GraphNode>, mut edges: Vec<GraphEdge>) -> GraphView {
         nodes.sort_by(|a, b| a.path.cmp(&b.path));
         edges.sort_by(|a, b| {
-            (a.from.as_str(), a.to.as_str(), a.kind.label()).cmp(&(
-                b.from.as_str(),
-                b.to.as_str(),
-                b.kind.label(),
-            ))
+            (a.from.as_str(), a.to.as_str(), a.kind.label()).cmp(&(b.from.as_str(), b.to.as_str(), b.kind.label()))
         });
         GraphView { nodes, edges }
     }

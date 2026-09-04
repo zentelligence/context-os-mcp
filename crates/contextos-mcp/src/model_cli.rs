@@ -57,10 +57,7 @@ fn cached_directory(repo: &CacheRepo) -> Option<PathBuf> {
     let mut directory = None;
     for file in REQUIRED_MODEL_FILES {
         let path = repo.get(file)?;
-        directory.get_or_insert_with(|| {
-            path.parent()
-                .map_or_else(|| path.clone(), Path::to_path_buf)
-        });
+        directory.get_or_insert_with(|| path.parent().map_or_else(|| path.clone(), Path::to_path_buf));
     }
     directory
 }
@@ -82,9 +79,7 @@ fn cached_directory(repo: &CacheRepo) -> Option<PathBuf> {
 /// network.
 #[must_use]
 pub(crate) fn resolve_model_directory(configured: &Path) -> PathBuf {
-    let is_flat_model_directory = REQUIRED_MODEL_FILES
-        .iter()
-        .all(|file| configured.join(file).is_file());
+    let is_flat_model_directory = REQUIRED_MODEL_FILES.iter().all(|file| configured.join(file).is_file());
     if is_flat_model_directory {
         return configured.to_path_buf();
     }
@@ -108,9 +103,7 @@ impl ModelReport {
         let repo = Cache::new(cache_dir.to_path_buf()).model(DEFAULT_MODEL_REPO.to_owned());
 
         let mut lines = vec![
-            format!(
-                "Default local embedding model: {DEFAULT_MODEL_REPO} ({DEFAULT_MODEL_DIMENSION} dimensions)"
-            ),
+            format!("Default local embedding model: {DEFAULT_MODEL_REPO} ({DEFAULT_MODEL_DIMENSION} dimensions)"),
             format!("Cache directory: {}", cache_dir.display()),
         ];
 
@@ -170,10 +163,7 @@ pub fn download_default_model(cache_dir: &Path) -> Result<PathBuf, ModelCliError
     let mut directory: Option<PathBuf> = None;
     for file in REQUIRED_MODEL_FILES {
         let path = repo.get(file)?;
-        directory.get_or_insert_with(|| {
-            path.parent()
-                .map_or_else(|| path.clone(), Path::to_path_buf)
-        });
+        directory.get_or_insert_with(|| path.parent().map_or_else(|| path.clone(), Path::to_path_buf));
     }
     directory.ok_or(ModelCliError::NoRequiredFiles)
 }
@@ -240,8 +230,7 @@ mod tests {
     }
 
     #[test]
-    fn list_reports_downloaded_when_every_required_file_is_present()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn list_reports_downloaded_when_every_required_file_is_present() -> Result<(), Box<dyn std::error::Error>> {
         let cache = tempfile::tempdir()?;
         let snapshot_dir = populated_snapshot_dir(cache.path())?;
 
@@ -254,8 +243,7 @@ mod tests {
     }
 
     #[test]
-    fn list_reports_not_downloaded_when_a_required_file_is_missing()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn list_reports_not_downloaded_when_a_required_file_is_missing() -> Result<(), Box<dyn std::error::Error>> {
         let cache = tempfile::tempdir()?;
         let snapshot_dir = populated_snapshot_dir(cache.path())?;
         std::fs::remove_file(snapshot_dir.join("tokenizer.json"))?;
@@ -267,20 +255,15 @@ mod tests {
     }
 
     #[test]
-    fn default_model_cache_dir_is_named_fastembed_cache() -> Result<(), Box<dyn std::error::Error>>
-    {
+    fn default_model_cache_dir_is_named_fastembed_cache() -> Result<(), Box<dyn std::error::Error>> {
         let resolved = default_model_cache_dir()?;
 
-        assert_eq!(
-            resolved.file_name(),
-            Some(std::ffi::OsStr::new(".fastembed_cache"))
-        );
+        assert_eq!(resolved.file_name(), Some(std::ffi::OsStr::new(".fastembed_cache")));
         Ok(())
     }
 
     #[test]
-    fn resolve_model_directory_passes_through_an_already_flat_directory()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn resolve_model_directory_passes_through_an_already_flat_directory() -> Result<(), Box<dyn std::error::Error>> {
         let flat = tempfile::tempdir()?;
         for file in REQUIRED_MODEL_FILES {
             std::fs::write(flat.path().join(file), b"fixture")?;
@@ -293,8 +276,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_model_directory_resolves_a_shared_cache_root()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn resolve_model_directory_resolves_a_shared_cache_root() -> Result<(), Box<dyn std::error::Error>> {
         let cache = tempfile::tempdir()?;
         let snapshot_dir = populated_snapshot_dir(cache.path())?;
 

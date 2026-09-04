@@ -3,12 +3,10 @@
 //! to keep `obsidian.rs` under the project's file-size limit; every item
 //! here is `pub(crate)` for that sibling module to use.
 
-use contextos_core::{
-    ContentHash, PipelineResult, VaultPath, VaultPathInput, VaultSet, WriteOutcome,
-};
+use contextos_core::{ContentHash, PipelineResult, VaultPath, VaultPathInput, VaultSet, WriteOutcome};
 use contextos_obsidian::{
-    BaseDiagnostic, BaseDocument, BaseError, BaseOperation, CanvasDiagnostic, CanvasDocument,
-    CanvasError, CanvasOperation, FrontmatterDocument, LinkCollection, ObsidianLink,
+    BaseDiagnostic, BaseDocument, BaseError, BaseOperation, CanvasDiagnostic, CanvasDocument, CanvasError,
+    CanvasOperation, FrontmatterDocument, LinkCollection, ObsidianLink,
 };
 use rmcp::schemars;
 use serde::{Deserialize, Serialize};
@@ -37,9 +35,7 @@ impl From<PipelineResult<WriteOutcome>> for NoteCreateToolResult {
         Self {
             path: value.value.path.relative().to_string_lossy().into_owned(),
             content_hash: hash.to_owned(),
-            validation: NoteValidationToolResult {
-                warnings: Vec::new(),
-            },
+            validation: NoteValidationToolResult { warnings: Vec::new() },
             warnings,
         }
     }
@@ -285,12 +281,7 @@ impl TryFrom<StructuredPathInput<'_>> for BaseVaultPath {
             roots: value.roots,
             raw: value.raw,
         })?;
-        if path
-            .relative()
-            .extension()
-            .and_then(std::ffi::OsStr::to_str)
-            != Some("base")
-        {
+        if path.relative().extension().and_then(std::ffi::OsStr::to_str) != Some("base") {
             return Err(ToolError::Invalid("Base path must end in .base"));
         }
         Ok(Self(path))
@@ -307,12 +298,7 @@ impl TryFrom<StructuredPathInput<'_>> for CanvasVaultPath {
             roots: value.roots,
             raw: value.raw,
         })?;
-        if path
-            .relative()
-            .extension()
-            .and_then(std::ffi::OsStr::to_str)
-            != Some("canvas")
-        {
+        if path.relative().extension().and_then(std::ffi::OsStr::to_str) != Some("canvas") {
             return Err(ToolError::Invalid("Canvas path must end in .canvas"));
         }
         Ok(Self(path))
@@ -501,24 +487,17 @@ impl From<BaseOperationToolInput> for BaseOperation {
     fn from(value: BaseOperationToolInput) -> Self {
         match value {
             BaseOperationToolInput::SetFilters { filters } => Self::SetFilters { filters },
-            BaseOperationToolInput::AddFormula { name, expression } => {
-                Self::AddFormula { name, expression }
-            }
+            BaseOperationToolInput::AddFormula { name, expression } => Self::AddFormula { name, expression },
             BaseOperationToolInput::RemoveFormula { name } => Self::RemoveFormula { name },
             BaseOperationToolInput::SetProperty { name, property } => Self::SetProperty {
                 name,
                 definition: property,
             },
             BaseOperationToolInput::RemoveProperty { name } => Self::RemoveProperty { name },
-            BaseOperationToolInput::AddView { name, view } => Self::AddView {
-                name,
-                definition: view,
-            },
+            BaseOperationToolInput::AddView { name, view } => Self::AddView { name, definition: view },
             BaseOperationToolInput::RemoveView { name } => Self::RemoveView { name },
             BaseOperationToolInput::UpdateView { name, patch } => Self::UpdateView { name, patch },
-            BaseOperationToolInput::SetSummary { name, expression } => {
-                Self::SetSummary { name, expression }
-            }
+            BaseOperationToolInput::SetSummary { name, expression } => Self::SetSummary { name, expression },
             BaseOperationToolInput::RemoveSummary { name } => Self::RemoveSummary { name },
         }
     }

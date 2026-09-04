@@ -41,12 +41,7 @@ async fn get(router: &Router, path: &str) -> Result<(StatusCode, String), BoxErr
     Ok((status, String::from_utf8_lossy(&body).into_owned()))
 }
 
-async fn request(
-    router: &Router,
-    method: &str,
-    path: &str,
-    body: &str,
-) -> Result<(StatusCode, String), BoxError> {
+async fn request(router: &Router, method: &str, path: &str, body: &str) -> Result<(StatusCode, String), BoxError> {
     let response = router
         .clone()
         .oneshot(
@@ -71,7 +66,7 @@ fn write(dir: &Path, relative: &str, content: &str) -> std::io::Result<()> {
 }
 
 // ---------------------------------------------------------------------
-// 404 (FR-225)
+// 404
 // ---------------------------------------------------------------------
 
 #[tokio::test]
@@ -86,8 +81,7 @@ async fn an_unconfigured_vault_name_is_a_404() -> Result<(), BoxError> {
 }
 
 #[tokio::test]
-async fn a_nonexistent_path_in_a_real_vault_is_a_404_with_no_listing_fallback()
--> Result<(), BoxError> {
+async fn a_nonexistent_path_in_a_real_vault_is_a_404_with_no_listing_fallback() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
@@ -100,7 +94,7 @@ async fn a_nonexistent_path_in_a_real_vault_is_a_404_with_no_listing_fallback()
 }
 
 // ---------------------------------------------------------------------
-// Directory route (FR-224)
+// Directory route
 // ---------------------------------------------------------------------
 
 #[tokio::test]
@@ -128,8 +122,7 @@ async fn the_directory_route_renders_that_directorys_index_md() -> Result<(), Bo
 }
 
 #[tokio::test]
-async fn a_bare_path_resolving_to_a_directory_renders_the_same_as_its_trailing_slash_form()
--> Result<(), BoxError> {
+async fn a_bare_path_resolving_to_a_directory_renders_the_same_as_its_trailing_slash_form() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
@@ -145,8 +138,7 @@ async fn a_bare_path_resolving_to_a_directory_renders_the_same_as_its_trailing_s
 }
 
 // ---------------------------------------------------------------------
-// Markdown rendering: wikilinks, embeds, fences, callouts (FR-221, FR-240,
-// FR-241)
+// Markdown rendering: wikilinks, embeds, fences, callouts
 // ---------------------------------------------------------------------
 
 #[tokio::test]
@@ -159,11 +151,7 @@ async fn wikilink_resolution_covers_live_dead_and_doubly_nested_embed() -> Resul
         "target-note.md",
         "# Target\n\nThis is the target note.\n",
     )?;
-    write(
-        vault_dir.path(),
-        "third-file.md",
-        "# Third\n\nThird-file content.\n",
-    )?;
+    write(vault_dir.path(), "third-file.md", "# Third\n\nThird-file content.\n")?;
     write(
         vault_dir.path(),
         "embed-target.md",
@@ -201,8 +189,7 @@ async fn wikilink_resolution_covers_live_dead_and_doubly_nested_embed() -> Resul
 }
 
 #[tokio::test]
-async fn triple_colon_fences_and_callouts_render_with_raw_source_available() -> Result<(), BoxError>
-{
+async fn triple_colon_fences_and_callouts_render_with_raw_source_available() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
@@ -233,7 +220,7 @@ async fn triple_colon_fences_and_callouts_render_with_raw_source_available() -> 
 }
 
 // ---------------------------------------------------------------------
-// Mermaid rendering (FR-242)
+// Mermaid rendering
 // ---------------------------------------------------------------------
 
 #[tokio::test]
@@ -252,16 +239,11 @@ async fn a_valid_standalone_mermaid_file_renders_to_svg() -> Result<(), BoxError
 }
 
 #[tokio::test]
-async fn a_malformed_mermaid_diagram_renders_the_diagnostic_panel_not_a_server_error()
--> Result<(), BoxError> {
+async fn a_malformed_mermaid_diagram_renders_the_diagnostic_panel_not_a_server_error() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
-    write(
-        vault_dir.path(),
-        "bad.mermaid",
-        "not valid mermaid syntax {{{\n",
-    )?;
+    write(vault_dir.path(), "bad.mermaid", "not valid mermaid syntax {{{\n")?;
     let router = router_over(vault_dir.path(), config_dir.path()).await?;
 
     let (status, body) = get(&router, &format!("/{VAULT_NAME}/bad.mermaid")).await?;
@@ -272,7 +254,7 @@ async fn a_malformed_mermaid_diagram_renders_the_diagnostic_panel_not_a_server_e
 }
 
 // ---------------------------------------------------------------------
-// Canvas rendering (FR-223, FR-243)
+// Canvas rendering
 // ---------------------------------------------------------------------
 
 const VALID_CANVAS: &str = r#"{
@@ -303,8 +285,7 @@ async fn a_valid_canvas_file_renders_to_svg_using_its_own_positions() -> Result<
 }
 
 #[tokio::test]
-async fn a_malformed_canvas_file_renders_the_diagnostic_panel_not_a_server_error()
--> Result<(), BoxError> {
+async fn a_malformed_canvas_file_renders_the_diagnostic_panel_not_a_server_error() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
@@ -326,13 +307,7 @@ async fn canvas_mutation_methods_all_return_405_read_only_in_v1() -> Result<(), 
     let router = router_over(vault_dir.path(), config_dir.path()).await?;
 
     for method in ["POST", "PATCH", "PUT", "DELETE"] {
-        let (status, _) = request(
-            &router,
-            method,
-            &format!("/{VAULT_NAME}/diagram.canvas"),
-            "{}",
-        )
-        .await?;
+        let (status, _) = request(&router, method, &format!("/{VAULT_NAME}/diagram.canvas"), "{}").await?;
         assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED, "method {method}");
     }
     // The file was never touched by the read-only route.
@@ -344,10 +319,11 @@ async fn canvas_mutation_methods_all_return_405_read_only_in_v1() -> Result<(), 
 }
 
 // ---------------------------------------------------------------------
-// `.base` rendering and CRUD round trip (FR-222, FR-225a)
+// `.base` rendering and CRUD round trip
 // ---------------------------------------------------------------------
 
-const TASKS_BASE: &str = "views:\n  - type: table\n    name: \"Active\"\n    order:\n      - file.path\n      - status\n";
+const TASKS_BASE: &str =
+    "views:\n  - type: table\n    name: \"Active\"\n    order:\n      - file.path\n      - status\n";
 
 #[tokio::test]
 async fn a_base_file_renders_its_matched_rows_as_a_card_grid() -> Result<(), BoxError> {
@@ -370,7 +346,7 @@ async fn a_base_file_renders_its_matched_rows_as_a_card_grid() -> Result<(), Box
     Ok(())
 }
 
-/// FR-222's view switcher must be `base_query`-backed (real `?view=`
+/// The view switcher must be `base_query`-backed (real `?view=`
 /// resolution), never a client-side re-filter of already-fetched rows: a
 /// per-view `filters` expression (`base_query.rs`'s
 /// `QueryDefinition::from_document`, `merge_and`) narrows which rows each
@@ -379,8 +355,7 @@ async fn a_base_file_renders_its_matched_rows_as_a_card_grid() -> Result<(), Box
 const MULTI_VIEW_BASE: &str = "views:\n  - type: table\n    name: \"Active\"\n    filters: 'status == \"active\"'\n    order:\n      - file.path\n      - status\n  - type: table\n    name: \"Done\"\n    filters: 'status == \"done\"'\n    order:\n      - file.path\n      - status\n";
 
 #[tokio::test]
-async fn switching_the_view_tab_re_queries_base_query_with_the_named_views_own_filters()
--> Result<(), BoxError> {
+async fn switching_the_view_tab_re_queries_base_query_with_the_named_views_own_filters() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
@@ -440,8 +415,7 @@ fn tab_is_active(body: &str, name: &str) -> bool {
 }
 
 #[tokio::test]
-async fn editing_a_row_dispatches_frontmatter_update_never_touching_the_base_file()
--> Result<(), BoxError> {
+async fn editing_a_row_dispatches_frontmatter_update_never_touching_the_base_file() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
@@ -465,16 +439,15 @@ async fn editing_a_row_dispatches_frontmatter_update_never_touching_the_base_fil
     // The row's own note was updated...
     let note = std::fs::read_to_string(vault_dir.path().join("task-one.md"))?;
     assert!(note.contains("status: done"));
-    // ...and the `.base` file's own definition was never written (FR-222:
-    // the two mutation targets are never conflated).
+    // ...and the `.base` file's own definition was never written (the two
+    // mutation targets are never conflated).
     let base_source = std::fs::read_to_string(vault_dir.path().join("tasks.base"))?;
     assert_eq!(base_source, TASKS_BASE);
     Ok(())
 }
 
 #[tokio::test]
-async fn editing_the_view_definition_dispatches_base_apply_never_touching_a_matched_note()
--> Result<(), BoxError> {
+async fn editing_the_view_definition_dispatches_base_apply_never_touching_a_matched_note() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
@@ -506,12 +479,12 @@ async fn editing_the_view_definition_dispatches_base_apply_never_touching_a_matc
 }
 
 #[tokio::test]
-async fn deleting_from_a_base_route_removes_a_definition_entry_never_a_note() -> Result<(), BoxError>
-{
+async fn deleting_from_a_base_route_removes_a_definition_entry_never_a_note() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
-    let base_with_formula = "formulas:\n  count_it: '1'\nviews:\n  - type: table\n    name: \"Active\"\n    order:\n      - file.path\n";
+    let base_with_formula =
+        "formulas:\n  count_it: '1'\nviews:\n  - type: table\n    name: \"Active\"\n    order:\n      - file.path\n";
     write(vault_dir.path(), "tasks.base", base_with_formula)?;
     write(
         vault_dir.path(),
@@ -537,7 +510,7 @@ async fn deleting_from_a_base_route_removes_a_definition_entry_never_a_note() ->
 }
 
 // ---------------------------------------------------------------------
-// Mutation-method dispatch on `.md` and generic files (FR-225a)
+// Mutation-method dispatch on `.md` and generic files
 // ---------------------------------------------------------------------
 
 #[tokio::test]
@@ -545,11 +518,7 @@ async fn patching_a_notes_frontmatter_dispatches_frontmatter_update() -> Result<
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
-    write(
-        vault_dir.path(),
-        "note.md",
-        "---\nstatus: pending\n---\n# Note\n",
-    )?;
+    write(vault_dir.path(), "note.md", "---\nstatus: pending\n---\n# Note\n")?;
     let router = router_over(vault_dir.path(), config_dir.path()).await?;
 
     let (status, _) = request(
@@ -593,7 +562,7 @@ async fn deleting_any_file_dispatches_fs_delete_file() -> Result<(), BoxError> {
 }
 
 // ---------------------------------------------------------------------
-// Determinism (FR-244)
+// Determinism
 // ---------------------------------------------------------------------
 
 #[tokio::test]

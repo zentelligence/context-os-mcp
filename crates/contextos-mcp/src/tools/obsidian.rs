@@ -4,14 +4,11 @@
 
 use std::sync::Arc;
 
-use contextos_core::{
-    Clock, ContentHash, Origin, SystemClock, VaultPath, VaultPathInput, WriteMutation,
-};
+use contextos_core::{Clock, ContentHash, Origin, SystemClock, VaultPath, VaultPathInput, WriteMutation};
 use contextos_fs::{ReadTextRequest, SearchFilesRequest};
 use contextos_obsidian::{
-    BaseDocument, BaseOperation, CanvasCreateInput, CanvasDocument, CanvasOperation,
-    FrontmatterDocument, LinkCollection, NoteCreateInput, NoteDocument, QueryDefinition,
-    QueryFormat,
+    BaseDocument, BaseOperation, CanvasCreateInput, CanvasDocument, CanvasOperation, FrontmatterDocument,
+    LinkCollection, NoteCreateInput, NoteDocument, QueryDefinition, QueryFormat,
 };
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::tool;
@@ -21,12 +18,11 @@ use crate::server::{ContextOsServer, PathInput};
 use crate::tool_error::{ToolError, ToolFailure, evaluate, execute};
 use crate::tools::diagnostics::StructuredDiagnosticToolResult;
 use crate::tools::obsidian_types::{
-    BaseApplyToolInput, BaseCreateToolInput, BaseQueryToolInput, BaseQueryToolResult,
-    BaseReadSource, BaseReadToolResult, BaseVaultPath, CanvasApplyToolInput, CanvasCreateToolInput,
-    CanvasReadSource, CanvasReadToolResult, CanvasVaultPath, FrontmatterReadToolResult,
-    FrontmatterUpdateInput, FrontmatterUpdateToolResult, LinkDirectionInput, LinksReadInput,
-    LinksReadToolResult, NoteCreateToolInput, NoteCreateToolResult, StructuredPathInput,
-    StructuredWriteToolResult,
+    BaseApplyToolInput, BaseCreateToolInput, BaseQueryToolInput, BaseQueryToolResult, BaseReadSource,
+    BaseReadToolResult, BaseVaultPath, CanvasApplyToolInput, CanvasCreateToolInput, CanvasReadSource,
+    CanvasReadToolResult, CanvasVaultPath, FrontmatterReadToolResult, FrontmatterUpdateInput,
+    FrontmatterUpdateToolResult, LinkDirectionInput, LinksReadInput, LinksReadToolResult, NoteCreateToolInput,
+    NoteCreateToolResult, StructuredPathInput, StructuredWriteToolResult,
 };
 
 #[rmcp::tool_router(router = obsidian_tool_router, vis = "pub(crate)")]
@@ -47,12 +43,7 @@ impl ContextOsServer {
                 roots: &roots,
                 raw: &input.path,
             })?;
-            if path
-                .relative()
-                .extension()
-                .and_then(std::ffi::OsStr::to_str)
-                != Some("md")
-            {
+            if path.relative().extension().and_then(std::ffi::OsStr::to_str) != Some("md") {
                 return Err(ToolError::Invalid("note path must end in .md"));
             }
             let title = input
@@ -83,13 +74,7 @@ impl ContextOsServer {
                     content.push_str("\n- [[");
                     content.push_str(reference.target.trim());
                     content.push_str("]]: ");
-                    content.push_str(
-                        &reference
-                            .summary
-                            .split_whitespace()
-                            .collect::<Vec<_>>()
-                            .join(" "),
-                    );
+                    content.push_str(&reference.summary.split_whitespace().collect::<Vec<_>>().join(" "));
                     content.push('\n');
                 }
             }
@@ -138,10 +123,7 @@ impl ContextOsServer {
             })?;
             let source = filesystem.read_text(&ReadTextRequest { path, limit: None })?;
             let document = FrontmatterDocument::try_from(source.content.as_str())?;
-            Ok(FrontmatterReadToolResult::from((
-                document,
-                source.content_hash,
-            )))
+            Ok(FrontmatterReadToolResult::from((document, source.content_hash)))
         })
         .await
     }
@@ -229,9 +211,7 @@ impl ContextOsServer {
         let service = Arc::clone(&self.mutations);
         execute(move || {
             let _guards = guards;
-            Ok(StructuredWriteToolResult::from(
-                service.write_file(&request)?,
-            ))
+            Ok(StructuredWriteToolResult::from(service.write_file(&request)?))
         })
         .await
     }
@@ -292,13 +272,7 @@ impl ContextOsServer {
                 limit: None,
             })?;
             let mut document = BaseDocument::try_from(source.content.as_str())?;
-            document.apply(
-                input
-                    .operations
-                    .into_iter()
-                    .map(BaseOperation::from)
-                    .collect(),
-            )?;
+            document.apply(input.operations.into_iter().map(BaseOperation::from).collect())?;
             let result = service.write_file(&WriteMutation {
                 path,
                 content: String::try_from(&document)?,
@@ -329,60 +303,45 @@ impl ContextOsServer {
         let search = Arc::clone(&self.search);
         execute(move || {
             let format = QueryFormat::from(input.format);
-            let (root_id, mut definition, document_diagnostics) =
-                match (&input.path, &input.definition) {
-                    (Some(_), Some(_)) => {
-                        return Err(ToolError::Invalid(
-                            "base_query accepts exactly one of path or definition, not both",
-                        ));
-                    }
-                    (None, None) => {
-                        return Err(ToolError::Invalid(
-                            "base_query requires either path or definition",
-                        ));
-                    }
-                    (Some(raw), None) => {
-                        let BaseVaultPath(path) =
-                            BaseVaultPath::try_from(StructuredPathInput { roots: &roots, raw })?;
-                        let source = filesystem.read_text(&ReadTextRequest {
-                            path: path.clone(),
-                            limit: None,
-                        })?;
-                        let document = BaseDocument::try_from(source.content.as_str())?;
-                        let definition =
-                            QueryDefinition::from_document(&document, input.view.as_deref())?;
-                        let diagnostics = document
-                            .diagnostics()
-                            .into_iter()
-                            .map(StructuredDiagnosticToolResult::from)
-                            .collect();
-                        (path.root_id(), definition, diagnostics)
-                    }
-                    (None, Some(inline)) => {
-                        let definition = QueryDefinition::from_inline(inline)?;
-                        let raw = input.vault.clone().unwrap_or_else(|| ".".to_owned());
-                        let vault_path = VaultPath::try_from(VaultPathInput {
-                            roots: &roots,
-                            raw: &raw,
-                        })?;
-                        (vault_path.root_id(), definition, Vec::new())
-                    }
-                };
+            let (root_id, mut definition, document_diagnostics) = match (&input.path, &input.definition) {
+                (Some(_), Some(_)) => {
+                    return Err(ToolError::Invalid(
+                        "base_query accepts exactly one of path or definition, not both",
+                    ));
+                }
+                (None, None) => {
+                    return Err(ToolError::Invalid("base_query requires either path or definition"));
+                }
+                (Some(raw), None) => {
+                    let BaseVaultPath(path) = BaseVaultPath::try_from(StructuredPathInput { roots: &roots, raw })?;
+                    let source = filesystem.read_text(&ReadTextRequest {
+                        path: path.clone(),
+                        limit: None,
+                    })?;
+                    let document = BaseDocument::try_from(source.content.as_str())?;
+                    let definition = QueryDefinition::from_document(&document, input.view.as_deref())?;
+                    let diagnostics = document
+                        .diagnostics()
+                        .into_iter()
+                        .map(StructuredDiagnosticToolResult::from)
+                        .collect();
+                    (path.root_id(), definition, diagnostics)
+                }
+                (None, Some(inline)) => {
+                    let definition = QueryDefinition::from_inline(inline)?;
+                    let raw = input.vault.clone().unwrap_or_else(|| ".".to_owned());
+                    let vault_path = VaultPath::try_from(VaultPathInput {
+                        roots: &roots,
+                        raw: &raw,
+                    })?;
+                    (vault_path.root_id(), definition, Vec::new())
+                }
+            };
             if let Some(limit) = input.limit {
                 definition.limit = Some(usize::try_from(limit)?);
             }
-            let outcome = crate::tools::base_query::run(
-                &filesystem,
-                &roots,
-                root_id,
-                &definition,
-                format,
-                &search,
-            )?;
-            let diagnostics = document_diagnostics
-                .into_iter()
-                .chain(outcome.diagnostics)
-                .collect();
+            let outcome = crate::tools::base_query::run(&filesystem, &roots, root_id, &definition, format, &search)?;
+            let diagnostics = document_diagnostics.into_iter().chain(outcome.diagnostics).collect();
             Ok(BaseQueryToolResult {
                 content: outcome.content,
                 columns: outcome.columns,
@@ -430,9 +389,7 @@ impl ContextOsServer {
         let service = Arc::clone(&self.mutations);
         execute(move || {
             let _guards = guards;
-            Ok(StructuredWriteToolResult::from(
-                service.write_file(&request)?,
-            ))
+            Ok(StructuredWriteToolResult::from(service.write_file(&request)?))
         })
         .await
     }
@@ -493,13 +450,7 @@ impl ContextOsServer {
                 limit: None,
             })?;
             let mut document = CanvasDocument::try_from(source.content.as_str())?;
-            document.apply(
-                input
-                    .operations
-                    .into_iter()
-                    .map(CanvasOperation::from)
-                    .collect(),
-            )?;
+            document.apply(input.operations.into_iter().map(CanvasOperation::from).collect())?;
             let result = service.write_file(&WriteMutation {
                 path,
                 content: String::try_from(&document)?,
@@ -542,9 +493,10 @@ impl ContextOsServer {
                 .iter()
                 .nth(usize::try_from(path.root_id())?)
                 .ok_or(ToolError::Invalid("link source vault is not configured"))?;
-            let root_text = root.path().to_str().ok_or(ToolError::Invalid(
-                "link source vault path must be valid UTF-8",
-            ))?;
+            let root_text = root
+                .path()
+                .to_str()
+                .ok_or(ToolError::Invalid("link source vault path must be valid UTF-8"))?;
             let root_path = VaultPath::try_from(VaultPathInput {
                 roots: &roots,
                 raw: root_text,
@@ -587,10 +539,7 @@ impl ContextOsServer {
                             .search_files(&SearchFilesRequest {
                                 path: root_path.clone(),
                                 pattern,
-                                exclude_patterns: vec![
-                                    ".git/**".to_owned(),
-                                    ".contextos/**".to_owned(),
-                                ],
+                                exclude_patterns: vec![".git/**".to_owned(), ".contextos/**".to_owned()],
                                 max_results: 1,
                             })?
                             .is_empty()

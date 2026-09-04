@@ -6,8 +6,8 @@ use serde_json::{Map, Value};
 use tantivy::collector::TopDocs;
 use tantivy::query::{BooleanQuery, Occur, Query, QueryParser, TermQuery};
 use tantivy::schema::{
-    FAST, Facet, FacetOptions, Field, IndexRecordOption, JsonObjectOptions, OwnedValue, STORED,
-    STRING, Schema, TEXT, TantivyDocument, Term, TextFieldIndexing, Value as _,
+    FAST, Facet, FacetOptions, Field, IndexRecordOption, JsonObjectOptions, OwnedValue, STORED, STRING, Schema, TEXT,
+    TantivyDocument, Term, TextFieldIndexing, Value as _,
 };
 use tantivy::snippet::SnippetGenerator;
 use tantivy::{DateTime, Index, IndexReader, IndexWriter, ReloadPolicy};
@@ -121,20 +121,15 @@ impl TryFrom<TextIndexConfig> for TantivyIndex {
     type Error = SearchError;
 
     fn try_from(value: TextIndexConfig) -> Result<Self, Self::Error> {
-        std::fs::create_dir_all(&value.directory).map_err(|source| {
-            SearchError::IndexDirectory {
-                path: value.directory.display().to_string(),
-                source,
-            }
+        std::fs::create_dir_all(&value.directory).map_err(|source| SearchError::IndexDirectory {
+            path: value.directory.display().to_string(),
+            source,
         })?;
         let (schema, fields) = build_schema();
-        let directory = tantivy::directory::MmapDirectory::open(&value.directory)
-            .map_err(tantivy::TantivyError::from)?;
+        let directory =
+            tantivy::directory::MmapDirectory::open(&value.directory).map_err(tantivy::TantivyError::from)?;
         let index = Index::open_or_create(directory, schema)?;
-        let reader = index
-            .reader_builder()
-            .reload_policy(ReloadPolicy::Manual)
-            .try_into()?;
+        let reader = index.reader_builder().reload_policy(ReloadPolicy::Manual).try_into()?;
         Ok(Self {
             index,
             reader,
@@ -177,34 +172,26 @@ impl IndexesText for TantivyIndex {
         );
         parser.set_field_boost(self.fields.title, 2.0);
         parser.set_field_boost(self.fields.headings, 1.5);
-        let parsed =
-            parser
-                .parse_query(request.query)
-                .map_err(|error| SearchError::InvalidQuery {
-                    query: request.query.to_owned(),
-                    reason: error.to_string(),
-                })?;
+        let parsed = parser
+            .parse_query(request.query)
+            .map_err(|error| SearchError::InvalidQuery {
+                query: request.query.to_owned(),
+                reason: error.to_string(),
+            })?;
 
         let mut clauses: Vec<(Occur, Box<dyn Query>)> = vec![(Occur::Must, parsed)];
         if let Some(prefix) = request.path_prefix {
             clauses.push(facet_clause(self.fields.path_facet, prefix, Occur::Must));
         }
         for excluded in request.exclude_paths {
-            clauses.push(facet_clause(
-                self.fields.path_facet,
-                excluded,
-                Occur::MustNot,
-            ));
+            clauses.push(facet_clause(self.fields.path_facet, excluded, Occur::MustNot));
         }
         for tag in request.tags {
             clauses.push(facet_clause(self.fields.tags, tag, Occur::Must));
         }
         for (field, value) in request.fields {
             let term = json_term(self.fields.frontmatter, field, value)?;
-            clauses.push((
-                Occur::Must,
-                Box::new(TermQuery::new(term, IndexRecordOption::Basic)),
-            ));
+            clauses.push((Occur::Must, Box::new(TermQuery::new(term, IndexRecordOption::Basic))));
         }
         let query: Box<dyn Query> = Box::new(BooleanQuery::new(clauses));
 
@@ -230,10 +217,7 @@ impl IndexesText for TantivyIndex {
 
     fn entries(&self) -> Result<Vec<IndexEntry>, SearchError> {
         let searcher = self.reader.searcher();
-        let addresses = searcher.search(
-            &tantivy::query::AllQuery,
-            &tantivy::collector::DocSetCollector,
-        )?;
+        let addresses = searcher.search(&tantivy::query::AllQuery, &tantivy::collector::DocSetCollector)?;
         let mut entries = Vec::with_capacity(addresses.len());
         for address in addresses {
             let stored: TantivyDocument = searcher.doc(address)?;
@@ -255,14 +239,8 @@ impl TantivyIndex {
     /// serialises acquisition attempts from other threads in this same
     /// process; it does not itself provide cross-process exclusion, tantivy's
     /// own directory lock does that.
-    fn with_writer(
-        &self,
-        mutate: impl FnOnce(&mut IndexWriter) -> Result<(), SearchError>,
-    ) -> Result<(), SearchError> {
-        let _gate = self
-            .write_gate
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+    fn with_writer(&self, mutate: impl FnOnce(&mut IndexWriter) -> Result<(), SearchError>) -> Result<(), SearchError> {
+        let _gate = self.write_gate.lock().unwrap_or_else(PoisonError::into_inner);
         let mut writer = self.index.writer_with_num_threads(1, 32_000_000)?;
         mutate(&mut writer)?;
         writer.commit()?;
@@ -338,10 +316,7 @@ fn segment_facet(path: &str) -> Facet {
 
 fn facet_clause(field: Field, path: &str, occur: Occur) -> (Occur, Box<dyn Query>) {
     let term = Term::from_facet(field, &segment_facet(path));
-    (
-        occur,
-        Box::new(TermQuery::new(term, IndexRecordOption::Basic)),
-    )
+    (occur, Box::new(TermQuery::new(term, IndexRecordOption::Basic)))
 }
 
 fn json_term(field: Field, path: &str, value: &Value) -> Result<Term, SearchError> {
@@ -354,16 +329,12 @@ fn json_term(field: Field, path: &str, value: &Value) -> Result<Term, SearchErro
             } else if let Some(float) = number.as_f64() {
                 term.append_type_and_fast_value(float);
             } else {
-                return Err(SearchError::InvalidFieldFilter {
-                    field: path.to_owned(),
-                });
+                return Err(SearchError::InvalidFieldFilter { field: path.to_owned() });
             }
         }
         Value::Bool(flag) => term.append_type_and_fast_value(*flag),
         Value::Null | Value::Array(_) | Value::Object(_) => {
-            return Err(SearchError::InvalidFieldFilter {
-                field: path.to_owned(),
-            });
+            return Err(SearchError::InvalidFieldFilter { field: path.to_owned() });
         }
     }
     Ok(term)

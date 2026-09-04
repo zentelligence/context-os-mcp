@@ -6,10 +6,10 @@
 //! list) and, when the page has a current vault, `fs_list_directory`
 //! scoped to the current directory only. A full recursive whole-vault tree
 //! (the mock's literal, multi-section illustration) is deliberately not
-//! built: `FR-107`/`D-24` already rejected unconditional whole-vault
-//! enumeration for `resources/list` on the identical scale grounds, and
-//! `fs_list_directory` at one directory is the same bounded-cost operation
-//! the directory route ([`crate::routes::vault`]) itself already relies on.
+//! built: an unconditional whole-vault enumeration does not scale, the
+//! same reasoning `resources/list` already applies, and `fs_list_directory`
+//! at one directory is the same bounded-cost operation the directory
+//! route ([`crate::routes::vault`]) itself already relies on.
 
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -36,9 +36,7 @@ struct VaultInfoResult {
 }
 
 async fn configured_vault_names(client: &McpClient) -> Result<Vec<String>, McpCallError> {
-    let result = client
-        .call_tool("vault_info".to_owned(), Map::new())
-        .await?;
+    let result = client.call_tool("vault_info".to_owned(), Map::new()).await?;
     let Ok(parsed) = result.into_typed::<VaultInfoResult>() else {
         return Ok(Vec::new());
     };
@@ -73,9 +71,7 @@ async fn directory_entries(
     };
     let mut args = Map::new();
     args.insert("path".to_owned(), Value::String(target));
-    let result = client
-        .call_tool("fs_list_directory".to_owned(), args)
-        .await?;
+    let result = client.call_tool("fs_list_directory".to_owned(), args).await?;
     if result.is_error == Some(true) {
         return Ok(Vec::new());
     }

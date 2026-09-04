@@ -2,8 +2,8 @@
 //! `contextos-mcp` sessions against real temporary vault fixtures,
 //! exercising the one gate item that genuinely needs a live MCP session
 //! rather than a unit test double: the registered-app-dependency check
-//! (FR-251) that blocks removing an `[[mcp_server]]` entry a registered
-//! app's manifest still names. No mocking, per `testing.md`.
+//! that blocks removing an `[[mcp_server]]` entry a registered app's
+//! manifest still names. No mocking, per `testing.md`.
 
 mod support;
 
@@ -22,8 +22,8 @@ const VAULT_NAME: &str = "contract-fixture";
 
 /// `web.toml` naming two real, independently connectable `contextos-mcp`
 /// stdio sessions against the identical `config_path`: `contextos` (this
-/// crate's own convention, "the first entry always the local contextos-mcp
-/// instance", `FR-203`) and `extra`, standing in for a second server a
+/// crate's own convention: the first entry is always the local
+/// `contextos-mcp` instance) and `extra`, standing in for a second server a
 /// registered app's manifest might depend on.
 fn write_two_server_web_toml(
     dir: &Path,
@@ -43,26 +43,18 @@ fn write_two_server_web_toml(
     Ok(path)
 }
 
-async fn router_with_two_servers(
-    vault_dir: &Path,
-    dir: &Path,
-) -> Result<(Router, std::path::PathBuf), BoxError> {
+async fn router_with_two_servers(vault_dir: &Path, dir: &Path) -> Result<(Router, std::path::PathBuf), BoxError> {
     let config_path = support::write_vault_config(dir, vault_dir)?;
     let contextos_binary = support::contextos_mcp_binary()?;
-    let web_config_path =
-        write_two_server_web_toml(dir, &contextos_binary.to_string_lossy(), &config_path)?;
+    let web_config_path = write_two_server_web_toml(dir, &contextos_binary.to_string_lossy(), &config_path)?;
     let contextos_entry = support::real_contextos_entry("contextos", &config_path)?;
     let extra_entry = contextos_web::McpServerConfig::Stdio {
         name: "extra".to_owned(),
         command: contextos_binary.to_string_lossy().into_owned(),
-        args: vec![
-            "--config".to_owned(),
-            config_path.to_string_lossy().into_owned(),
-        ],
+        args: vec!["--config".to_owned(), config_path.to_string_lossy().into_owned()],
     };
     let clients = Arc::new(McpClientSet::connect(&[contextos_entry, extra_entry]).await?);
-    let router =
-        contextos_web::build_router(clients, dir, &web_config_path, "contextos".to_owned());
+    let router = contextos_web::build_router(clients, dir, &web_config_path, "contextos".to_owned());
     Ok((router, web_config_path))
 }
 
@@ -86,11 +78,7 @@ fn write_app_depending_on_extra(vault_dir: &Path) -> std::io::Result<()> {
             mcp_servers = ["extra"]
         "#,
     )?;
-    write(
-        vault_dir,
-        "registry/apps/needs-extra/index.html",
-        "<html></html>",
-    )
+    write(vault_dir, "registry/apps/needs-extra/index.html", "<html></html>")
 }
 
 async fn delete(router: &Router, body: &str) -> Result<(StatusCode, String), BoxError> {
@@ -154,10 +142,7 @@ async fn get(router: &Router, path: &str) -> Result<(StatusCode, String), BoxErr
 /// A single real, connectable `contextos-mcp` stdio session named
 /// `"contextos"`, for tests that only need `/settings/` and a vault content
 /// route, not the two-server dependency-check scenario.
-async fn router_with_one_server(
-    vault_dir: &Path,
-    dir: &Path,
-) -> Result<(Router, std::path::PathBuf), BoxError> {
+async fn router_with_one_server(vault_dir: &Path, dir: &Path) -> Result<(Router, std::path::PathBuf), BoxError> {
     let config_path = support::write_vault_config(dir, vault_dir)?;
     let contextos_binary = support::contextos_mcp_binary()?;
     let web_config_path = dir.join("web.toml");
@@ -172,14 +157,12 @@ async fn router_with_one_server(
     )?;
     let entry = support::real_contextos_entry("contextos", &config_path)?;
     let clients = Arc::new(McpClientSet::connect(&[entry]).await?);
-    let router =
-        contextos_web::build_router(clients, dir, &web_config_path, "contextos".to_owned());
+    let router = contextos_web::build_router(clients, dir, &web_config_path, "contextos".to_owned());
     Ok((router, web_config_path))
 }
 
 #[tokio::test]
-async fn removing_an_mcp_server_a_registered_apps_manifest_still_names_is_rejected()
--> Result<(), BoxError> {
+async fn removing_an_mcp_server_a_registered_apps_manifest_still_names_is_rejected() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let dir = tempfile::tempdir()?;
     write(vault_dir.path(), "index.md", "# Root\n")?;
@@ -219,8 +202,8 @@ async fn removing_an_mcp_server_no_app_depends_on_succeeds() -> Result<(), BoxEr
 }
 
 #[tokio::test]
-async fn removing_an_mcp_server_an_app_depends_on_through_a_different_vault_is_still_rejected()
--> Result<(), BoxError> {
+async fn removing_an_mcp_server_an_app_depends_on_through_a_different_vault_is_still_rejected() -> Result<(), BoxError>
+{
     let vault_a = tempfile::tempdir()?;
     let vault_b = tempfile::tempdir()?;
     let dir = tempfile::tempdir()?;
@@ -238,27 +221,15 @@ async fn removing_an_mcp_server_an_app_depends_on_through_a_different_vault_is_s
     );
     std::fs::write(&config_path, content)?;
     let contextos_binary = support::contextos_mcp_binary()?;
-    let web_config_path = write_two_server_web_toml(
-        dir.path(),
-        &contextos_binary.to_string_lossy(),
-        &config_path,
-    )?;
+    let web_config_path = write_two_server_web_toml(dir.path(), &contextos_binary.to_string_lossy(), &config_path)?;
     let contextos_entry = support::real_contextos_entry("contextos", &config_path)?;
     let extra_entry = contextos_web::McpServerConfig::Stdio {
         name: "extra".to_owned(),
         command: contextos_binary.to_string_lossy().into_owned(),
-        args: vec![
-            "--config".to_owned(),
-            config_path.to_string_lossy().into_owned(),
-        ],
+        args: vec!["--config".to_owned(), config_path.to_string_lossy().into_owned()],
     };
     let clients = Arc::new(McpClientSet::connect(&[contextos_entry, extra_entry]).await?);
-    let router = contextos_web::build_router(
-        clients,
-        dir.path(),
-        &web_config_path,
-        "contextos".to_owned(),
-    );
+    let router = contextos_web::build_router(clients, dir.path(), &web_config_path, "contextos".to_owned());
 
     let (status, body) = delete(&router, r#"{"name":"extra"}"#).await?;
 
@@ -343,8 +314,6 @@ async fn an_appearance_save_takes_effect_on_the_next_vault_page_render() -> Resu
 
     let (status, after_body) = get(&router, &format!("/{VAULT_NAME}/")).await?;
     assert_eq!(status, StatusCode::OK, "{after_body}");
-    assert!(after_body.contains(
-        "<html lang=\"en\" data-theme=\"dark\" data-font=\"serif\" data-size=\"large\">"
-    ));
+    assert!(after_body.contains("<html lang=\"en\" data-theme=\"dark\" data-font=\"serif\" data-size=\"large\">"));
     Ok(())
 }
