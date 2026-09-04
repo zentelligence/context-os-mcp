@@ -215,6 +215,34 @@ async fn resolve_href_cached(
     resolved
 }
 
+/// Extensions `render_embed_occurrence` renders as an inline `<img>` rather
+/// than attempting `fs_read_text_file` on them: every one of these is a
+/// binary format that read would always fail on (`FsError::Binary`),
+/// producing a dead link for a target that genuinely resolved, not a
+/// missing one. Matches the browser's own native `<img>` decoder support,
+/// the same "browser-renderable" set `web-routes.md`'s generic-file
+/// dispatch describes.
+const IMAGE_EXTENSIONS: [&str; 9] = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "avif", "ico"];
+
+fn is_image_path(path: &str) -> bool {
+    path.rsplit('/')
+        .next()
+        .and_then(|name| name.rsplit_once('.'))
+        .is_some_and(|(_, ext)| IMAGE_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()))
+}
+
+/// Renders an image embed (`![[photo.jpg]]`) as an `<img>` pointing at the
+/// target's own vault content route (`crate::routes::vault::render_other_file`
+/// already serves it as raw bytes with its real content type): unlike a
+/// note embed, an image is never read as text or recursively rendered.
+fn render_image_embed(occurrence: &LinkOccurrence, href: &str) -> String {
+    format!(
+        "<img class=\"embed-image\" src=\"{href}\" alt=\"{alt}\">",
+        href = crate::rendering::escape_html(href),
+        alt = crate::rendering::escape_html(&occurrence.target)
+    )
+}
+
 async fn render_embed_occurrence(
     mcp: &McpClient,
     vault_name: &str,
@@ -225,6 +253,9 @@ async fn render_embed_occurrence(
     let Some(candidate) = resolve_href_cached(mcp, vault_name, &occurrence.target, href_cache).await else {
         return wikilinks::render_dead_link(occurrence);
     };
+    if is_image_path(&candidate) {
+        return render_image_embed(occurrence, &candidate);
+    }
     if embed_depth >= MAX_EMBED_DEPTH {
         // A doubly-embedded file renders as a plain link at the second
         // level, never a second recursive inline.
@@ -237,7 +268,7 @@ async fn render_embed_occurrence(
         .unwrap_or(&candidate);
     let path = format!("{vault_name}://{relative_path}");
     let mut args = serde_json::Map::new();
-    args.insert("path".to_owned(), serde_json::Value::String(path));
+    args.insert("path".to_owned(), serde_json::Value::String(path.clone()));
     let Ok(result) = mcp.call_tool("fs_read_text_file".to_owned(), args).await else {
         return wikilinks::render_dead_link(occurrence);
     };
@@ -247,7 +278,17 @@ async fn render_embed_occurrence(
     let Ok(read) = result.into_typed::<ReadTextResult>() else {
         return wikilinks::render_dead_link(occurrence);
     };
-    let rendered = Box::pin(render(mcp, vault_name, &read.content, embed_depth + 1)).await;
+    let content = if read.truncated {
+        // `fs_read_text_file` caps out at 5 KiB; `fs_attach_file` returns
+        // full content for a file of any size, so a truncated embed
+        // retries through it rather than silently inlining a partial note.
+        // A retry failure falls back to the truncated content already in
+        // hand rather than dropping the embed entirely.
+        fetch_full_text(mcp, path).await.ok().flatten().unwrap_or(read.content)
+    } else {
+        read.content
+    };
+    let rendered = Box::pin(render(mcp, vault_name, &content, embed_depth + 1)).await;
     format!(
         "<div class=\"embed-block\"><div class=\"embed-label\">{label}</div>{body}</div>",
         label = crate::rendering::escape_html(&occurrence.target),
@@ -255,9 +296,38 @@ async fn render_embed_occurrence(
     )
 }
 
+/// Re-reads `vault_path` via `fs_attach_file` (full content for a file of
+/// any size, unlike `fs_read_text_file`'s 5 KiB cap): the completeness
+/// retry for a text read [`ReadTextResult::truncated`] flagged. `None` for
+/// a non-text attachment (should not happen for a path that just read as
+/// truncated text, but fails closed rather than misinterpreting binary
+/// content as a string) or a target that no longer exists.
+async fn fetch_full_text(
+    mcp: &McpClient,
+    vault_path: String,
+) -> Result<Option<String>, crate::mcp_client::McpCallError> {
+    let mut args = serde_json::Map::new();
+    args.insert("path".to_owned(), serde_json::Value::String(vault_path));
+    let result = mcp.call_tool("fs_attach_file".to_owned(), args).await?;
+    if result.is_error == Some(true) {
+        return Ok(None);
+    }
+    for block in &result.content {
+        let rmcp::model::ContentBlock::Resource(embedded) = block else {
+            continue;
+        };
+        if let rmcp::model::ResourceContents::TextResourceContents { text, .. } = &embedded.resource {
+            return Ok(Some(text.clone()));
+        }
+    }
+    Ok(None)
+}
+
 #[derive(Debug, Deserialize)]
 struct ReadTextResult {
     content: String,
+    #[serde(default)]
+    truncated: bool,
 }
 
 #[derive(Debug, Deserialize)]

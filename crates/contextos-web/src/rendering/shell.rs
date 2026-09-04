@@ -24,7 +24,7 @@ use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use super::page::{NavData, NavEntry, NavVault};
+use super::page::{BreadcrumbSegment, NavData, NavEntry, NavVault};
 use crate::mcp_client::{McpCallError, McpClient};
 
 /// Which primary-nav item is current, so [`build_nav`] can mark it active.
@@ -159,16 +159,59 @@ async fn directory_entries(
         .collect())
 }
 
-fn breadcrumb_for(vault_name: Option<&str>, breadcrumb_suffix: Option<&str>) -> String {
-    let Some(vault_name) = vault_name else {
-        return "settings".to_owned();
-    };
-    let trimmed = breadcrumb_suffix.unwrap_or("").trim_matches('/');
-    if trimmed.is_empty() {
-        vault_name.to_owned()
-    } else {
-        format!("{vault_name} / {}", trimmed.replace('/', " / "))
+/// Builds a clickable ancestor trail for `path` (vault-relative, already
+/// trimmed of leading/trailing `/`; possibly empty for the vault root
+/// itself), rooted at `vault_name`: every segment carries a link to that
+/// ancestor's own directory route except the last, which is always the
+/// current page or directory itself and is never a link back to where the
+/// reader already is. Shared by [`NavData::breadcrumb`](super::page::NavData)
+/// (the top bar, `path` a file's own full path, a directory's own path, or
+/// a fixed label like `"apps"`) and
+/// [`NavData::directory_breadcrumb`](super::page::NavData) (the nav tree
+/// section's own heading, `path` always a real directory): both are "a
+/// trail of ancestors down to where we are now," differing only in what
+/// that final unlinked segment names.
+#[must_use]
+pub(crate) fn breadcrumb_segments(vault_name: &str, path: &str) -> Vec<BreadcrumbSegment> {
+    let mut segments = vec![BreadcrumbSegment {
+        label: vault_name.to_owned(),
+        href: if path.is_empty() {
+            None
+        } else {
+            Some(format!("/{vault_name}/"))
+        },
+    }];
+    if path.is_empty() {
+        return segments;
     }
+    let parts: Vec<&str> = path.split('/').collect();
+    let mut accumulated = String::new();
+    for (index, part) in parts.iter().enumerate() {
+        if !accumulated.is_empty() {
+            accumulated.push('/');
+        }
+        accumulated.push_str(part);
+        let is_last = index == parts.len() - 1;
+        segments.push(BreadcrumbSegment {
+            label: (*part).to_owned(),
+            href: if is_last {
+                None
+            } else {
+                Some(format!("/{vault_name}/{accumulated}/"))
+            },
+        });
+    }
+    segments
+}
+
+/// The vault-independent breadcrumb (`/settings/`): a single unlinked
+/// `"settings"` segment, matching every other page's own final,
+/// current-location segment carrying no link.
+fn settings_breadcrumb() -> Vec<BreadcrumbSegment> {
+    vec![BreadcrumbSegment {
+        label: "settings".to_owned(),
+        href: None,
+    }]
 }
 
 /// The directory a nav-tree fetch should be scoped to for `relative_path`:
@@ -223,28 +266,28 @@ pub async fn build_nav(
         .map(str::to_owned)
         .or_else(|| vaults.first().map(|entry| entry.name.clone()));
 
-    let (directory_label, entries) = if let Some(vault_name) = vault_name {
+    let (directory_breadcrumb, entries) = if let Some(vault_name) = vault_name {
         let directory_path = tree_directory.unwrap_or("").trim_matches('/');
-        let label = if directory_path.is_empty() {
-            format!("{vault_name} (root)")
-        } else {
-            directory_path.to_owned()
-        };
+        let breadcrumb = breadcrumb_segments(vault_name, directory_path);
         let entries = directory_entries(client, vault_name, directory_path)
             .await
             .unwrap_or_default();
-        (Some(label), entries)
+        (Some(breadcrumb), entries)
     } else {
         (None, Vec::new())
     };
+    let breadcrumb = vault_name.map_or_else(settings_breadcrumb, |name| {
+        let trimmed = breadcrumb_suffix.unwrap_or("").trim_matches('/');
+        breadcrumb_segments(name, trimmed)
+    });
 
     NavData {
         vaults,
         current_vault: vault_name.map(str::to_owned),
         nav_target_vault,
-        directory_label,
+        directory_breadcrumb,
         entries,
-        breadcrumb: breadcrumb_for(vault_name, breadcrumb_suffix),
+        breadcrumb,
         active_vault_screen: active == ActiveScreen::Vault,
         active_apps_screen: active == ActiveScreen::Apps,
         active_settings_screen: active == ActiveScreen::Settings,

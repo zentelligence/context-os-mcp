@@ -31,6 +31,18 @@ pub struct NavEntry {
     pub is_dir: bool,
 }
 
+/// One segment of a clickable ancestor trail: the top bar's own breadcrumb
+/// and the nav tree section's own directory heading
+/// ([`NavData::breadcrumb`], [`NavData::directory_breadcrumb`]) are both
+/// built from this, via [`crate::rendering::shell::breadcrumb_segments`].
+/// `href` is `Some` for every ancestor (ordered from the vault root down)
+/// and `None` for exactly the last segment, the current page or directory
+/// itself: never a link back to where the reader already is.
+pub struct BreadcrumbSegment {
+    pub label: String,
+    pub href: Option<String>,
+}
+
 /// Everything the nav shell needs to render around one page's own content,
 /// assembled by [`crate::rendering::shell::build_nav`].
 pub struct NavData {
@@ -47,11 +59,17 @@ pub struct NavData {
     /// `None` only when no vault is configured at all (or none could be
     /// listed), the one case those links have nothing to point at.
     pub nav_target_vault: Option<String>,
-    /// The nav tree section's own heading: the directory it lists, or
-    /// `None` when there is no current-vault context at all.
-    pub directory_label: Option<String>,
+    /// The nav tree section's own heading, as a clickable ancestor trail
+    /// for the directory it lists (vault root first, that directory itself
+    /// last and unlinked); `None` when there is no current-vault context
+    /// at all.
+    pub directory_breadcrumb: Option<Vec<BreadcrumbSegment>>,
     pub entries: Vec<NavEntry>,
-    pub breadcrumb: String,
+    /// The top bar's own clickable ancestor trail for the page currently
+    /// showing in `shell-main`: vault root first, the page itself
+    /// (unlinked) last. A single unlinked `"settings"` segment on a
+    /// vault-independent page.
+    pub breadcrumb: Vec<BreadcrumbSegment>,
     pub active_vault_screen: bool,
     pub active_apps_screen: bool,
     pub active_settings_screen: bool,

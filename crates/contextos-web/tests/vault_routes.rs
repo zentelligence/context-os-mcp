@@ -153,6 +153,44 @@ async fn a_bare_vault_root_with_no_trailing_slash_renders_the_same_as_its_traili
     Ok(())
 }
 
+#[tokio::test]
+async fn the_sidebar_and_top_bar_breadcrumbs_link_every_ancestor_of_a_nested_directory() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(vault_dir.path(), "docs/index.md", "# Docs\n")?;
+    write(vault_dir.path(), "docs/guides/index.md", "# Guides\n")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/docs/guides/")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // Both the sidebar's directory heading and the top bar link every
+    // ancestor directory (vault root, then "docs"); the currently-viewed
+    // directory itself ("guides") is the trail's own unlinked last segment.
+    assert!(body.contains(&format!("<a href=\"/{VAULT_NAME}/\">{VAULT_NAME}</a>")));
+    assert!(body.contains(&format!("<a href=\"/{VAULT_NAME}/docs/\">docs</a>")));
+    assert!(body.contains("<span class=\"breadcrumb-current\">guides</span>"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn the_top_bar_breadcrumb_links_every_ancestor_directory_of_a_nested_file() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(vault_dir.path(), "docs/guides/note.md", "# Note\n")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/docs/guides/note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(&format!("<a href=\"/{VAULT_NAME}/\">{VAULT_NAME}</a>")));
+    assert!(body.contains(&format!("<a href=\"/{VAULT_NAME}/docs/\">docs</a>")));
+    assert!(body.contains(&format!("<a href=\"/{VAULT_NAME}/docs/guides/\">guides</a>")));
+    assert!(body.contains("<span class=\"breadcrumb-current\">note.md</span>"));
+    Ok(())
+}
+
 // ---------------------------------------------------------------------
 // Bare HTTP server root
 // ---------------------------------------------------------------------
@@ -274,6 +312,24 @@ async fn wikilink_resolution_covers_live_dead_and_doubly_nested_embed() -> Resul
     // second recursive inline.
     assert!(body.contains(&format!("href=\"/{VAULT_NAME}/third-file.md\"")));
     assert!(!body.contains("Third-file content."));
+    Ok(())
+}
+
+#[tokio::test]
+async fn an_image_embed_renders_as_an_img_tag_not_a_dead_link() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    // Content need not be a real JPEG: MIME detection falls back to the
+    // extension, and the embed path never decodes the bytes at all.
+    write(vault_dir.path(), "photo.jpg", "not-a-real-jpeg")?;
+    write(vault_dir.path(), "note.md", "# Note\n\n![[photo.jpg]]\n")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(&format!("<img class=\"embed-image\" src=\"/{VAULT_NAME}/photo.jpg\"")));
+    assert!(!body.contains("wikilink dead"));
     Ok(())
 }
 
@@ -673,5 +729,49 @@ async fn rendering_the_same_note_twice_produces_byte_identical_html() -> Result<
     let (_, first) = get(&router, &format!("/{VAULT_NAME}/note.md")).await?;
     let (_, second) = get(&router, &format!("/{VAULT_NAME}/note.md")).await?;
     assert_eq!(first, second);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------
+// Truncated reads retry through fs_attach_file (`fs_read_text_file` caps
+// out at 5 KiB by default)
+// ---------------------------------------------------------------------
+
+/// Content past `fs_read_text_file`'s default 5 KiB threshold, ending in a
+/// marker only present past that point: proves a page render (or embed)
+/// carries the full content rather than a silently truncated preview.
+fn oversized_note_body() -> String {
+    let mut body = "# Big note\n\n".to_owned();
+    body.push_str(&"Lorem ipsum filler line.\n".repeat(300));
+    body.push_str("UNIQUE-TAIL-MARKER-XYZ\n");
+    body
+}
+
+#[tokio::test]
+async fn a_note_past_the_read_text_threshold_still_renders_its_full_content() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(vault_dir.path(), "big-note.md", &oversized_note_body())?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/big-note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("UNIQUE-TAIL-MARKER-XYZ"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn an_embed_of_a_note_past_the_read_text_threshold_still_inlines_its_full_content() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(vault_dir.path(), "big-target.md", &oversized_note_body())?;
+    write(vault_dir.path(), "note.md", "# Note\n\n![[big-target]]\n")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("UNIQUE-TAIL-MARKER-XYZ"));
     Ok(())
 }

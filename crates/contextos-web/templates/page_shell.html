@@ -29,9 +29,9 @@
       <li><a href="/settings/" class="{% if nav.active_settings_screen %}active{% endif %}">⚙️ Settings</a></li>
     </ul>
 
-{% if let Some(label) = nav.directory_label %}
+{% if let Some(breadcrumb) = nav.directory_breadcrumb %}
     <div class="nav-section">
-      <h3>{{ label }}</h3>
+      <h3 class="breadcrumb-tree">{% for segment in breadcrumb %}{% if !loop.first %}<span class="breadcrumb-sep">/</span>{% endif %}{% if let Some(href) = segment.href %}<a href="{{ href }}">{{ segment.label }}</a>{% else %}<span class="breadcrumb-current">{{ segment.label }}</span>{% endif %}{% endfor %}</h3>
 {% if nav.entries.is_empty() %}
       <p class="hint">No entries.</p>
 {% else %}
@@ -52,7 +52,7 @@
   </nav>
 
   <div class="shell-main">
-    <div class="topbar"><span class="breadcrumb">{{ nav.breadcrumb }}</span></div>
+    <div class="topbar"><span class="breadcrumb">{% for segment in nav.breadcrumb %}{% if !loop.first %}<span class="breadcrumb-sep">/</span>{% endif %}{% if let Some(href) = segment.href %}<a href="{{ href }}">{{ segment.label }}</a>{% else %}<span class="breadcrumb-current">{{ segment.label }}</span>{% endif %}{% endfor %}</span></div>
     <main class="content">{{ body|safe }}</main>
   </div>
 </div>

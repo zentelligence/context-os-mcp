@@ -5,9 +5,12 @@ fn empty_nav() -> NavData {
         vaults: Vec::new(),
         current_vault: None,
         nav_target_vault: None,
-        directory_label: None,
+        directory_breadcrumb: None,
         entries: Vec::new(),
-        breadcrumb: "settings".to_owned(),
+        breadcrumb: vec![BreadcrumbSegment {
+            label: "settings".to_owned(),
+            href: None,
+        }],
         active_vault_screen: false,
         active_apps_screen: false,
         active_settings_screen: false,
@@ -47,25 +50,81 @@ fn renders_the_vault_switcher_with_every_configured_vault() {
 fn renders_the_current_directorys_entries_in_the_nav_tree() {
     let nav = NavData {
         current_vault: Some("vault".to_owned()),
-        directory_label: Some("docs/guides".to_owned()),
-        entries: vec![
-            NavEntry {
-                name: "reference".to_owned(),
-                href: "/vault/docs/guides/reference/".to_owned(),
-                is_dir: true,
+        directory_breadcrumb: Some(vec![
+            BreadcrumbSegment {
+                label: "vault".to_owned(),
+                href: Some("/vault/".to_owned()),
             },
-            NavEntry {
-                name: "example-note.md".to_owned(),
-                href: "/vault/docs/guides/example-note.md".to_owned(),
-                is_dir: false,
+            BreadcrumbSegment {
+                label: "docs".to_owned(),
+                href: Some("/vault/docs/".to_owned()),
+            },
+            BreadcrumbSegment {
+                label: "guides".to_owned(),
+                href: None,
+            },
+        ]),
+        entries: vec![NavEntry {
+            name: "reference".to_owned(),
+            href: "/vault/docs/guides/reference/".to_owned(),
+            is_dir: true,
+        }],
+        ..empty_nav()
+    };
+    let html = render_page(&nav, "note.md", "<p>Body.</p>");
+    assert!(html.contains("/vault/docs/guides/reference/"));
+}
+
+#[test]
+fn the_directory_breadcrumb_links_every_ancestor_but_the_current_directory() {
+    let nav = NavData {
+        current_vault: Some("vault".to_owned()),
+        directory_breadcrumb: Some(vec![
+            BreadcrumbSegment {
+                label: "vault".to_owned(),
+                href: Some("/vault/".to_owned()),
+            },
+            BreadcrumbSegment {
+                label: "docs".to_owned(),
+                href: Some("/vault/docs/".to_owned()),
+            },
+            BreadcrumbSegment {
+                label: "guides".to_owned(),
+                href: None,
+            },
+        ]),
+        ..empty_nav()
+    };
+    let html = render_page(&nav, "docs/guides", "<p>Body.</p>");
+    assert!(html.contains("<a href=\"/vault/\">vault</a>"));
+    assert!(html.contains("<a href=\"/vault/docs/\">docs</a>"));
+    assert!(html.contains("<span class=\"breadcrumb-current\">guides</span>"));
+}
+
+#[test]
+fn the_top_bar_breadcrumb_links_every_ancestor_but_the_current_page() {
+    let nav = NavData {
+        current_vault: Some("vault".to_owned()),
+        breadcrumb: vec![
+            BreadcrumbSegment {
+                label: "vault".to_owned(),
+                href: Some("/vault/".to_owned()),
+            },
+            BreadcrumbSegment {
+                label: "docs".to_owned(),
+                href: Some("/vault/docs/".to_owned()),
+            },
+            BreadcrumbSegment {
+                label: "note.md".to_owned(),
+                href: None,
             },
         ],
         ..empty_nav()
     };
     let html = render_page(&nav, "note.md", "<p>Body.</p>");
-    assert!(html.contains("docs/guides"));
-    assert!(html.contains("/vault/docs/guides/reference/"));
-    assert!(html.contains("/vault/docs/guides/example-note.md"));
+    assert!(html.contains("<a href=\"/vault/\">vault</a>"));
+    assert!(html.contains("<a href=\"/vault/docs/\">docs</a>"));
+    assert!(html.contains("<span class=\"breadcrumb-current\">note.md</span>"));
 }
 
 #[test]

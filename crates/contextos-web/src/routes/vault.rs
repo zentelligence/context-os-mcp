@@ -101,18 +101,57 @@ async fn resolve_kind(client: &McpClient, vault_name: &str, trimmed: &str) -> Re
 #[derive(Debug, Deserialize)]
 struct ReadTextResult {
     content: String,
+    #[serde(default)]
+    truncated: bool,
+}
+
+/// Re-reads `vault_path` via `fs_attach_file` (full content for a file of
+/// any size, unlike `fs_read_text_file`'s 5 KiB cap): the completeness
+/// retry [`read_text`] takes when its own read comes back
+/// [`ReadTextResult::truncated`]. `None` for a non-text attachment (should
+/// not happen for a path that just read as truncated text, but fails
+/// closed rather than misinterpreting binary content as a string) or a
+/// target that no longer exists.
+async fn fetch_full_text(client: &McpClient, vault_path: String) -> Result<Option<String>, McpCallError> {
+    let mut args = Map::new();
+    args.insert("path".to_owned(), Value::String(vault_path));
+    let result = client.call_tool("fs_attach_file".to_owned(), args).await?;
+    if result.is_error == Some(true) {
+        return Ok(None);
+    }
+    for block in &result.content {
+        let rmcp::model::ContentBlock::Resource(embedded) = block else {
+            continue;
+        };
+        if let rmcp::model::ResourceContents::TextResourceContents { text, .. } = &embedded.resource {
+            return Ok(Some(text.clone()));
+        }
+    }
+    Ok(None)
 }
 
 async fn read_text(client: &McpClient, path: String) -> Result<String, Box<Response>> {
     let mut args = Map::new();
-    args.insert("path".to_owned(), Value::String(path));
+    args.insert("path".to_owned(), Value::String(path.clone()));
     match client.call_tool("fs_read_text_file".to_owned(), args).await {
         Err(McpCallError::Unreachable { .. }) => Err(Box::new(unreachable())),
         Ok(result) if result.is_error == Some(true) => Err(Box::new(not_found())),
-        Ok(result) => result
-            .into_typed::<ReadTextResult>()
-            .map(|r| r.content)
-            .map_err(|_| Box::new(not_found())),
+        Ok(result) => {
+            let read = result
+                .into_typed::<ReadTextResult>()
+                .map_err(|_| Box::new(not_found()))?;
+            if !read.truncated {
+                return Ok(read.content);
+            }
+            // A retry failure falls back to the truncated content already
+            // in hand rather than failing the whole page over a
+            // best-effort completeness upgrade.
+            Ok(fetch_full_text(client, path)
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or(read.content))
+        }
     }
 }
 
