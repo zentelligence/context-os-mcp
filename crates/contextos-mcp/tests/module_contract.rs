@@ -12,7 +12,7 @@
 use std::sync::Arc;
 
 use contextos_core::{Origin, WriteMutation};
-use contextos_server::{
+use contextos_mcp::{
     Config, ContextOsServer, ModuleCall, ModuleContext, ModuleManifest, ModuleNamespace,
     ModuleRegistry, ModuleRegistryError, ServerBuildConfig, ServerBuildError, ServerModule,
     ServerModuleFuture,
@@ -267,7 +267,7 @@ fn two_modules_contributing_the_same_tool_name_fail_server_construction() -> Res
 // currently be exercised at this level: no core tool name starts with
 // `bos_`/`pos_`/`dos_`, so a correctly namespaced module tool can never
 // literally equal one. `ModuleRegistry::validate`'s reserved-set behaviour
-// is covered directly in `crates/contextos-server/src/module.rs`'s unit
+// is covered directly in `crates/contextos-mcp/src/module.rs`'s unit
 // tests, which pass a synthetic reserved set to exercise that branch.
 
 #[test]
@@ -543,7 +543,7 @@ async fn unknown_and_missing_fixture_tool_arguments_are_rejected() -> Result<(),
 /// successfully over the streamable-HTTP transport too, not only stdio.
 #[tokio::test]
 async fn a_registered_module_tool_is_reachable_and_dispatches_over_http() -> Result<(), BoxError> {
-    use contextos_server::HttpConfig;
+    use contextos_mcp::HttpConfig;
     use rmcp::transport::StreamableHttpClientTransport;
     use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
     use tokio::net::TcpListener;
@@ -565,7 +565,7 @@ async fn a_registered_module_tool_is_reachable_and_dispatches_over_http() -> Res
     };
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
-    let router = contextos_server::build_router(server, &http)?;
+    let router = contextos_mcp::build_router(server, &http)?;
     let shutdown = CancellationToken::new();
     let shutdown_for_serve = shutdown.clone();
     let handle = tokio::spawn(async move {
@@ -573,7 +573,7 @@ async fn a_registered_module_tool_is_reachable_and_dispatches_over_http() -> Res
             .with_graceful_shutdown(async move { shutdown_for_serve.cancelled().await })
             .await;
     });
-    let url = format!("http://{addr}{}", contextos_server::HTTP_MOUNT_PATH);
+    let url = format!("http://{addr}{}", contextos_mcp::HTTP_MOUNT_PATH);
 
     let client_config =
         StreamableHttpClientTransportConfig::with_uri(url).auth_header(token.to_owned());

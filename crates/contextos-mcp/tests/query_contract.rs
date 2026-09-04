@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::time::{Duration, SystemTime};
 
-use contextos_server::{Config, ContextOsServer};
+use contextos_mcp::{Config, ContextOsServer};
 use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult, ProgressNotificationParam};
 use rmcp::service::NotificationContext;

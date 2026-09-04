@@ -5,7 +5,7 @@
 //! uninlined `$ref`/`$defs`. Split from `tool_contract.rs` to keep both
 //! files under the project's file-size limit.
 
-use contextos_server::ContextOsServer;
+use contextos_mcp::ContextOsServer;
 
 /// `fs_read_text_file` and `fs_read_multiple_files` return `CallToolResult`
 /// directly rather than `Json<T>` (`FR-82`), so their error path (like

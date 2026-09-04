@@ -3,14 +3,14 @@
 //! `FR-105`, Phase 10): schema-valid MCP surface over `contextos-ephemeris`.
 //! Every ephemeris tool handler is always compiled in; visibility is gated
 //! at runtime by `[server] astro` (`D-25`), not a Cargo feature, so this
-//! whole file runs under a plain `cargo test -p contextos-server`, unlike
+//! whole file runs under a plain `cargo test -p contextos-mcp`, unlike
 //! `contextos-search/tests/embedding_fastembed.rs`'s feature-gated
 //! precedent (that capability genuinely is compile-time optional; this one
 //! is not). Every test that exercises tool behaviour builds its own
 //! astro-enabled server via [`server_with_astro_enabled`]; a dedicated test
 //! below confirms the tools are absent with astro left at its default.
 
-use contextos_server::{Config, ContextOsServer};
+use contextos_mcp::{Config, ContextOsServer};
 use rmcp::ServiceExt;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Map, Value, json};
@@ -470,14 +470,14 @@ async fn ephemeris_moon_phase_is_reachable_over_the_streamable_http_transport_to
     let server = server_with_astro_enabled(vault.path())?;
 
     let token = "ephemeris-parity-token";
-    let http = contextos_server::HttpConfig {
+    let http = contextos_mcp::HttpConfig {
         bind: "127.0.0.1:0".to_owned(),
         token: token.to_owned(),
         max_body_kb: 2048,
     };
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
-    let router = contextos_server::build_router(server, &http)?;
+    let router = contextos_mcp::build_router(server, &http)?;
     let shutdown = CancellationToken::new();
     let shutdown_for_serve = shutdown.clone();
     let handle = tokio::spawn(async move {
@@ -485,7 +485,7 @@ async fn ephemeris_moon_phase_is_reachable_over_the_streamable_http_transport_to
             .with_graceful_shutdown(async move { shutdown_for_serve.cancelled().await })
             .await;
     });
-    let url = format!("http://{addr}{}", contextos_server::HTTP_MOUNT_PATH);
+    let url = format!("http://{addr}{}", contextos_mcp::HTTP_MOUNT_PATH);
 
     let client_config =
         StreamableHttpClientTransportConfig::with_uri(url).auth_header(token.to_owned());

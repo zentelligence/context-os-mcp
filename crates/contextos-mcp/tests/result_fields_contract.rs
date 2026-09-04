@@ -5,7 +5,7 @@
 //! from `tool_contract.rs` to keep both files under the project's
 //! file-size limit.
 
-use contextos_server::ContextOsServer;
+use contextos_mcp::ContextOsServer;
 
 #[test]
 #[expect(

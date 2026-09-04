@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use contextos_server::{
+use contextos_mcp::{
     Config, ConfigEnvironment, ConfigLoadInput, ContextOsServer, DeregisterOutcome, DoctorReport,
     HostPathResolution, IndexReport, InterviewEnvironment, LogLevel, ModelReport, RegisteredServer,
     RegistrationStatus, SystemProcessDetector, TerminalInterviewer, Transport,
@@ -338,10 +338,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let semantic_drain_tasks = server.spawn_semantic_drain(&shutdown);
 
     let http_task = if run_http {
-        contextos_server::validate_bind(&http_config.bind, &http_config.token)?;
+        contextos_mcp::validate_bind(&http_config.bind, &http_config.token)?;
         let listener = TcpListener::bind(&http_config.bind).await?;
         let bound = listener.local_addr()?;
-        let router = contextos_server::build_router(server.clone(), &http_config)?;
+        let router = contextos_mcp::build_router(server.clone(), &http_config)?;
         tracing::info!(transport = "http", bind = %bound, "starting ContextOS MCP HTTP server");
         let shutdown = shutdown.clone();
         Some(tokio::spawn(async move {
@@ -383,7 +383,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
 /// Runs `contextos doctor`, or `contextos doctor --resolve`, which reuses
 /// the exact same resolution path as the `doctor_resolve` MCP tool
-/// (`contextos_server::resolve_for_cli`) so CLI and MCP stay behaviourally
+/// (`contextos_mcp::resolve_for_cli`) so CLI and MCP stay behaviourally
 /// identical for the auto-fixable set.
 async fn run_doctor_command(
     config: Config,
@@ -395,7 +395,7 @@ async fn run_doctor_command(
         let outcomes =
             tokio::task::spawn_blocking(move || -> Result<_, Box<dyn Error + Send + Sync>> {
                 let server = ContextOsServer::try_from(config_for_resolve)?;
-                Ok(contextos_server::resolve_for_cli(&server, dry_run)?)
+                Ok(contextos_mcp::resolve_for_cli(&server, dry_run)?)
             })
             .await??;
         let mut stdout = std::io::stdout().lock();
@@ -803,7 +803,7 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use contextos_server::{ConfigEnvironment, ConfigLoadInput, Transport};
+    use contextos_mcp::{ConfigEnvironment, ConfigLoadInput, Transport};
 
     use super::{
         Config, LogLevel, apply_http_override, default_config_path, is_secret_env_var_name,

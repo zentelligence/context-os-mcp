@@ -17,12 +17,12 @@
 //! assertion with a pass/fail threshold). Run explicitly with:
 //!
 //! ```sh
-//! cargo test -p contextos-server --test nfr_05_benchmark -- --ignored --nocapture
+//! cargo test -p contextos-mcp --test nfr_05_benchmark -- --ignored --nocapture
 //! ```
 
 use std::time::Instant;
 
-use contextos_server::{Config, ContextOsServer};
+use contextos_mcp::{Config, ContextOsServer};
 use rmcp::ServiceExt;
 use rmcp::model::CallToolRequestParams;
 use serde_json::json;

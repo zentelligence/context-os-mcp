@@ -1,4 +1,4 @@
-use contextos_server::{Config, ContextOsServer};
+use contextos_mcp::{Config, ContextOsServer};
 use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult};
 use serde_json::{Map, json};

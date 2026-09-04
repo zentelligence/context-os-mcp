@@ -7,7 +7,7 @@
 //! a real MCP transport (`.claude/rules/mcp-contracts.md`: tests invoke
 //! the adapter, not the underlying service).
 
-use contextos_server::{Config, ContextOsServer};
+use contextos_mcp::{Config, ContextOsServer};
 use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, ReadResourceRequestParams, ResourceContents};
 
@@ -647,14 +647,14 @@ async fn resources_are_reachable_over_the_streamable_http_transport_too() -> Res
     let server = ContextOsServer::try_from(config)?;
 
     let token = "resource-parity-token";
-    let http = contextos_server::HttpConfig {
+    let http = contextos_mcp::HttpConfig {
         bind: "127.0.0.1:0".to_owned(),
         token: token.to_owned(),
         max_body_kb: 2048,
     };
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
-    let router = contextos_server::build_router(server, &http)?;
+    let router = contextos_mcp::build_router(server, &http)?;
     let shutdown = CancellationToken::new();
     let shutdown_for_serve = shutdown.clone();
     let handle = tokio::spawn(async move {
@@ -662,7 +662,7 @@ async fn resources_are_reachable_over_the_streamable_http_transport_too() -> Res
             .with_graceful_shutdown(async move { shutdown_for_serve.cancelled().await })
             .await;
     });
-    let url = format!("http://{addr}{}", contextos_server::HTTP_MOUNT_PATH);
+    let url = format!("http://{addr}{}", contextos_mcp::HTTP_MOUNT_PATH);
 
     let client_config =
         StreamableHttpClientTransportConfig::with_uri(url).auth_header(token.to_owned());
@@ -1049,14 +1049,14 @@ async fn fr_106_resource_templates_are_reachable_over_the_streamable_http_transp
     let server = ContextOsServer::try_from(config)?;
 
     let token = "resource-templates-parity-token";
-    let http = contextos_server::HttpConfig {
+    let http = contextos_mcp::HttpConfig {
         bind: "127.0.0.1:0".to_owned(),
         token: token.to_owned(),
         max_body_kb: 2048,
     };
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
-    let router = contextos_server::build_router(server, &http)?;
+    let router = contextos_mcp::build_router(server, &http)?;
     let shutdown = CancellationToken::new();
     let shutdown_for_serve = shutdown.clone();
     let handle = tokio::spawn(async move {
@@ -1064,7 +1064,7 @@ async fn fr_106_resource_templates_are_reachable_over_the_streamable_http_transp
             .with_graceful_shutdown(async move { shutdown_for_serve.cancelled().await })
             .await;
     });
-    let url = format!("http://{addr}{}", contextos_server::HTTP_MOUNT_PATH);
+    let url = format!("http://{addr}{}", contextos_mcp::HTTP_MOUNT_PATH);
 
     let client_config =
         StreamableHttpClientTransportConfig::with_uri(url).auth_header(token.to_owned());

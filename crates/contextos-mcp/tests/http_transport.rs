@@ -20,7 +20,7 @@ use std::net::SocketAddr;
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
-use contextos_server::{Config, ContextOsServer, HttpConfig, HttpTransportError};
+use contextos_mcp::{Config, ContextOsServer, HttpConfig, HttpTransportError};
 use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult, Tool};
 use rmcp::transport::StreamableHttpClientTransport;
@@ -54,7 +54,7 @@ async fn spawn_http_server(
 ) -> Result<(SocketAddr, String, JoinHandle<()>, CancellationToken), BoxError> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
-    let router = contextos_server::build_router(server, http)?;
+    let router = contextos_mcp::build_router(server, http)?;
     let shutdown = CancellationToken::new();
     let shutdown_for_serve = shutdown.clone();
     let handle = tokio::spawn(async move {
@@ -62,7 +62,7 @@ async fn spawn_http_server(
             .with_graceful_shutdown(async move { shutdown_for_serve.cancelled().await })
             .await;
     });
-    let url = format!("http://{addr}{}", contextos_server::HTTP_MOUNT_PATH);
+    let url = format!("http://{addr}{}", contextos_mcp::HTTP_MOUNT_PATH);
     Ok((addr, url, handle, shutdown))
 }
 
@@ -149,8 +149,8 @@ async fn fr_61_auth_rejection_matrix() -> Result<(), BoxError> {
     let server = ContextOsServer::try_from(Config::try_from(vec![vault.path().to_path_buf()])?)?;
     let token = "matrix-token";
     let http = http_config("127.0.0.1:0", token);
-    let router = contextos_server::build_router(server.clone(), &http)?;
-    let mount = contextos_server::HTTP_MOUNT_PATH;
+    let router = contextos_mcp::build_router(server.clone(), &http)?;
+    let mount = contextos_mcp::HTTP_MOUNT_PATH;
 
     // No Authorization header.
     assert_auth_rejected(
@@ -245,7 +245,7 @@ async fn fr_61_auth_rejection_matrix() -> Result<(), BoxError> {
 /// system to listen on `0.0.0.0`.
 #[test]
 fn fr_61_non_loopback_bind_without_token_is_refused() -> Result<(), BoxError> {
-    let refusal = contextos_server::validate_bind("0.0.0.0:7331", "");
+    let refusal = contextos_mcp::validate_bind("0.0.0.0:7331", "");
     let Err(HttpTransportError::NonLoopbackBindWithoutToken { bind }) = refusal else {
         return Err(std::io::Error::other("expected a NonLoopbackBindWithoutToken refusal").into());
     };
@@ -261,7 +261,7 @@ fn fr_61_non_loopback_bind_without_token_is_refused() -> Result<(), BoxError> {
     );
 
     // The same bind with a token configured constructs without error.
-    contextos_server::validate_bind("0.0.0.0:7331", "configured-token")?;
+    contextos_mcp::validate_bind("0.0.0.0:7331", "configured-token")?;
 
     Ok(())
 }
@@ -276,12 +276,12 @@ async fn fr_61_body_cap_rejects_oversize_requests() -> Result<(), BoxError> {
         token: token.to_owned(),
         max_body_kb: 1,
     };
-    let router = contextos_server::build_router(server, &http)?;
+    let router = contextos_mcp::build_router(server, &http)?;
 
     let oversized = "x".repeat(4096);
     let request = Request::builder()
         .method("POST")
-        .uri(contextos_server::HTTP_MOUNT_PATH)
+        .uri(contextos_mcp::HTTP_MOUNT_PATH)
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::ACCEPT, "application/json, text/event-stream")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))

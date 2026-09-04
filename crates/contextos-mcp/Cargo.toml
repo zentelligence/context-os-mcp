@@ -1,5 +1,5 @@
 [package]
-name = "contextos-server"
+name = "contextos-mcp"
 description = "MCP transport and composition root for ContextOS Server"
 version.workspace = true
 edition.workspace = true

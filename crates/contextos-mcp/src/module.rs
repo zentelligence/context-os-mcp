@@ -13,7 +13,7 @@
 //! bypassing [`ModuleContext`] entirely, the same as any other in-process
 //! Rust plugin trait. No reference module ships in this or any build; the
 //! contract is exercised by test-only fixture modules that live in
-//! `contextos-server`'s test suite and are never linked into the shipped
+//! `contextos-mcp`'s test suite and are never linked into the shipped
 //! binary.
 
 use std::collections::HashSet;

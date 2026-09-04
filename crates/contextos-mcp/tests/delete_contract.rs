@@ -4,7 +4,7 @@
 //! `tool_contract.rs` to keep both files under the project's file-size
 //! limit rather than growing that already-oversized file further.
 
-use contextos_server::{Config, ContextOsServer};
+use contextos_mcp::{Config, ContextOsServer};
 use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult};
 use serde_json::{Map, json};

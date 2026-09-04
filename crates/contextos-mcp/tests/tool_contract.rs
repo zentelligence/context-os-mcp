@@ -7,7 +7,7 @@
 //! `*_contract.rs` file in this directory (each keeps its own copy,
 //! matching this codebase's existing per-file pattern).
 
-use contextos_server::{Config, ContextOsServer};
+use contextos_mcp::{Config, ContextOsServer};
 use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult};
 use serde_json::{Map, json};

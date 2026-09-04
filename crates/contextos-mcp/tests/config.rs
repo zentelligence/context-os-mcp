@@ -1,5 +1,5 @@
 use contextos_core::VaultSet;
-use contextos_server::{
+use contextos_mcp::{
     Config, ConfigEnvironment, ConfigError, ConfigLoadInput, EmbeddingProvider, GraphBackendConfig,
     LogLevel, Transport,
 };
