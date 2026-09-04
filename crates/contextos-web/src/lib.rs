@@ -1,0 +1,14 @@
+#![forbid(unsafe_code)]
+
+pub mod app;
+pub mod config;
+pub mod mcp_client;
+pub mod proxy;
+pub mod static_assets;
+
+pub use app::{build_router, connect};
+pub use config::{
+    McpServerConfig, WebConfig, WebConfigError, WebLogLevel, WebServerConfig, load_vault_set,
+    load_web_config,
+};
+pub use mcp_client::{McpCallError, McpClient, McpClientSet, McpConnectError};

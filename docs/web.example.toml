@@ -1,0 +1,38 @@
+# contextos-web example configuration
+#
+# This file shows every currently supported web.toml field (Phase 14).
+# contextos-web loads config.toml (the vault list) read-only alongside this
+# file; it never writes config.toml. See docs/config.example.toml for that
+# file's own schema.
+
+[server]
+# Loopback only: contextos-web has no authentication mechanism in this
+# release, so a non-loopback bind is rejected at startup rather than
+# accepted and left unprotected.
+bind = "127.0.0.1:7332"
+# Directory served at /static/, never vault content.
+static_dir = "./static"
+# Allowed values: "error", "warn", "info", "debug", "trace"
+log_level = "info"
+# Empty means log to stderr only.
+log_file = ""
+
+[server.ui]
+# UI appearance defaults. Schema deferred to a later phase (web-rendering.md);
+# unrecognised keys here are accepted, not validated, until that phase lands.
+
+# MCP servers this instance may proxy tool calls to via
+# POST /mcp/{server_name}/{tool_name}. The first entry is conventionally,
+# but not structurally, the local contextos-mcp instance.
+[[mcp_server]]
+name = "contextos"
+transport = "stdio"
+command = "contextos"
+args = ["--config", "/absolute/path/to/config.toml"]
+
+# A second, HTTP-based example (not required).
+# [[mcp_server]]
+# name = "some-other-server"
+# transport = "http"
+# endpoint = "http://127.0.0.1:9000"
+# token_env = "SOME_OTHER_SERVER_TOKEN"

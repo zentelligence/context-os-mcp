@@ -1,0 +1,55 @@
+[package]
+name = "contextos-web"
+description = "Server-rendered web UI and MCP proxy over a ContextOS vault"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "contextos-web"
+path = "src/main.rs"
+
+[dependencies]
+# `json`: on top of the workspace default (`http1`, `tokio`), needed for the
+# `axum::Json` extractor/response the MCP proxy route (FR-210) and its
+# error bodies use. `contextos-mcp` does not need this feature (rmcp owns
+# its own JSON-RPC framing), so it stays off the shared workspace default
+# and is added here instead.
+axum = { workspace = true, features = ["json"] }
+camino.workspace = true
+clap.workspace = true
+# `VaultPath`, `VaultRoot`, `VaultSet`, config-loading types only (FR-200,
+# D-W01); contextos-web depends on no other existing crate, and never calls
+# a service-crate trait directly (FR-201).
+contextos-core = { path = "../contextos-core" }
+directories.workspace = true
+rmcp = { workspace = true, features = [
+    "client",
+    "transport-child-process",
+    "transport-streamable-http-client",
+    "transport-streamable-http-client-reqwest",
+] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+toml.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+# Dev-only: proves FR-202 (contextos-web's independent config.toml vault-list
+# reader) agrees with contextos-mcp's own `Config`/`VaultSet` pipeline on the
+# same file. Never a production dependency; contextos-mcp is not on the
+# shipped binary's dependency graph (FR-200).
+contextos-mcp = { path = "../contextos-mcp" }
+tempfile.workspace = true
+
+[lints]
+workspace = true

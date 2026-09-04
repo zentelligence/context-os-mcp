@@ -11,7 +11,7 @@ The record below starts at the current version - 0.20.1. From this point forward
 
 ### Added
 
-- Nothing yet.
+- `contextos-web`, a new crate and second binary in this workspace (Phase 14): an `mcp_client` module that spawns or connects to configured MCP servers (`web.toml`'s `[[mcp_server]]` list) and performs the `initialize` handshake before serving any request; a `POST /mcp/{server_name}/{tool_name}` proxy route giving any HTTP caller deterministic, non-model-mediated MCP tool calls; and `/static/` asset serving. Not yet a browsable web UI: vault content rendering, app registration, and a settings UI are later phases (15 to 17).
 
 ### Changed
 

@@ -10,6 +10,7 @@ members = [
     "crates/contextos-obsidian",
     "crates/contextos-oplog",
     "crates/contextos-search",
+    "crates/contextos-web",
 ]
 resolver = "3"
 
@@ -87,6 +88,10 @@ toml = "1.1.3"
 # which would discard `docs/config.example.toml`-style hand commentary.
 toml_edit = "0.25.13"
 tower = { version = "0.5", default-features = false, features = ["util"] }
+# `contextos-web` only: `/static/` asset serving (`FR-250`). Provides
+# `ServeDir`, an already-audited traversal-safe static file service, rather
+# than hand-rolling path-escape checks for a second time in this workspace.
+tower-http = { version = "0.6", default-features = false, features = ["fs"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 trash = { version = "5.2.6", default-features = false }
