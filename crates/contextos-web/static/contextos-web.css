@@ -11,6 +11,15 @@
   --accent:#5b6b4f; --accent-bg:#eef1e9; --accent-strong:#3f4c37;
   --warn:#a5651f; --warn-bg:#fbeee0;
   --danger:#a13a3a; --danger-bg:#f8e8e8;
+  /* Remaining canonical callout colours (`CALLOUTS.md`'s colour/icon
+     column): note/info/todo share `--link`'s own blue, warning/danger
+     already exist above, and failure/bug share `--danger`. */
+  --abstract:#2f7a6e; --abstract-bg:#e6f2ef;
+  --tip:#2a7d90; --tip-bg:#e3f2f5;
+  --success:#3f7a45; --success-bg:#e9f2e9;
+  --question:#8a7a1f; --question-bg:#f5f0dc;
+  --example:#6a4a8a; --example-bg:#f0e9f5;
+  --quote:#6b665c; --quote-bg:#eeece5;
   --link:#3f5a7a; --code-bg:#eeece5; --shell-w:230px;
   --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -37,6 +46,12 @@
     --accent:#93a884; --accent-bg:#2b3227; --accent-strong:#b7c9a9;
     --warn:#d69a5b; --warn-bg:#3a2d1c;
     --danger:#d98080; --danger-bg:#3a2323;
+    --abstract:#7fc9b8; --abstract-bg:#1c2e29;
+    --tip:#7fc4d1; --tip-bg:#1c2c30;
+    --success:#93c99a; --success-bg:#243024;
+    --question:#d1c07f; --question-bg:#332e1c;
+    --example:#c0a0d9; --example-bg:#2c2333;
+    --quote:#a6a193; --quote-bg:#2a2924;
     --link:#8aa8c9; --code-bg:#2a2924;
   }
 }
@@ -48,6 +63,12 @@
   --accent:#93a884; --accent-bg:#2b3227; --accent-strong:#b7c9a9;
   --warn:#d69a5b; --warn-bg:#3a2d1c;
   --danger:#d98080; --danger-bg:#3a2323;
+  --abstract:#7fc9b8; --abstract-bg:#1c2e29;
+  --tip:#7fc4d1; --tip-bg:#1c2c30;
+  --success:#93c99a; --success-bg:#243024;
+  --question:#d1c07f; --question-bg:#332e1c;
+  --example:#c0a0d9; --example-bg:#2c2333;
+  --quote:#a6a193; --quote-bg:#2a2924;
   --link:#8aa8c9; --code-bg:#2a2924;
 }
 
@@ -112,10 +133,20 @@ button,.btn{font:inherit;}
 .wikilink{color:var(--link);text-decoration:none;border-bottom:1px dotted var(--link);}
 .wikilink:hover{border-bottom-style:solid;}
 .wikilink.dead{color:var(--danger);border-bottom-color:var(--danger);}
+.embed-audio{display:block;width:100%;margin:0 0 1em;}
+mark{background:var(--warn-bg);color:var(--text);border-radius:2px;padding:0 .15em;}
+.tag{display:inline-block;color:var(--accent-strong);background:var(--accent-bg);border-radius:10px;padding:.05em .6em;font-size:.9em;}
 .callout{border-left:3px solid var(--accent);background:var(--accent-bg);border-radius:0 6px 6px 0;padding:10px 14px;margin:0 0 1em;}
 .callout-title{font-weight:600;margin-bottom:2px;}
+.callout-note,.callout-info,.callout-todo{border-left-color:var(--link);background:var(--accent-bg);}
+.callout-abstract{border-left-color:var(--abstract);background:var(--abstract-bg);}
+.callout-tip{border-left-color:var(--tip);background:var(--tip-bg);}
+.callout-success{border-left-color:var(--success);background:var(--success-bg);}
+.callout-question{border-left-color:var(--question);background:var(--question-bg);}
 .callout-warning{border-left-color:var(--warn);background:var(--warn-bg);}
-.callout-danger{border-left-color:var(--danger);background:var(--danger-bg);}
+.callout-failure,.callout-danger,.callout-bug{border-left-color:var(--danger);background:var(--danger-bg);}
+.callout-example{border-left-color:var(--example);background:var(--example-bg);}
+.callout-quote{border-left-color:var(--quote);background:var(--quote-bg);}
 .fence{border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin:0 0 1em;background:var(--panel);}
 .fence-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:6px;}
 .fence-unrecognised{border-style:dashed;}

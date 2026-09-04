@@ -1,7 +1,7 @@
 //! Markdown/OFM rendering pipeline (`web-rendering.md` §1): frontmatter
-//! strip, Mermaid extraction, wikilink/embed extraction, triple-colon
-//! fence and callout resolution, then general Markdown, in that stage
-//! order.
+//! strip, comment strip, Mermaid extraction, wikilink/embed extraction,
+//! highlight and inline tag rewriting, triple-colon fence and callout
+//! resolution, then general Markdown, in that stage order.
 //!
 //! [`compile`] is the pure half: it extracts every occurrence needing an
 //! MCP round trip (wikilink/embed target, Mermaid source) into a
@@ -18,17 +18,20 @@
 //! blockquote continuation), which the global Mermaid scan does not
 //! dedent before looking for a fence-open line, so a Mermaid diagram
 //! inside a callout is not supported in v1: a documented scope limit, not
-//! an oversight. Fences and callouts do not themselves nest.
+//! an oversight. Fences and callouts may nest inside each other and inside
+//! themselves, up to [`MAX_FENCE_NESTING_DEPTH`]: see
+//! [`render_fenced_and_callout_html`]'s own doc for how that recursion
+//! stays clear of the global wikilink/Mermaid placeholder space.
 
 use std::collections::HashMap;
 
-use pulldown_cmark::{Options, Parser, html};
+use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd, html};
 use serde::Deserialize;
 
-use crate::mcp_client::McpClient;
+use crate::mcp_client::{McpCallError, McpClient};
 use crate::rendering::diagnostics::{self, Diagnostic};
 use crate::rendering::wikilinks::{LinkOccurrence, LinkSyntax};
-use crate::rendering::{callouts, fences, frontmatter, wikilinks};
+use crate::rendering::{block_ids, callouts, comments, fences, frontmatter, highlight, tags, wikilinks};
 
 /// An embed nests at most one level deep: a target that is itself an embed
 /// of a third file renders as a plain link at that second level, never a
@@ -49,10 +52,120 @@ pub fn html_from_commonmark(source: &str) -> String {
     options.insert(Options::ENABLE_FOOTNOTES);
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_SMART_PUNCTUATION);
+    // `$inline$`/`$$display$$` math (the `obsidian-markdown` skill's own
+    // documented syntax): `pulldown-cmark` renders each as a semantic
+    // `<span class="math math-inline">`/`<span class="math math-display">`
+    // with no custom event handling needed. This marks the LaTeX source up
+    // correctly rather than leaking it as literal `$...$` text; an actual
+    // client-side typesetter (KaTeX/MathJax) is a separate, not-yet-shipped
+    // concern (`A-055`).
+    options.insert(Options::ENABLE_MATH);
     let parser = Parser::new_ext(source, options);
+    let collected: Vec<Event<'_>> = parser.collect();
+    let events = assign_heading_ids(&collected);
     let mut out = String::new();
-    html::push_html(&mut out, parser);
+    html::push_html(&mut out, events.into_iter());
     out
+}
+
+/// Assigns a stable, Obsidian-style slug `id` to every heading (this
+/// pipeline never turns on `ENABLE_HEADING_ATTRIBUTES`, so an author's own
+/// explicit `{#id}` override is not supported: every heading always gets
+/// an auto-generated one), so a `[[Note#Heading]]` link has something to
+/// land on ([`append_fragment`]). Two headings that slugify to the same
+/// text on one page disambiguate with a numeric suffix, matching the same
+/// discipline GitHub's own heading anchors use.
+fn assign_heading_ids<'a>(events: &[Event<'a>]) -> Vec<Event<'a>> {
+    let mut used: HashMap<String, u32> = HashMap::new();
+    let mut out = Vec::with_capacity(events.len());
+    let mut i = 0;
+    while i < events.len() {
+        let Event::Start(Tag::Heading {
+            level, classes, attrs, ..
+        }) = &events[i]
+        else {
+            out.push(events[i].clone());
+            i += 1;
+            continue;
+        };
+        let (level, classes, attrs) = (*level, classes.clone(), attrs.clone());
+        let mut text = String::new();
+        let mut j = i + 1;
+        while j < events.len() {
+            match &events[j] {
+                Event::End(TagEnd::Heading(_)) => break,
+                Event::Text(t) | Event::Code(t) => text.push_str(t),
+                _ => {}
+            }
+            j += 1;
+        }
+        out.push(Event::Start(Tag::Heading {
+            level,
+            id: Some(unique_slug(&text, &mut used).into()),
+            classes,
+            attrs,
+        }));
+        i += 1;
+    }
+    out
+}
+
+fn unique_slug(text: &str, used: &mut HashMap<String, u32>) -> String {
+    let base = slugify(text);
+    let base = if base.is_empty() { "section".to_owned() } else { base };
+    match used.get_mut(&base) {
+        None => {
+            used.insert(base.clone(), 0);
+            base
+        }
+        Some(count) => {
+            *count += 1;
+            format!("{base}-{count}")
+        }
+    }
+}
+
+/// Obsidian-style heading-anchor slug: lowercased, every run of
+/// non-alphanumeric characters collapsed to a single hyphen, no leading or
+/// trailing hyphen. Shared by [`assign_heading_ids`] (a real heading's own
+/// id) and [`append_fragment`] (a `[[Note#Heading]]` link's own `#`
+/// fragment), so the two agree as long as the link's own written heading
+/// text matches what the target note actually has (the author's own
+/// responsibility: verifying it would mean resolving and parsing the
+/// target note's own content, a materially bigger round trip this stays
+/// without).
+fn slugify(text: &str) -> String {
+    let mut slug = String::with_capacity(text.len());
+    let mut last_was_hyphen = true;
+    for c in text.chars() {
+        if c.is_alphanumeric() {
+            slug.extend(c.to_lowercase());
+            last_was_hyphen = false;
+        } else if !last_was_hyphen {
+            slug.push('-');
+            last_was_hyphen = true;
+        }
+    }
+    while slug.ends_with('-') {
+        slug.pop();
+    }
+    slug
+}
+
+/// Appends `occurrence`'s own `#heading`/`#^block-id` fragment to an
+/// already-resolved `href`, when present. A block reference uses its own
+/// literal id verbatim, matching [`block_ids`]'s own anchor id exactly (no
+/// slugification: a block id is already an author-chosen token, not prose
+/// to normalise); a heading reference is [`slugify`]d the same way a real
+/// heading's own id is.
+fn append_fragment(href: &str, occurrence: &LinkOccurrence) -> String {
+    if let Some(block) = &occurrence.block {
+        format!("{href}#{block}")
+    } else if let Some(heading) = &occurrence.heading {
+        format!("{href}#{}", slugify(heading))
+    } else {
+        href.to_owned()
+    }
 }
 
 #[must_use]
@@ -132,28 +245,68 @@ pub struct Compiled {
 #[must_use]
 pub fn compile(raw_source: &str) -> Compiled {
     let body = frontmatter::strip(raw_source);
-    let (body, mermaid_sources) = extract_mermaid(body);
+    let body = comments::strip(body);
+    let (body, mermaid_sources) = extract_mermaid(&body);
     let wiki = wikilinks::extract(&body);
-    let fence_result = fences::extract(&wiki.text);
-    let callout_result = callouts::extract(&fence_result.text);
-    let mut html = html_from_commonmark(&callout_result.text);
-
-    for (index, block) in callout_result.blocks.iter().enumerate() {
-        let body_html = html_from_commonmark(&block.body);
-        let rendered = callouts::render(&block.open, &body_html);
-        html = replace_block_placeholder(&html, &callouts::placeholder(index), &rendered);
-    }
-    for (index, block) in fence_result.blocks.iter().enumerate() {
-        let inner_html = html_from_commonmark(&block.inner);
-        let rendered = fences::render(&block.open, &inner_html);
-        html = replace_block_placeholder(&html, &fences::placeholder(index), &rendered);
-    }
+    let highlighted = highlight::apply(&wiki.text);
+    let tagged = tags::apply(&highlighted);
+    let anchored = block_ids::apply(&tagged);
+    let html = render_fenced_and_callout_html(&anchored, 0);
 
     Compiled {
         html,
         occurrences: wiki.occurrences,
         mermaid_sources,
     }
+}
+
+/// A fence or callout nested inside another renders no deeper than this:
+/// `standards/markdown-fence-conventions.md` itself recommends keeping
+/// nested fences shallow, and this bound exists to make pathological or
+/// runaway input (not a realistic authored document) fail safely — falling
+/// back to the block's raw text rendered as plain Markdown, never an
+/// infinite recursion — mirroring wikilink embeds' own `MAX_EMBED_DEPTH`.
+const MAX_FENCE_NESTING_DEPTH: u8 = 4;
+
+/// Resolves every triple-colon fence and Obsidian callout in `text` to
+/// final HTML, recursing into each block's own inner text so a fence or
+/// callout nested inside another (`fences.rs`'s and `callouts.rs`'s own
+/// module docs) renders as its own real, typed container rather than
+/// literal `:::name`/`> [!type]` text (`web-rendering.md` §1 stages 2 and
+/// 4). Wikilink, embed, Mermaid, highlight, and tag placeholders are
+/// untouched here: those already ran as single global passes over the
+/// whole document before `compile` ever calls this, so their placeholder
+/// tokens are already globally unique and simply ride along inertly inside
+/// whatever fence/callout body they land in, resolved later by `render`'s
+/// own top-level substitution pass over the fully-assembled document. Each
+/// recursive call is fully self-contained (its own local fence/callout
+/// blocks, fully substituted before it returns), so nested calls never
+/// need a shared placeholder-index space the way that would risk a
+/// collision.
+fn render_fenced_and_callout_html(text: &str, depth: u8) -> String {
+    let fence_result = fences::extract(text);
+    let callout_result = callouts::extract(&fence_result.text);
+    let mut html = html_from_commonmark(&callout_result.text);
+
+    for (index, block) in callout_result.blocks.iter().enumerate() {
+        let body_html = if depth >= MAX_FENCE_NESTING_DEPTH {
+            html_from_commonmark(&block.body)
+        } else {
+            render_fenced_and_callout_html(&block.body, depth + 1)
+        };
+        let rendered = callouts::render(&block.open, &body_html);
+        html = replace_block_placeholder(&html, &callouts::placeholder(index), &rendered);
+    }
+    for (index, block) in fence_result.blocks.iter().enumerate() {
+        let inner_html = if depth >= MAX_FENCE_NESTING_DEPTH {
+            html_from_commonmark(&block.inner)
+        } else {
+            render_fenced_and_callout_html(&block.inner, depth + 1)
+        };
+        let rendered = fences::render(&block.open, &inner_html);
+        html = replace_block_placeholder(&html, &fences::placeholder(index), &rendered);
+    }
+    html
 }
 
 /// The final rendered page body.
@@ -186,7 +339,7 @@ pub async fn render(mcp: &McpClient, vault_name: &str, raw_source: &str, embed_d
             LinkSyntax::Link => {
                 let href = resolve_href_cached(mcp, vault_name, &occurrence.target, &mut href_cache).await;
                 let rendered = match href {
-                    Some(h) => wikilinks::render_link(occurrence, &h),
+                    Some(h) => wikilinks::render_link(occurrence, &append_fragment(&h, occurrence)),
                     None => wikilinks::render_dead_link(occurrence),
                 };
                 html = html.replacen(&wikilinks::placeholder(index), &rendered, 1);
@@ -215,20 +368,56 @@ async fn resolve_href_cached(
     resolved
 }
 
-/// Extensions `render_embed_occurrence` renders as an inline `<img>` rather
-/// than attempting `fs_read_text_file` on them: every one of these is a
-/// binary format that read would always fail on (`FsError::Binary`),
-/// producing a dead link for a target that genuinely resolved, not a
-/// missing one. Matches the browser's own native `<img>` decoder support,
-/// the same "browser-renderable" set `web-routes.md`'s generic-file
-/// dispatch describes.
+/// Extensions `render_embed_occurrence` renders as media (`<img>`/`<audio>`)
+/// or a plain link (PDF) rather than attempting `fs_read_text_file` on
+/// them: every one is a binary format that read would always fail on
+/// (`FsError::Binary`), producing a dead link for a target that genuinely
+/// resolved, not a missing one.
+///
+/// Matches the browser's own native decoder support, the same
+/// "browser-renderable" set `web-routes.md`'s generic-file dispatch
+/// describes, and the `obsidian-markdown` skill's own `EMBEDS.md`
+/// ("Embed Images", "Embed Audio", "Embed PDF").
 const IMAGE_EXTENSIONS: [&str; 9] = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "avif", "ico"];
+const AUDIO_EXTENSIONS: [&str; 8] = ["mp3", "ogg", "wav", "m4a", "flac", "aac", "opus", "webm"];
+const PDF_EXTENSIONS: [&str; 1] = ["pdf"];
+const BASE_EXTENSIONS: [&str; 1] = ["base"];
 
-fn is_image_path(path: &str) -> bool {
+fn extension_matches(path: &str, extensions: &[&str]) -> bool {
     path.rsplit('/')
         .next()
         .and_then(|name| name.rsplit_once('.'))
-        .is_some_and(|(_, ext)| IMAGE_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()))
+        .is_some_and(|(_, ext)| extensions.contains(&ext.to_ascii_lowercase().as_str()))
+}
+
+fn is_image_path(path: &str) -> bool {
+    extension_matches(path, &IMAGE_EXTENSIONS)
+}
+
+fn is_audio_path(path: &str) -> bool {
+    extension_matches(path, &AUDIO_EXTENSIONS)
+}
+
+fn is_pdf_path(path: &str) -> bool {
+    extension_matches(path, &PDF_EXTENSIONS)
+}
+
+fn is_base_path(path: &str) -> bool {
+    extension_matches(path, &BASE_EXTENSIONS)
+}
+
+/// Parses an image embed's own `|WIDTH` or `|WIDTHxHEIGHT` size hint
+/// (`EMBEDS.md`: `![[image.png|300]]`, `![[image.png|640x480]]`).
+/// Obsidian overloads the pipe segment: "display text" for a link, "size"
+/// for an image embed. Malformed or missing sizing (anything that does not
+/// parse as one or two positive integers) is simply no hint at all, never
+/// a render failure over a decorative sizing detail.
+fn parse_image_size(hint: &str) -> Option<(u32, Option<u32>)> {
+    let hint = hint.trim();
+    if let Some((width, height)) = hint.split_once('x') {
+        return Some((width.trim().parse().ok()?, Some(height.trim().parse().ok()?)));
+    }
+    Some((hint.parse().ok()?, None))
 }
 
 /// Renders an image embed (`![[photo.jpg]]`) as an `<img>` pointing at the
@@ -236,10 +425,25 @@ fn is_image_path(path: &str) -> bool {
 /// already serves it as raw bytes with its real content type): unlike a
 /// note embed, an image is never read as text or recursively rendered.
 fn render_image_embed(occurrence: &LinkOccurrence, href: &str) -> String {
+    let size_attrs = match occurrence.display.as_deref().and_then(parse_image_size) {
+        Some((width, Some(height))) => format!(" width=\"{width}\" height=\"{height}\""),
+        Some((width, None)) => format!(" width=\"{width}\""),
+        None => String::new(),
+    };
     format!(
-        "<img class=\"embed-image\" src=\"{href}\" alt=\"{alt}\">",
+        "<img class=\"embed-image\" src=\"{href}\" alt=\"{alt}\"{size_attrs}>",
         href = crate::rendering::escape_html(href),
         alt = crate::rendering::escape_html(&occurrence.target)
+    )
+}
+
+/// Renders an audio embed (`![[audio.mp3]]`) as a native `<audio controls>`
+/// element pointing at the same content route an image embed uses.
+fn render_audio_embed(occurrence: &LinkOccurrence, href: &str) -> String {
+    format!(
+        "<audio class=\"embed-audio\" controls src=\"{href}\">{fallback}</audio>",
+        href = crate::rendering::escape_html(href),
+        fallback = crate::rendering::escape_html(&occurrence.target)
     )
 }
 
@@ -256,16 +460,36 @@ async fn render_embed_occurrence(
     if is_image_path(&candidate) {
         return render_image_embed(occurrence, &candidate);
     }
-    if embed_depth >= MAX_EMBED_DEPTH {
-        // A doubly-embedded file renders as a plain link at the second
-        // level, never a second recursive inline.
+    if is_audio_path(&candidate) {
+        return render_audio_embed(occurrence, &candidate);
+    }
+    if is_pdf_path(&candidate) {
+        // A PDF embed renders as a plain link in v1: a full inline preview
+        // (`EMBEDS.md`'s `#page=`/`#height=` fragments) needs a bundled PDF
+        // viewer this crate does not yet ship, tracked separately
+        // (`A-055`); a link is still strictly better than the dead link a
+        // PDF's binary content would otherwise produce.
         return wikilinks::render_link(occurrence, &candidate);
     }
     let relative_path = candidate
         .strip_prefix('/')
         .and_then(|p| p.strip_prefix(vault_name))
         .and_then(|p| p.strip_prefix('/'))
-        .unwrap_or(&candidate);
+        .unwrap_or(&candidate)
+        .to_owned();
+    if is_base_path(&candidate) {
+        // A `.base` file is a view definition, never text to read or
+        // recursively render (`web-rendering.md` §2): reuses the identical
+        // `base::render_view` the `.base` file's own route already calls.
+        // The occurrence's own `heading` fragment doubles as the view name
+        // here, `EMBEDS.md`'s `#View Name` convention.
+        return render_base_embed(mcp, vault_name, occurrence, &relative_path).await;
+    }
+    if embed_depth >= MAX_EMBED_DEPTH {
+        // A doubly-embedded file renders as a plain link at the second
+        // level, never a second recursive inline.
+        return wikilinks::render_link(occurrence, &append_fragment(&candidate, occurrence));
+    }
     let path = format!("{vault_name}://{relative_path}");
     let mut args = serde_json::Map::new();
     args.insert("path".to_owned(), serde_json::Value::String(path.clone()));
@@ -288,12 +512,36 @@ async fn render_embed_occurrence(
     } else {
         read.content
     };
-    let rendered = Box::pin(render(mcp, vault_name, &content, embed_depth + 1)).await;
+    // `![[Note#^block-id]]` inlines just the referenced block
+    // (`EMBEDS.md`'s "Embed Lists"), not the whole target note; a
+    // heading-only fragment (`![[Note#Heading]]`) does not narrow the
+    // embed in v1 and still inlines the full note, a smaller committed
+    // scope than partial block extraction (`A-055`).
+    let source = match &occurrence.block {
+        Some(block_id) => block_ids::extract_block_by_id(&content, block_id).unwrap_or(content),
+        None => content,
+    };
+    let rendered = Box::pin(render(mcp, vault_name, &source, embed_depth + 1)).await;
     format!(
         "<div class=\"embed-block\"><div class=\"embed-label\">{label}</div>{body}</div>",
         label = crate::rendering::escape_html(&occurrence.target),
         body = rendered.html
     )
+}
+
+async fn render_base_embed(
+    mcp: &McpClient,
+    vault_name: &str,
+    occurrence: &LinkOccurrence,
+    relative_path: &str,
+) -> String {
+    match crate::rendering::base::render_view(mcp, vault_name, relative_path, occurrence.heading.as_deref()).await {
+        Ok(fragment) => format!(
+            "<div class=\"embed-block\"><div class=\"embed-label\">{label}</div>{fragment}</div>",
+            label = crate::rendering::escape_html(&occurrence.target)
+        ),
+        Err(McpCallError::Unreachable { .. }) => wikilinks::render_dead_link(occurrence),
+    }
 }
 
 /// Re-reads `vault_path` via `fs_attach_file` (full content for a file of
@@ -302,10 +550,7 @@ async fn render_embed_occurrence(
 /// a non-text attachment (should not happen for a path that just read as
 /// truncated text, but fails closed rather than misinterpreting binary
 /// content as a string) or a target that no longer exists.
-async fn fetch_full_text(
-    mcp: &McpClient,
-    vault_path: String,
-) -> Result<Option<String>, crate::mcp_client::McpCallError> {
+async fn fetch_full_text(mcp: &McpClient, vault_path: String) -> Result<Option<String>, McpCallError> {
     let mut args = serde_json::Map::new();
     args.insert("path".to_owned(), serde_json::Value::String(vault_path));
     let result = mcp.call_tool("fs_attach_file".to_owned(), args).await?;

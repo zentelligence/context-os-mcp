@@ -74,3 +74,47 @@ fn rendering_prefers_an_explicit_title() {
     let html = render(&open, "");
     assert!(html.contains(">Custom<"));
 }
+
+#[test]
+fn a_documented_alias_is_styled_as_its_canonical_type() {
+    let open = CalloutOpen {
+        kind: "hint".to_owned(),
+        title: None,
+    };
+    let html = render(&open, "");
+    // Styling uses the canonical type ("tip")...
+    assert!(html.contains("class=\"callout callout-tip\""));
+    // ...but the author's own literal kind is preserved for CSS overrides
+    // and the default title still reflects what they actually typed.
+    assert!(html.contains("data-callout=\"hint\""));
+    assert!(html.contains(">Hint<"));
+}
+
+#[test]
+fn every_documented_alias_maps_to_its_canonical_type() {
+    let cases = [
+        ("summary", "abstract"),
+        ("tldr", "abstract"),
+        ("hint", "tip"),
+        ("important", "tip"),
+        ("check", "success"),
+        ("done", "success"),
+        ("help", "question"),
+        ("faq", "question"),
+        ("caution", "warning"),
+        ("attention", "warning"),
+        ("fail", "failure"),
+        ("missing", "failure"),
+        ("error", "danger"),
+        ("cite", "quote"),
+    ];
+    for (alias, canonical) in cases {
+        assert_eq!(canonical_kind(alias), canonical, "alias {alias:?}");
+    }
+}
+
+#[test]
+fn an_already_canonical_or_undocumented_kind_maps_to_itself() {
+    assert_eq!(canonical_kind("note"), "note");
+    assert_eq!(canonical_kind("some-custom-type"), "some-custom-type");
+}

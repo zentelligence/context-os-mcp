@@ -62,6 +62,37 @@ fn extracts_multiple_fence_blocks_in_document_order() {
 }
 
 #[test]
+fn a_fence_containing_nested_fences_of_the_same_notation_captures_its_full_extent() {
+    // The convention document's own canonical `:::grid` example: the
+    // outer fence's own close must not be confused with an inner card's.
+    let doc = ":::grid{cols=3}\n\n:::card{title=\"Build\"}\nCompile.\n:::\n\n:::card{title=\"Test\"}\nRun tests.\n:::\n\n:::\n";
+    let result = extract(doc);
+    assert_eq!(result.blocks.len(), 1, "the outer grid is the only top-level block");
+    assert_eq!(result.blocks[0].open.name, "grid");
+    // The outer block's own raw inner text still contains both nested
+    // cards verbatim, unprocessed: recursing into it is the caller's job.
+    assert!(result.blocks[0].inner.contains(":::card{title=\"Build\"}"));
+    assert!(result.blocks[0].inner.contains("Compile."));
+    assert!(result.blocks[0].inner.contains(":::card{title=\"Test\"}"));
+    assert!(result.blocks[0].inner.contains("Run tests."));
+}
+
+#[test]
+fn a_self_closing_fence_nested_inside_another_does_not_confuse_depth_counting() {
+    let doc = ":::note\nBefore.\n\n:::page-break\n\nAfter.\n:::\n";
+    let result = extract(doc);
+    assert_eq!(
+        result.blocks.len(),
+        1,
+        "the page-break is captured raw inside note's own inner text"
+    );
+    assert_eq!(result.blocks[0].open.name, "note");
+    assert!(result.blocks[0].inner.contains("Before."));
+    assert!(result.blocks[0].inner.contains(":::page-break"));
+    assert!(result.blocks[0].inner.contains("After."));
+}
+
+#[test]
 fn an_unclosed_fence_is_left_as_literal_text() {
     let doc = ":::note\nnever closed";
     let result = extract(doc);

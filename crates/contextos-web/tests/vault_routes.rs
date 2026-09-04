@@ -316,6 +316,116 @@ async fn wikilink_resolution_covers_live_dead_and_doubly_nested_embed() -> Resul
 }
 
 #[tokio::test]
+async fn a_heading_reference_link_resolves_to_the_targets_own_slugged_heading_id() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(
+        vault_dir.path(),
+        "target-note.md",
+        "# Target\n\n## Some Heading\n\nDetail.\n",
+    )?;
+    write(
+        vault_dir.path(),
+        "note.md",
+        "# Note\n\nSee [[target-note#Some Heading]].\n",
+    )?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(&format!("href=\"/{VAULT_NAME}/target-note.md#some-heading\"")));
+
+    let (status, target_body) = get(&router, &format!("/{VAULT_NAME}/target-note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{target_body}");
+    assert!(target_body.contains("<h2 id=\"some-heading\">Some Heading</h2>"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_block_reference_link_resolves_to_an_invisible_anchor_at_the_blocks_own_position() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(
+        vault_dir.path(),
+        "target-note.md",
+        "# Target\n\nThis paragraph can be linked to. ^my-block-id\n",
+    )?;
+    write(
+        vault_dir.path(),
+        "note.md",
+        "# Note\n\nSee [[target-note#^my-block-id]].\n",
+    )?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(&format!("href=\"/{VAULT_NAME}/target-note.md#my-block-id\"")));
+
+    let (status, target_body) = get(&router, &format!("/{VAULT_NAME}/target-note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{target_body}");
+    assert!(target_body.contains("<span id=\"my-block-id\"></span>"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_base_embed_renders_its_own_card_grid_not_a_raw_yaml_dump() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(
+        vault_dir.path(),
+        "tasks.base",
+        "views:\n  - type: table\n    name: \"Active\"\n    order:\n      - file.path\n      - status\n",
+    )?;
+    write(
+        vault_dir.path(),
+        "task-one.md",
+        "---\nstatus: active\n---\n# Task one\n",
+    )?;
+    write(vault_dir.path(), "note.md", "# Note\n\n![[tasks.base]]\n")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(&format!("href=\"/{VAULT_NAME}/task-one.md\"")));
+    assert!(body.contains("active"));
+    assert!(
+        !body.contains("views:"),
+        "the raw YAML definition must not leak into the embed"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_block_reference_embed_inlines_only_the_referenced_block() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(
+        vault_dir.path(),
+        "target-note.md",
+        "# Target\n\n\
+         - Item 1\n\
+         - Item 2\n\
+         - Item 3\n\n\
+         ^list-id\n\n\
+         This paragraph is not part of the referenced block.\n",
+    )?;
+    write(vault_dir.path(), "note.md", "# Note\n\n![[target-note#^list-id]]\n")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("Item 1"));
+    assert!(body.contains("Item 2"));
+    assert!(body.contains("Item 3"));
+    assert!(!body.contains("not part of the referenced block"));
+    Ok(())
+}
+
+#[tokio::test]
 async fn an_image_embed_renders_as_an_img_tag_not_a_dead_link() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;
@@ -330,6 +440,76 @@ async fn an_image_embed_renders_as_an_img_tag_not_a_dead_link() -> Result<(), Bo
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(body.contains(&format!("<img class=\"embed-image\" src=\"/{VAULT_NAME}/photo.jpg\"")));
     assert!(!body.contains("wikilink dead"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn an_image_embeds_size_hint_becomes_width_and_height_attributes() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(vault_dir.path(), "photo.jpg", "not-a-real-jpeg")?;
+    write(vault_dir.path(), "note.md", "# Note\n\n![[photo.jpg|640x480]]\n")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("width=\"640\" height=\"480\""));
+    Ok(())
+}
+
+#[tokio::test]
+async fn audio_and_pdf_embeds_render_as_media_not_dead_links() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(vault_dir.path(), "clip.mp3", "not-a-real-mp3")?;
+    write(vault_dir.path(), "handout.pdf", "not-a-real-pdf")?;
+    write(
+        vault_dir.path(),
+        "note.md",
+        "# Note\n\n![[clip.mp3]]\n\n![[handout.pdf]]\n",
+    )?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(&format!(
+        "<audio class=\"embed-audio\" controls src=\"/{VAULT_NAME}/clip.mp3\""
+    )));
+    assert!(body.contains(&format!("href=\"/{VAULT_NAME}/handout.pdf\"")));
+    assert!(body.contains("class=\"wikilink\""));
+    assert!(!body.contains("wikilink dead"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn ofm_extensions_render_together_comments_highlight_tags_and_a_callout_alias() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(
+        vault_dir.path(),
+        "note.md",
+        "# Note\n\n\
+         Visible %%but this stays hidden%% text.\n\n\
+         This is ==important==.\n\n\
+         Tagged as #project today.\n\n\
+         > [!hint] Did you know\n\
+         > A hint is styled as a tip.\n",
+    )?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/note.md")).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("Visible"));
+    assert!(!body.contains("but this stays hidden"));
+    assert!(body.contains("<mark>important</mark>"));
+    assert!(body.contains("<span class=\"tag\">#project</span>"));
+    // The documented alias ("hint") is styled as its canonical type
+    // ("tip") but keeps its own literal kind for the default title.
+    assert!(body.contains("class=\"callout callout-tip\""));
+    assert!(body.contains("data-callout=\"hint\""));
     Ok(())
 }
 

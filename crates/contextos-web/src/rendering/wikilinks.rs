@@ -147,13 +147,22 @@ fn parse_inner(inner: &str) -> LinkOccurrence {
         Some((t, d)) => (t, Some(d.to_owned())),
         None => (inner, None),
     };
-    let (target_part, block) = match target_part.split_once('^') {
-        Some((t, b)) => (t, Some(b.to_owned())),
-        None => (target_part, None),
-    };
-    let (target, heading) = match target_part.split_once('#') {
-        Some((t, h)) => (t, Some(h.to_owned())),
-        None => (target_part, None),
+    // A block reference is `#^block-id` (heading marker immediately
+    // followed by a caret, the real Obsidian syntax, `EMBEDS.md`) or a
+    // bare `^block-id`; a plain `#heading` with no caret at all is a
+    // heading reference. The two are mutually exclusive on one target, so
+    // whichever matches first wins outright rather than both firing (a
+    // bare `split_once('^')` before `split_once('#')` would otherwise
+    // leave a spurious empty `heading: Some("")` behind for `Note#^id`,
+    // since the `^` split runs first and swallows the `#` with it).
+    let (target, heading, block) = if let Some((t, b)) = target_part.split_once("#^") {
+        (t, None, Some(b.to_owned()))
+    } else if let Some((t, b)) = target_part.split_once('^') {
+        (t, None, Some(b.to_owned()))
+    } else if let Some((t, h)) = target_part.split_once('#') {
+        (t, Some(h.to_owned()), None)
+    } else {
+        (target_part, None, None)
     };
     LinkOccurrence {
         syntax: LinkSyntax::Link,

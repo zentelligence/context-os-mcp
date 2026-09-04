@@ -6,6 +6,15 @@
 //! ignored here: `contextos-web` renders every callout expanded, since it
 //! has no client-side fold interaction in v1). The run ends at the first
 //! line that is not itself `>`-prefixed.
+//!
+//! A callout may nest another callout (`> [!question]\n> > [!note]\n> >
+//! Nested`, `CALLOUTS.md`'s own documented example): [`extract`] strips
+//! exactly one leading `>` per line, so a nested callout's own `> [!type]`
+//! marker survives intact inside the outer callout's captured `body`,
+//! ready for the caller to recursively re-extract; no depth-aware
+//! close-matching is needed here the way [`super::fences::extract`] needs
+//! it, since a callout's own extent is delimited by "still `>`-prefixed or
+//! not," which already nests correctly with no extra bookkeeping.
 
 use crate::rendering::escape_html;
 
@@ -111,16 +120,42 @@ pub fn extract(text: &str) -> ExtractResult {
     }
 }
 
+/// Maps a documented alias (`obsidian-markdown` skill's `CALLOUTS.md`) to
+/// its canonical type for styling purposes: `hint`/`important` are styled
+/// as `tip`, `caution`/`attention` as `warning`, and so on down the
+/// skill's own alias column. A kind that is already canonical, or one the
+/// skill does not document at all, maps to itself, so an unrecognised
+/// callout type still gets a plain neutral treatment rather than an error
+/// (matching the triple-colon fence convention's own "unrecognised still
+/// renders, never dropped" rule, `fences.rs`). `data-callout` on the
+/// rendered element keeps the author's own literal kind regardless, so a
+/// custom CSS override targeting the exact typed name still works.
+fn canonical_kind(kind: &str) -> &str {
+    match kind {
+        "summary" | "tldr" => "abstract",
+        "hint" | "important" => "tip",
+        "check" | "done" => "success",
+        "help" | "faq" => "question",
+        "caution" | "attention" => "warning",
+        "fail" | "missing" => "failure",
+        "error" => "danger",
+        "cite" => "quote",
+        other => other,
+    }
+}
+
 /// Renders one callout block to HTML, given `body_html` (its own body,
 /// already rendered through the caller's recursive pass).
 #[must_use]
 pub fn render(open: &CalloutOpen, body_html: &str) -> String {
     let title = open.title.clone().unwrap_or_else(|| titlecase(&open.kind));
+    let canonical = canonical_kind(&open.kind);
     format!(
-        "<div class=\"callout callout-{kind}\" data-callout=\"{kind}\">\
+        "<div class=\"callout callout-{canonical}\" data-callout=\"{kind}\">\
 <div class=\"callout-title\">{title}</div>\
 <div class=\"callout-body\">{body_html}</div>\
 </div>",
+        canonical = escape_html(canonical),
         kind = escape_html(&open.kind),
         title = escape_html(&title),
     )

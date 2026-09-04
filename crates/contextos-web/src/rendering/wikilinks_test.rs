@@ -31,6 +31,19 @@ fn extracts_a_wikilink_with_a_heading_and_block_reference() {
 }
 
 #[test]
+fn extracts_a_block_reference_using_the_documented_hash_caret_syntax() {
+    // `EMBEDS.md`'s own documented form: `#^block-id`, not a bare `^`.
+    let result = extract("[[note#^abc123]]");
+    let occ = &result.occurrences[0];
+    assert_eq!(occ.target, "note");
+    assert_eq!(occ.block.as_deref(), Some("abc123"));
+    assert_eq!(
+        occ.heading, None,
+        "a block reference must not also carry a spurious empty heading"
+    );
+}
+
+#[test]
 fn extracts_an_embed_as_a_block_level_placeholder() {
     let result = extract("before\n\n![[embedded-note]]\n\nafter");
     assert_eq!(result.occurrences.len(), 1);

@@ -6,11 +6,16 @@
 //! bordered block carrying its literal name as a label, never silently
 //! dropped.
 //!
-//! Fences do not nest in this pipeline (the convention document itself
-//! recommends "keep nested fences shallow"): a fence's inner text is
-//! rendered through the caller's own recursive pass, but this module's own
-//! scan never looks for a nested `:::` open inside an already-open fence,
-//! only the next `:::` close.
+//! A fence may nest another fence (the convention document's own `:::grid`
+//! containing several `:::card` blocks): [`extract`]'s own close-matching
+//! depth-balances every nested open against every bare close so an inner
+//! fence's own close is never mistaken for its parent's, but a fence's own
+//! *inner text* is still captured raw and unprocessed here — rendering a
+//! nested fence as its own real container, not literal `:::name` text, is
+//! [`crate::rendering::markdown`]'s own bounded recursive pass over that
+//! captured text, mirroring wikilink embeds' own depth bound. Keep nested
+//! fences shallow regardless (the convention document's own recommendation):
+//! this pipeline's recursion is bounded, not unlimited.
 
 use crate::rendering::escape_html;
 
@@ -223,6 +228,17 @@ pub fn placeholder(index: usize) -> String {
 /// self-closing document-render fences) is left as literal text: this
 /// pipeline never guesses at unbalanced input by swallowing the rest of the
 /// document.
+///
+/// A fence's own extent is found by depth-balancing every subsequent
+/// `:::name` open against every subsequent bare `:::` close (skipping a
+/// self-closing fence's own optional trailing bare `:::`, which belongs to
+/// it, not to whatever fence contains it), so a nested fence's own close
+/// is never mistaken for its parent's. `extract` captures the outer
+/// block's raw, still-unprocessed inner text exactly as before; recursing
+/// into that text to render a nested fence as its own real container,
+/// rather than literal `:::name` text, is the caller's job
+/// ([`crate::rendering::markdown`]'s own bounded recursion, mirroring
+/// wikilink embeds' `MAX_EMBED_DEPTH`), not this pure scanner's.
 #[must_use]
 pub fn extract(text: &str) -> ExtractResult {
     let lines: Vec<&str> = text.lines().collect();
@@ -247,9 +263,8 @@ pub fn extract(text: &str) -> ExtractResult {
                 }
                 continue;
             }
-            if let Some(close_offset) = lines[i + 1..].iter().position(|l| l.trim() == ":::") {
+            if let Some(inner_end) = find_matching_close(&lines, i + 1) {
                 let inner_start = i + 1;
-                let inner_end = inner_start + close_offset; // exclusive
                 let inner = lines[inner_start..inner_end].join("\n");
                 let index = blocks.len();
                 blocks.push(FenceBlock { open, inner });
@@ -265,6 +280,40 @@ pub fn extract(text: &str) -> ExtractResult {
         text: out_lines.join("\n"),
         blocks,
     }
+}
+
+/// Finds the index of the bare `:::` line that closes a fence opened just
+/// before `start`, depth-balancing every nested non-self-closing open
+/// against every bare close encountered along the way. Returns `None` when
+/// no such close exists (an unbalanced fence, left as literal text by the
+/// caller).
+fn find_matching_close(lines: &[&str], start: usize) -> Option<usize> {
+    let mut depth: u32 = 0;
+    let mut i = start;
+    while i < lines.len() {
+        if let Some(open) = parse_open_line(lines[i]) {
+            if SELF_CLOSING_FENCE_NAMES.contains(&open.name.as_str()) {
+                // Consume its own optional trailing bare `:::`: that marker
+                // belongs to it, never to the fence containing it.
+                i += 1;
+                if lines.get(i).is_some_and(|l| l.trim() == ":::") {
+                    i += 1;
+                }
+                continue;
+            }
+            depth += 1;
+            i += 1;
+            continue;
+        }
+        if lines[i].trim() == ":::" {
+            if depth == 0 {
+                return Some(i);
+            }
+            depth -= 1;
+        }
+        i += 1;
+    }
+    None
 }
 
 fn push_placeholder_paragraph(out_lines: &mut Vec<String>, index: usize) {
