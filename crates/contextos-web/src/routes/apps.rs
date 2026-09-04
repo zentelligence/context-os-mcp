@@ -13,16 +13,20 @@
 //! exercised identically by a real request and by this module's own tests.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use askama::Template;
 use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Redirect, Response};
 
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 
 use crate::apps::{self, AppKind, AppStatus, AppTarget, RegisteredApp};
+use crate::config;
 use crate::mcp_client::{McpCallError, McpClient, McpClientSet};
+use crate::rendering::page;
+use crate::rendering::shell::{self, ActiveScreen};
 use crate::routes::vault::{
     Attached, fetch_attached, html_response, not_found, server_not_configured, unreachable,
 };
@@ -30,14 +34,17 @@ use crate::routes::vault::{
 /// Shared state an app route needs: the connected MCP sessions, the
 /// `[[mcp_server]]` name every vault operation is issued against, the
 /// full configured `[[mcp_server]]` name list (a manifest's own
-/// `mcp_servers` allow-list is validated against this, FR-232), and the
-/// per-vault discovered-app cache.
+/// `mcp_servers` allow-list is validated against this, FR-232), the
+/// per-vault discovered-app cache, and `web.toml`'s own path (read fresh
+/// per request for the nav shell's `[server.ui]` appearance, `FR-251`;
+/// this route never writes it).
 #[derive(Clone)]
 pub struct AppRoutesState {
     clients: Arc<McpClientSet>,
     primary_server: String,
     mcp_server_names: Arc<Vec<String>>,
     registry: Arc<RwLock<HashMap<String, Vec<RegisteredApp>>>>,
+    web_config_path: Arc<PathBuf>,
 }
 
 #[derive(Clone, Copy)]
@@ -58,12 +65,14 @@ impl AppRoutesState {
         clients: Arc<McpClientSet>,
         primary_server: String,
         mcp_server_names: Vec<String>,
+        web_config_path: Arc<PathBuf>,
     ) -> Self {
         Self {
             clients,
             primary_server,
             mcp_server_names: Arc::new(mcp_server_names),
             registry: Arc::new(RwLock::new(HashMap::new())),
+            web_config_path,
         }
     }
 
@@ -141,6 +150,11 @@ struct AppListEntry {
     kind_label: &'static str,
     servable: bool,
     target_attr: &'static str,
+    /// The mock's `<dl>` "Opens" row (`outbox/2026-09-04-contextos-web-
+    /// mock.html`'s `tpl-apps`): a human label for `target_attr`, kept
+    /// distinct from it since `target_attr` is an HTML attribute value and
+    /// this is prose.
+    opens_label: &'static str,
 }
 
 #[derive(Template)]
@@ -163,6 +177,10 @@ fn list_entry(app: &RegisteredApp) -> AppListEntry {
             AppTarget::Blank => "_blank",
             AppTarget::Embed => "_self",
         },
+        opens_label: match app.target {
+            AppTarget::Blank => "new tab",
+            AppTarget::Embed => "inline",
+        },
     }
 }
 
@@ -177,7 +195,14 @@ fn render_list(vault_name: &str, registered: &[RegisteredApp]) -> String {
 }
 
 /// `GET /{{vault_name}}/apps/` (`FR-234`): lists every registered app.
-pub async fn list(State(state): State<AppRoutesState>, Path(vault_name): Path<String>) -> Response {
+/// Follows the identical `HX-Request` full-page/fragment split every other
+/// full-page route in this crate uses
+/// (`standards/http-routing-response-contract-standard.md`).
+pub async fn list(
+    State(state): State<AppRoutesState>,
+    Path(vault_name): Path<String>,
+    headers: HeaderMap,
+) -> Response {
     let client = match state.client() {
         Ok(client) => client,
         Err(error) => return registry_error_response(error),
@@ -186,7 +211,23 @@ pub async fn list(State(state): State<AppRoutesState>, Path(vault_name): Path<St
         return *response;
     }
     match state.apps_for(&vault_name).await {
-        Ok(registered) => html_response(render_list(&vault_name, &registered)),
+        Ok(registered) => {
+            let fragment = render_list(&vault_name, &registered);
+            if headers.contains_key("hx-request") {
+                html_response(fragment)
+            } else {
+                let mut nav = shell::build_nav(
+                    client,
+                    ActiveScreen::Apps,
+                    Some(&vault_name),
+                    Some("apps"),
+                    None,
+                )
+                .await;
+                nav.appearance = config::current_appearance(&state.web_config_path);
+                html_response(page::render_page(&nav, "Apps", &fragment))
+            }
+        }
         Err(error) => registry_error_response(error),
     }
 }

@@ -3,6 +3,7 @@
 pub mod app;
 pub mod apps;
 pub mod config;
+pub mod config_writer;
 pub mod mcp_client;
 pub mod proxy;
 pub mod rendering;
@@ -15,4 +16,5 @@ pub use config::{
     McpServerConfig, WebConfig, WebConfigError, WebLogLevel, WebServerConfig, load_vault_set,
     load_web_config,
 };
+pub use config_writer::{WebConfigDocument, WebConfigWriterError};
 pub use mcp_client::{McpCallError, McpClient, McpClientSet, McpConnectError};

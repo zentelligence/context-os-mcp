@@ -48,7 +48,12 @@ async fn a_proxy_call_logs_fields_but_never_argument_or_result_content() -> Resu
     let config_path = support::write_vault_config(dir.path(), &vault)?;
     let entry = support::real_contextos_entry("contextos", &config_path)?;
     let clients = Arc::new(contextos_web::mcp_client::McpClientSet::connect(&[entry]).await?);
-    let router = contextos_web::build_router(clients, dir.path(), "contextos".to_owned());
+    let router = contextos_web::build_router(
+        clients,
+        dir.path(),
+        &dir.path().join("web.toml"),
+        "contextos".to_owned(),
+    );
 
     let writer = CapturingWriter::default();
     let subscriber = tracing_subscriber::fmt()

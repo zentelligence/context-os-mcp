@@ -13,6 +13,7 @@ fn a_row_with_a_file_path_column_links_to_its_own_vault_route() {
     let view = row_view(&row, &columns, "example-vault");
     assert!(view.has_link);
     assert_eq!(view.href, "/example-vault/tasks/one.md");
+    assert_eq!(view.note_path.as_deref(), Some("tasks/one.md"));
     assert_eq!(view.title, "one.md");
     assert_eq!(view.columns.len(), 1);
     assert_eq!(view.columns[0].name, "status");
@@ -26,6 +27,7 @@ fn a_row_with_no_file_path_column_renders_without_a_link() {
     let view = row_view(&row, &columns, "example-vault");
     assert!(!view.has_link);
     assert_eq!(view.href, "");
+    assert_eq!(view.note_path, None);
     assert_eq!(view.title, "active");
 }
 

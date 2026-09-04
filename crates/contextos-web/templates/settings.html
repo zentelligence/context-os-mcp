@@ -1,0 +1,176 @@
+<div class="settings" hx-ext="json-enc">
+  <h1>Settings</h1>
+
+  <div class="settings-grid">
+    <div class="settings-nav" id="settings-nav">
+      <button type="button" class="active" data-pane="appearance">Appearance</button>
+      <button type="button" data-pane="servers">MCP servers</button>
+      <button type="button" data-pane="bind">Server &amp; bind</button>
+    </div>
+
+    <div>
+      <section class="settings-panel settings-appearance" id="pane-appearance">
+        <h2>Appearance</h2>
+        <p class="hint"><code>[server.ui]</code> is an unenumerated key/value table (theme, font, and similar rendering-side preferences); edit any existing key below or add a new one.</p>
+        <form
+          hx-patch="/settings/"
+          hx-target=".settings"
+          hx-swap="outerHTML"
+          hx-vals="js:{target:'ui', patch:(function(){var out={};document.querySelectorAll('#appearance-fields input[data-ui-key]').forEach(function(i){out[i.dataset.uiKey]=i.value;});var k=(document.getElementById('ui-new-key').value||'').trim();var v=document.getElementById('ui-new-value').value||'';if(k)out[k]=v;return out;})()}"
+        >
+          <div id="appearance-fields">
+{% if ui.is_empty() %}
+            <p class="hint">No <code>[server.ui]</code> keys are set yet.</p>
+{% else %}
+{% for (key, value) in ui %}
+            <div class="field-row"><label>{{ key }}<input type="text" data-ui-key="{{ key }}" value="{{ value }}"></label></div>
+{% endfor %}
+{% endif %}
+          </div>
+          <div class="field-row">
+            <label>Add key<input type="text" id="ui-new-key" placeholder="e.g. theme"></label>
+            <label>Value<input type="text" id="ui-new-value"></label>
+          </div>
+          <div class="save-bar"><button type="submit" class="btn primary">Save</button></div>
+        </form>
+      </section>
+
+      <section class="settings-panel settings-mcp-servers" id="pane-servers" hidden>
+        <h2>MCP servers</h2>
+{% if mcp_servers.is_empty() %}
+        <p class="hint">No <code>[[mcp_server]]</code> entries are configured.</p>
+{% else %}
+        <ul class="mcp-server-list">
+{% for server in mcp_servers %}
+          <li data-name="{{ server.name }}">
+            <div class="mcp-server-row">
+              <span class="mcp-server-name">{{ server.name }}</span>
+              <span class="mcp-server-transport">{{ server.transport }}</span>
+              <span class="mcp-server-detail">{{ server.detail }}</span>
+              <button type="button" class="mcp-server-edit-toggle btn small" data-target="mcp-server-edit-{{ loop.index0 }}">Edit</button>
+              <button
+                type="button"
+                class="mcp-server-delete btn small"
+                hx-delete="/settings/"
+                hx-target=".settings"
+                hx-swap="outerHTML"
+                hx-vals='{"name": "{{ server.name }}"}'
+                hx-confirm="Remove MCP server &quot;{{ server.name }}&quot;? Any registered app whose manifest still names it will be refused."
+              >Remove</button>
+            </div>
+            <form
+              class="mcp-server-edit"
+              id="mcp-server-edit-{{ loop.index0 }}"
+              data-name="{{ server.name }}"
+              hidden
+              hx-patch="/settings/"
+              hx-target=".settings"
+              hx-swap="outerHTML"
+{% if server.transport == "stdio" %}
+              hx-vals="js:{target:'mcp_server', name:this.dataset.name, patch:{command: this.querySelector('[data-field=command]').value, args: this.querySelector('[data-field=args]').value.split(/\s+/).filter(Boolean)}}"
+{% else %}
+              hx-vals="js:{target:'mcp_server', name:this.dataset.name, patch:(function(el){var p={endpoint: el.querySelector('[data-field=endpoint]').value};var t=el.querySelector('[data-field=token_env]').value;if(t)p.token_env=t;return p;})(this)}"
+{% endif %}
+            >
+{% if server.transport == "stdio" %}
+              <label>command<input type="text" data-field="command" value="{{ server.command.as_deref().unwrap_or_default() }}"></label>
+              <label>args (space-separated)<input type="text" data-field="args" value="{{ server.args.as_deref().unwrap_or_default() }}"></label>
+{% else %}
+              <label>endpoint<input type="text" data-field="endpoint" value="{{ server.endpoint.as_deref().unwrap_or_default() }}"></label>
+              <label>auth: token_env (environment variable name holding the bearer token; never the token itself)<input type="text" data-field="token_env" value="{{ server.token_env.as_deref().unwrap_or_default() }}" placeholder="e.g. SOME_OTHER_SERVER_TOKEN"></label>
+{% endif %}
+              <button type="submit" class="btn primary small">Save</button>
+            </form>
+          </li>
+{% endfor %}
+        </ul>
+{% endif %}
+
+        <div class="mcp-server-add-transport">
+          <button type="button" class="btn small active" data-transport="stdio">Add stdio server</button>
+          <button type="button" class="btn small" data-transport="http">Add HTTP server</button>
+        </div>
+
+        <form
+          class="mcp-server-add"
+          id="mcp-server-add-stdio"
+          hx-post="/settings/"
+          hx-target=".settings"
+          hx-swap="outerHTML"
+          hx-vals="js:{args: (document.getElementById('mcp-server-add-args').value || '').split(/\s+/).filter(Boolean)}"
+        >
+          <h3>Add an MCP server (stdio)</h3>
+          <input type="hidden" name="transport" value="stdio">
+          <label>name <input type="text" name="name" required></label>
+          <label>command <input type="text" name="command" required></label>
+          <label>args (space-separated) <input type="text" id="mcp-server-add-args"></label>
+          <button type="submit" class="btn primary">Add</button>
+        </form>
+
+        <form
+          class="mcp-server-add"
+          id="mcp-server-add-http"
+          hidden
+          hx-post="/settings/"
+          hx-target=".settings"
+          hx-swap="outerHTML"
+          hx-vals="js:(function(){var t=(document.getElementById('mcp-server-add-token-env').value||'').trim();return t?{token_env:t}:{};})()"
+        >
+          <h3>Add an MCP server (HTTP)</h3>
+          <input type="hidden" name="transport" value="http">
+          <label>name <input type="text" name="name" required></label>
+          <label>endpoint <input type="text" name="endpoint" placeholder="http://127.0.0.1:9000" required></label>
+          <label>auth: token_env (environment variable name holding the bearer token; never the token itself) <input type="text" id="mcp-server-add-token-env" placeholder="e.g. SOME_OTHER_SERVER_TOKEN"></label>
+          <button type="submit" class="btn primary">Add</button>
+        </form>
+      </section>
+
+      <section class="settings-panel settings-server" id="pane-bind" hidden>
+        <h2>Server &amp; bind</h2>
+        <p class="hint">Display-only in this release; changing bind requires a restart.</p>
+        <dl>
+          <dt>bind</dt><dd>{{ bind }}</dd>
+          <dt>static_dir</dt><dd>{{ static_dir }}</dd>
+          <dt>log_level</dt><dd>{{ log_level }}</dd>
+          <dt>log_file</dt><dd>{% if log_file.is_empty() %}(stderr){% else %}{{ log_file }}{% endif %}</dd>
+        </dl>
+      </section>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var nav = document.getElementById('settings-nav');
+  if(nav){
+    nav.addEventListener('click', function(event){
+      var button = event.target.closest('button[data-pane]');
+      if(!button) return;
+      nav.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
+      button.classList.add('active');
+      ['appearance', 'servers', 'bind'].forEach(function(pane){
+        var section = document.getElementById('pane-' + pane);
+        if(section) section.hidden = pane !== button.dataset.pane;
+      });
+    });
+  }
+
+  document.querySelectorAll('.mcp-server-edit-toggle').forEach(function(button){
+    button.addEventListener('click', function(){
+      var form = document.getElementById(button.dataset.target);
+      if(form) form.hidden = !form.hidden;
+    });
+  });
+
+  var transportToggle = document.querySelector('.mcp-server-add-transport');
+  if(transportToggle){
+    transportToggle.addEventListener('click', function(event){
+      var button = event.target.closest('button[data-transport]');
+      if(!button) return;
+      transportToggle.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
+      button.classList.add('active');
+      document.getElementById('mcp-server-add-stdio').hidden = button.dataset.transport !== 'stdio';
+      document.getElementById('mcp-server-add-http').hidden = button.dataset.transport !== 'http';
+    });
+  }
+})();
+</script>

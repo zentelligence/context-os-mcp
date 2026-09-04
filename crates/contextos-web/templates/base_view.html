@@ -1,7 +1,44 @@
-<div class="base-view" data-matched="{{ matched }}" data-truncated="{{ truncated }}">
+<div class="base-view" data-matched="{{ matched }}" data-truncated="{{ truncated }}" hx-ext="json-enc">
 {% if has_diagnostics %}
 {{ diagnostics_html|safe }}
 {% endif %}
+
+{% if !views.is_empty() %}
+<div class="base-toolbar">
+  <div class="view-tabs">
+{% for v in views %}
+    <button
+      type="button"
+      class="{% if v.active %}active{% endif %}"
+      hx-get="/{{ vault_name }}/{{ path }}?view={{ v.name }}"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+    >{{ v.name }}</button>
+{% endfor %}
+  </div>
+  <button type="button" class="btn small" id="base-toggle-filter-editor">Edit view definition</button>
+</div>
+{% endif %}
+
+<div class="filter-editor" id="base-filter-editor" hidden>
+  <div class="hint">
+    Raw <code>filters</code> JSON for <code>{{ path }}</code>. Saving dispatches <code>base_apply</code>'s
+    <code>set_filters</code> against the <code>.base</code> file itself &mdash; it changes which notes match,
+    never a matched note's own content.
+  </div>
+  <textarea id="base-filters-textarea" rows="6">{{ filters_json }}</textarea>
+  <div class="save-bar">
+    <button
+      type="button"
+      class="btn primary small"
+      hx-patch="/{{ vault_name }}/{{ path }}"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+      hx-vals="js:(function(){try{var filters=JSON.parse(document.getElementById('base-filters-textarea').value);return {target:'definition',operations:[{op:'set_filters',filters:filters}]};}catch(e){alert('Invalid JSON: '+e.message);return {target:'definition',operations:[]};}})()"
+    >Save</button>
+  </div>
+</div>
+
 <div class="card-grid">
 {% for row in rows %}
   <div class="row-card">
@@ -13,8 +50,43 @@
       <dt>{{ column.name }}</dt><dd>{{ column.value }}</dd>
     {% endfor %}
     </dl>
+{% if let Some(note_path) = row.note_path %}
+    <button type="button" class="btn small base-row-edit-toggle" data-target="base-row-edit-{{ loop.index0 }}">Edit</button>
+    <form
+      class="base-row-edit"
+      id="base-row-edit-{{ loop.index0 }}"
+      data-note-path="{{ note_path }}"
+      hidden
+      hx-patch="/{{ vault_name }}/{{ path }}"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+      hx-vals="js:{target:'row', note_path:this.dataset.notePath, patch:(function(el){var p={};el.querySelectorAll('[data-field]').forEach(function(i){p[i.dataset.field]=i.value;});return p;})(this)}"
+    >
+    {% for column in row.columns %}
+      <label>{{ column.name }}<input type="text" data-field="{{ column.name }}" value="{{ column.value }}"></label>
+    {% endfor %}
+      <button type="submit" class="btn primary small">Save</button>
+    </form>
+{% endif %}
   </div>
 {% endfor %}
 </div>
 <p class="hint">{{ matched }} row(s) matched{% if truncated %} (truncated){% endif %}.</p>
 </div>
+<script>
+(function(){
+  var toggle = document.getElementById('base-toggle-filter-editor');
+  if(toggle){
+    toggle.addEventListener('click', function(){
+      var panel = document.getElementById('base-filter-editor');
+      if(panel) panel.hidden = !panel.hidden;
+    });
+  }
+  document.querySelectorAll('.base-row-edit-toggle').forEach(function(button){
+    button.addEventListener('click', function(){
+      var form = document.getElementById(button.dataset.target);
+      if(form) form.hidden = !form.hidden;
+    });
+  });
+})();
+</script>

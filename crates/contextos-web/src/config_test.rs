@@ -261,3 +261,50 @@ fn load_vault_set_rejects_a_config_with_no_vaults() -> Result<(), Box<dyn std::e
     assert!(result.is_err());
     Ok(())
 }
+
+#[test]
+fn current_appearance_reads_theme_font_and_size_from_server_ui()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(
+        dir.path(),
+        "web.toml",
+        "[server.ui]\ntheme = \"dark\"\nfont = \"serif\"\nsize = \"large\"\n",
+    )?;
+
+    let appearance = current_appearance(&path);
+
+    assert_eq!(appearance.theme.as_deref(), Some("dark"));
+    assert_eq!(appearance.font.as_deref(), Some("serif"));
+    assert_eq!(appearance.size.as_deref(), Some("large"));
+    Ok(())
+}
+
+#[test]
+fn current_appearance_ignores_a_non_string_value() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(dir.path(), "web.toml", "[server.ui]\ntheme = 42\n")?;
+
+    let appearance = current_appearance(&path);
+
+    assert_eq!(appearance.theme, None);
+    Ok(())
+}
+
+#[test]
+fn current_appearance_degrades_to_default_when_web_toml_is_unreadable() {
+    let appearance = current_appearance(std::path::Path::new("/does/not/exist/web.toml"));
+    assert_eq!(appearance, Appearance::default());
+}
+
+#[test]
+fn current_appearance_is_empty_when_no_server_ui_table_is_present()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(dir.path(), "web.toml", "")?;
+
+    let appearance = current_appearance(&path);
+
+    assert_eq!(appearance, Appearance::default());
+    Ok(())
+}

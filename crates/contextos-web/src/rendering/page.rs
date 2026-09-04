@@ -1,24 +1,79 @@
-//! The minimal full-page wrapper every vault content route (`FR-220` to
-//! `FR-224`) composes its rendered fragment into for a plain browser
-//! navigation (no `HX-Request` header, `standards/http-routing-response-
-//! contract-standard.md`). Nav chrome, vault browsing, and app/settings
-//! surfaces (Phases 16 and 17) are not part of this phase's scope; this
-//! wrapper is deliberately minimal so it does not stand in for that work.
+//! The full-page shell every route wraps its rendered fragment into for a
+//! plain browser navigation (no `HX-Request` header,
+//! `standards/http-routing-response-contract-standard.md`): nav shell
+//! (vault switcher, primary nav, current-directory listing), breadcrumb,
+//! and content area, adapted from `outbox/2026-09-04-contextos-web-mock.html`
+//! (descriptive, not prescriptive, per `delivery-plan.md`'s Phase 14 note).
+//!
+//! This module is a pure template renderer: it knows nothing about MCP. Its
+//! caller ([`crate::rendering::shell`]) fetches the live data ([`NavData`])
+//! this template needs and hands it in already assembled, keeping the
+//! async/MCP concern and the template-rendering concern separate, matching
+//! this crate's established pattern ([`crate::rendering::canvas`] takes
+//! already-fetched node/edge data the identical way).
 
 use askama::Template;
+
+pub use crate::config::Appearance;
+
+/// One configured vault, as offered in the nav shell's vault switcher.
+pub struct NavVault {
+    pub name: String,
+    pub is_current: bool,
+}
+
+/// One immediate child of the directory the current page's nav tree section
+/// is scoped to (`shell::build_nav`'s own "current directory only, not a
+/// recursive whole-vault walk" scoping decision).
+pub struct NavEntry {
+    pub name: String,
+    pub href: String,
+    pub is_dir: bool,
+}
+
+/// Everything the nav shell needs to render around one page's own content,
+/// assembled by [`crate::rendering::shell::build_nav`].
+pub struct NavData {
+    pub vaults: Vec<NavVault>,
+    /// `None` for a vault-independent page (`/settings/`); the vault
+    /// switcher still lists every configured vault, but no tree section or
+    /// vault-scoped breadcrumb segment is rendered.
+    pub current_vault: Option<String>,
+    /// The nav tree section's own heading: the directory it lists, or
+    /// `None` when there is no current-vault context at all.
+    pub directory_label: Option<String>,
+    pub entries: Vec<NavEntry>,
+    pub breadcrumb: String,
+    pub active_vault_screen: bool,
+    pub active_apps_screen: bool,
+    pub active_settings_screen: bool,
+    /// Vault-scoped `POST .../apps/rescan` target for the shell footer's
+    /// "Rescan apps" link; `None` for a vault-independent page.
+    pub rescan_href: Option<String>,
+    /// `web.toml`'s `[server.ui]` theme/font/size (`FR-251`'s Appearance
+    /// pane): applied as `<html data-theme="..." data-font="..."
+    /// data-size="...">` so `contextos-web.css`'s corresponding attribute
+    /// selectors take effect on the very next page render after a save.
+    /// Each field absent (the key unset, non-string, or `web.toml`
+    /// unreadable) falls back to the built-in default (system colour
+    /// scheme, the default sans-serif stack, the default text size), never
+    /// a broken or half-applied appearance.
+    pub appearance: Appearance,
+}
 
 #[derive(Template)]
 #[template(path = "page_shell.html")]
 struct PageShellTemplate<'a> {
     title: &'a str,
     body: &'a str,
+    nav: &'a NavData,
 }
 
 /// Wraps `body` (an already-rendered content fragment) in the full-page
-/// shell, titled `title`.
+/// shell, titled `title`, chromed with `nav`.
 #[must_use]
-pub fn render_page(title: &str, body: &str) -> String {
-    PageShellTemplate { title, body }
+pub fn render_page(nav: &NavData, title: &str, body: &str) -> String {
+    PageShellTemplate { title, body, nav }
         .render()
         .unwrap_or_else(|_| body.to_owned())
 }

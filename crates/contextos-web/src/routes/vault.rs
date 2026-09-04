@@ -3,6 +3,7 @@
 //! `POST`/`PATCH`/`PUT`/`DELETE` mutation dispatch in
 //! [`mutate`](super::vault_mutations).
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::Json;
@@ -12,17 +13,22 @@ use axum::response::{IntoResponse, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::config;
 use crate::mcp_client::{McpCallError, McpClient, McpClientSet};
-use crate::rendering::{base, canvas, markdown, page};
+use crate::rendering::shell::ActiveScreen;
+use crate::rendering::{base, canvas, markdown, page, shell};
 
 /// Shared state a vault content route needs: the connected MCP sessions,
-/// and the name of the `[[mcp_server]]` entry every vault operation is
-/// issued against (`web.toml`'s first configured entry, `FR-203`: "the
-/// first entry always the local `contextos-mcp` instance").
+/// the name of the `[[mcp_server]]` entry every vault operation is issued
+/// against (`web.toml`'s first configured entry, `FR-203`: "the first
+/// entry always the local `contextos-mcp` instance"), and `web.toml`'s own
+/// path (read fresh per request for the nav shell's `[server.ui]`
+/// appearance, `FR-251`; this route never writes it).
 #[derive(Clone)]
 pub struct VaultRoutesState {
     pub clients: Arc<McpClientSet>,
     pub primary_server: String,
+    pub web_config_path: Arc<PathBuf>,
 }
 
 impl VaultRoutesState {
@@ -253,13 +259,14 @@ async fn get_dispatch(
         Ok(client) => client,
         Err(response) => return *response,
     };
+    let appearance = config::current_appearance(&state.web_config_path);
     let trimmed = relative_path.trim_end_matches('/');
     let kind = match resolve_kind(client, &vault_name, trimmed).await {
         Ok(kind) => kind,
         Err(response) => return *response,
     };
     match kind {
-        Kind::Dir => render_directory(client, &vault_name, trimmed).await,
+        Kind::Dir => render_directory(client, &vault_name, trimmed, &appearance).await,
         Kind::File => {
             render_file(
                 client,
@@ -267,13 +274,19 @@ async fn get_dispatch(
                 trimmed,
                 &query,
                 headers.contains_key("hx-request"),
+                &appearance,
             )
             .await
         }
     }
 }
 
-async fn render_directory(client: &McpClient, vault_name: &str, trimmed: &str) -> Response {
+async fn render_directory(
+    client: &McpClient,
+    vault_name: &str,
+    trimmed: &str,
+    appearance: &config::Appearance,
+) -> Response {
     let index_path = if trimmed.is_empty() {
         format!("{vault_name}://index.md")
     } else {
@@ -284,7 +297,16 @@ async fn render_directory(client: &McpClient, vault_name: &str, trimmed: &str) -
         Err(response) => return *response,
     };
     let rendered = markdown::render(client, vault_name, &raw, 0).await;
-    html_response(page::render_page(trimmed, &rendered.html))
+    let mut nav = shell::build_nav(
+        client,
+        ActiveScreen::Vault,
+        Some(vault_name),
+        Some(trimmed),
+        Some(trimmed),
+    )
+    .await;
+    nav.appearance = appearance.clone();
+    html_response(page::render_page(&nav, trimmed, &rendered.html))
 }
 
 async fn render_file(
@@ -293,6 +315,7 @@ async fn render_file(
     relative_path: &str,
     query: &VaultQuery,
     is_hx_request: bool,
+    appearance: &config::Appearance,
 ) -> Response {
     let extension = extension_of(relative_path).to_ascii_lowercase();
     let vault_path = format!("{vault_name}://{relative_path}");
@@ -311,20 +334,47 @@ async fn render_file(
                 Err(response) => return *response,
             };
             let rendered = markdown::render(client, vault_name, &raw, 0).await;
-            html_response(page::render_page(relative_path, &rendered.html))
+            let nav = file_nav(client, vault_name, relative_path, appearance).await;
+            html_response(page::render_page(&nav, relative_path, &rendered.html))
         }
         "base" => {
             match base::render_view(client, vault_name, relative_path, query.view.as_deref()).await
             {
                 Ok(fragment) if is_hx_request => html_response(fragment),
-                Ok(fragment) => html_response(page::render_page(relative_path, &fragment)),
+                Ok(fragment) => {
+                    let nav = file_nav(client, vault_name, relative_path, appearance).await;
+                    html_response(page::render_page(&nav, relative_path, &fragment))
+                }
                 Err(McpCallError::Unreachable { .. }) => unreachable(),
             }
         }
-        "canvas" => render_canvas(client, vault_name, relative_path).await,
-        "mermaid" => render_standalone_mermaid(client, vault_name, relative_path).await,
+        "canvas" => render_canvas(client, vault_name, relative_path, appearance).await,
+        "mermaid" => render_standalone_mermaid(client, vault_name, relative_path, appearance).await,
         _ => render_other_file(client, vault_name, relative_path).await,
     }
+}
+
+/// Builds the nav shell's [`shell::NavData`](crate::rendering::page::NavData)
+/// for a rendered file: the nav tree section is scoped to the file's own
+/// containing directory ([`shell::directory_scope`]), never the file
+/// itself.
+async fn file_nav(
+    client: &McpClient,
+    vault_name: &str,
+    relative_path: &str,
+    appearance: &config::Appearance,
+) -> crate::rendering::page::NavData {
+    let directory = shell::directory_scope(relative_path, false);
+    let mut nav = shell::build_nav(
+        client,
+        ActiveScreen::Vault,
+        Some(vault_name),
+        Some(relative_path),
+        Some(&directory),
+    )
+    .await;
+    nav.appearance = appearance.clone();
+    nav
 }
 
 /// Any extension not otherwise dispatched (`web-routes.md` §2's dispatch
@@ -347,7 +397,12 @@ struct CanvasReadResult {
     diagnostics: Vec<crate::rendering::Diagnostic>,
 }
 
-async fn render_canvas(client: &McpClient, vault_name: &str, relative_path: &str) -> Response {
+async fn render_canvas(
+    client: &McpClient,
+    vault_name: &str,
+    relative_path: &str,
+    appearance: &config::Appearance,
+) -> Response {
     let mut args = Map::new();
     args.insert(
         "path".to_owned(),
@@ -365,20 +420,23 @@ async fn render_canvas(client: &McpClient, vault_name: &str, relative_path: &str
     } else {
         crate::rendering::diagnostics::render_diagnostic_panel(&parsed.diagnostics)
     };
-    html_response(page::render_page(relative_path, &body))
+    let nav = file_nav(client, vault_name, relative_path, appearance).await;
+    html_response(page::render_page(&nav, relative_path, &body))
 }
 
 async fn render_standalone_mermaid(
     client: &McpClient,
     vault_name: &str,
     relative_path: &str,
+    appearance: &config::Appearance,
 ) -> Response {
     let raw = match read_text(client, format!("{vault_name}://{relative_path}")).await {
         Ok(raw) => raw,
         Err(response) => return *response,
     };
     let body = markdown::render_mermaid_source(client, &raw).await;
-    html_response(page::render_page(relative_path, &body))
+    let nav = file_nav(client, vault_name, relative_path, appearance).await;
+    html_response(page::render_page(&nav, relative_path, &body))
 }
 
 #[cfg(test)]

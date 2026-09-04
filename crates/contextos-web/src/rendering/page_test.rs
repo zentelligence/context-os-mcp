@@ -1,8 +1,110 @@
 use super::*;
 
+fn empty_nav() -> NavData {
+    NavData {
+        vaults: Vec::new(),
+        current_vault: None,
+        directory_label: None,
+        entries: Vec::new(),
+        breadcrumb: "settings".to_owned(),
+        active_vault_screen: false,
+        active_apps_screen: false,
+        active_settings_screen: false,
+        rescan_href: None,
+        appearance: Appearance::default(),
+    }
+}
+
 #[test]
 fn wraps_the_body_and_carries_the_title() {
-    let html = render_page("example.md", "<p>Body.</p>");
+    let html = render_page(&empty_nav(), "example.md", "<p>Body.</p>");
     assert!(html.contains("<title>example.md</title>"));
     assert!(html.contains("<p>Body.</p>"));
+}
+
+#[test]
+fn renders_the_vault_switcher_with_every_configured_vault() {
+    let nav = NavData {
+        vaults: vec![
+            NavVault {
+                name: "vault".to_owned(),
+                is_current: true,
+            },
+            NavVault {
+                name: "other-vault".to_owned(),
+                is_current: false,
+            },
+        ],
+        ..empty_nav()
+    };
+    let html = render_page(&nav, "note.md", "<p>Body.</p>");
+    assert!(html.contains("<option value=\"vault\" selected>vault</option>"));
+    assert!(html.contains("<option value=\"other-vault\">other-vault</option>"));
+}
+
+#[test]
+fn renders_the_current_directorys_entries_in_the_nav_tree() {
+    let nav = NavData {
+        current_vault: Some("vault".to_owned()),
+        directory_label: Some("docs/guides".to_owned()),
+        entries: vec![
+            NavEntry {
+                name: "reference".to_owned(),
+                href: "/vault/docs/guides/reference/".to_owned(),
+                is_dir: true,
+            },
+            NavEntry {
+                name: "example-note.md".to_owned(),
+                href: "/vault/docs/guides/example-note.md".to_owned(),
+                is_dir: false,
+            },
+        ],
+        ..empty_nav()
+    };
+    let html = render_page(&nav, "note.md", "<p>Body.</p>");
+    assert!(html.contains("docs/guides"));
+    assert!(html.contains("/vault/docs/guides/reference/"));
+    assert!(html.contains("/vault/docs/guides/example-note.md"));
+}
+
+#[test]
+fn a_vault_independent_page_renders_no_tree_section() {
+    let html = render_page(&empty_nav(), "Settings", "<p>Body.</p>");
+    assert!(!html.contains("nav-tree"));
+}
+
+#[test]
+fn marks_the_active_primary_nav_item() {
+    let nav = NavData {
+        current_vault: Some("vault".to_owned()),
+        active_apps_screen: true,
+        ..empty_nav()
+    };
+    let html = render_page(&nav, "Apps", "<p>Body.</p>");
+    assert!(html.contains("href=\"/vault/apps/\" class=\"active\""));
+}
+
+#[test]
+fn appearance_is_applied_as_html_data_attributes() {
+    let nav = NavData {
+        appearance: Appearance {
+            theme: Some("dark".to_owned()),
+            font: Some("serif".to_owned()),
+            size: Some("large".to_owned()),
+        },
+        ..empty_nav()
+    };
+    let html = render_page(&nav, "note.md", "<p>Body.</p>");
+    assert!(html.contains(
+        "<html lang=\"en\" data-theme=\"dark\" data-font=\"serif\" data-size=\"large\">"
+    ));
+}
+
+#[test]
+fn no_appearance_set_omits_every_data_attribute() {
+    let html = render_page(&empty_nav(), "note.md", "<p>Body.</p>");
+    assert!(html.contains("<html lang=\"en\">"));
+    assert!(!html.contains("data-theme"));
+    assert!(!html.contains("data-font"));
+    assert!(!html.contains("data-size"));
 }

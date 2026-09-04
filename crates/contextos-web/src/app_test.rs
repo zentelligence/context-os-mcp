@@ -12,7 +12,12 @@ async fn the_proxy_route_is_reachable_through_the_assembled_router()
 -> Result<(), Box<dyn std::error::Error>> {
     let clients = Arc::new(McpClientSet::connect(&[]).await?);
     let dir = tempfile::tempdir()?;
-    let router = build_router(clients, dir.path(), "contextos".to_owned());
+    let router = build_router(
+        clients,
+        dir.path(),
+        &dir.path().join("web.toml"),
+        "contextos".to_owned(),
+    );
 
     let response = router
         .oneshot(
@@ -37,7 +42,12 @@ async fn the_static_route_is_reachable_through_the_assembled_router()
     let clients = Arc::new(McpClientSet::connect(&[]).await?);
     let dir = tempfile::tempdir()?;
     std::fs::write(dir.path().join("app.js"), b"console.log('hi');")?;
-    let router = build_router(clients, dir.path(), "contextos".to_owned());
+    let router = build_router(
+        clients,
+        dir.path(),
+        &dir.path().join("web.toml"),
+        "contextos".to_owned(),
+    );
 
     let response = router
         .oneshot(

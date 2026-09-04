@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"{% if let Some(theme) = nav.appearance.theme %} data-theme="{{ theme }}"{% endif %}{% if let Some(font) = nav.appearance.font %} data-font="{{ font }}"{% endif %}{% if let Some(size) = nav.appearance.size %} data-size="{{ size }}"{% endif %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,7 +7,57 @@
 <link rel="stylesheet" href="/static/contextos-web.css">
 </head>
 <body>
-<main class="vault-content">{{ body|safe }}</main>
+<div class="app">
+  <nav class="shell-nav">
+    <div class="vault-switcher">
+      <label for="vault-select">Vault</label>
+      <select id="vault-select" onchange="if(this.value) location.href='/'+this.value+'/';">
+{% for vault in nav.vaults %}
+        <option value="{{ vault.name }}"{% if vault.is_current %} selected{% endif %}>{{ vault.name }}</option>
+{% endfor %}
+      </select>
+    </div>
+
+    <ul class="nav-primary">
+{% if let Some(current_vault) = nav.current_vault %}
+      <li><a href="/{{ current_vault }}/" class="{% if nav.active_vault_screen %}active{% endif %}">📁 Vault browser</a></li>
+      <li><a href="/{{ current_vault }}/apps/" class="{% if nav.active_apps_screen %}active{% endif %}">🧩 Apps</a></li>
+{% else %}
+      <li><span class="nav-dir">📁 Vault browser</span></li>
+      <li><span class="nav-dir">🧩 Apps</span></li>
+{% endif %}
+      <li><a href="/settings/" class="{% if nav.active_settings_screen %}active{% endif %}">⚙️ Settings</a></li>
+    </ul>
+
+{% if let Some(label) = nav.directory_label %}
+    <div class="nav-section">
+      <h3>{{ label }}</h3>
+{% if nav.entries.is_empty() %}
+      <p class="hint">No entries.</p>
+{% else %}
+      <ul class="nav-tree">
+{% for entry in nav.entries %}
+        <li><a href="{{ entry.href }}" class="nav-tree-link">{% if entry.is_dir %}📂{% else %}📄{% endif %} {{ entry.name }}</a></li>
+{% endfor %}
+      </ul>
+{% endif %}
+    </div>
+{% endif %}
+
+{% if let Some(rescan_href) = nav.rescan_href %}
+    <div class="shell-footer">
+      <form method="post" action="{{ rescan_href }}"><button type="submit" class="link-button">↻ Rescan apps</button></form>
+    </div>
+{% endif %}
+  </nav>
+
+  <div class="shell-main">
+    <div class="topbar"><span class="breadcrumb">{{ nav.breadcrumb }}</span></div>
+    <main class="content">{{ body|safe }}</main>
+  </div>
+</div>
+<script src="/static/htmx.min.js"></script>
+<script src="/static/htmx-ext-json-enc.min.js"></script>
 <script src="/static/contextos-web-client.js"></script>
 </body>
 </html>

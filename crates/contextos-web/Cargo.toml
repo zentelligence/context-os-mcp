@@ -49,6 +49,10 @@ thiserror.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 toml.workspace = true
+# Structure- and comment-preserving `web.toml` edits for `/settings/`
+# (FR-251), mirroring `contextos-mcp`'s own `config_writer.rs` use of this
+# crate for the identical `config.toml` discipline.
+toml_edit.workspace = true
 tower.workspace = true
 tower-http.workspace = true
 tracing.workspace = true

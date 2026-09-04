@@ -99,7 +99,7 @@ fn fr_42_merge_patch_preserves_existing_key_order_and_body_bytes()
         "title": "Revised",
         "status": null,
         "metadata": {"obsolete": null, "priority": 2},
-        "entity": "jie"
+        "entity": "zentelligence"
     }))?;
 
     document.apply_merge_patch(patch, "2026-07-18T08:30:00+10:00");

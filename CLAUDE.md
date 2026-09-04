@@ -27,8 +27,7 @@ Product behaviour (requirements and specification) is specified outside this rep
 | Run against a disposable vault | `cargo run -p contextos-mcp --bin contextos -- --vault <dir>` |
 | Support check | `cargo run -p contextos-mcp --bin contextos -- --config <path> doctor` |
 
-Never claim a check passed unless it actually ran and succeeded. Report any
-skipped check and the reason.
+Never claim a check passed unless it actually ran and succeeded. Report any skipped check and the reason.
 
 ## Architecture in one screen
 

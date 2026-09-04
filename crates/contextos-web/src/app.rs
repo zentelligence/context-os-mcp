@@ -17,6 +17,7 @@ use axum::routing::{get, post};
 use crate::config::WebConfig;
 use crate::mcp_client::{McpClientSet, McpConnectError};
 use crate::routes::apps::AppRoutesState;
+use crate::routes::settings::SettingsRoutesState;
 use crate::routes::vault::VaultRoutesState;
 use crate::{proxy, routes, static_assets};
 
@@ -32,38 +33,61 @@ pub async fn connect(config: &WebConfig) -> Result<Arc<McpClientSet>, McpConnect
 }
 
 /// Builds the full HTTP router: the MCP proxy route (FR-210), `/static/`
-/// (FR-250), the vault content routes (FR-220 to FR-225a), and the app
-/// registry routes (FR-233 to FR-234, `web-apps.md` §4). `/settings/`
-/// (FR-251) is Phase 17 work and is not part of this router yet.
+/// (FR-250), the vault content routes (FR-220 to FR-225a), the app
+/// registry routes (FR-233 to FR-234, `web-apps.md` §4), and `/settings/`
+/// (FR-251, FR-252).
 ///
-/// Vault content and app registry routes issue every tool call against
-/// `primary_server` (`web.toml`'s first configured `[[mcp_server]]` entry,
-/// `FR-203`: "the first entry always the local `contextos-mcp` instance"),
-/// distinct from the MCP proxy route, which is addressed by whatever
-/// `server_name` the caller names in the URL itself. A registered app's own
-/// `manifest.toml` `mcp_servers` allow-list (`FR-232`) is validated against
-/// every configured `[[mcp_server]]` name, not just `primary_server`
-/// (`clients.names()`, so an app may depend on a non-primary server too).
+/// Vault content, app registry, and settings routes issue every tool call
+/// against `primary_server` (`web.toml`'s first configured `[[mcp_server]]`
+/// entry, `FR-203`: "the first entry always the local `contextos-mcp`
+/// instance"), distinct from the MCP proxy route, which is addressed by
+/// whatever `server_name` the caller names in the URL itself. A registered
+/// app's own `manifest.toml` `mcp_servers` allow-list (`FR-232`) is
+/// validated against every configured `[[mcp_server]]` name, not just
+/// `primary_server` (`clients.names()`, so an app may depend on a
+/// non-primary server too); `/settings/`'s own registered-app-dependency
+/// check (`FR-251`) reuses the identical app-discovery path for the same
+/// reason.
 ///
 /// App discovery (FR-230) runs lazily, on each vault's first
 /// registry-route request, and is cached thereafter
 /// ([`routes::apps::AppRoutesState`]); this mirrors the vault content
 /// routes' own established pattern (`D-W05`) of resolving a vault's
 /// identity per request through an MCP tool call rather than this crate
-/// maintaining a second, locally pre-loaded vault registry.
+/// maintaining a second, locally pre-loaded vault registry. `/settings/`'s
+/// dependency check runs its own, uncached discovery pass per write instead
+/// (`routes::settings`), since a stale cache could let a removal through
+/// that a fresh scan would have blocked.
+///
+/// `web_config_path` is `web.toml`'s own path on disk, read and
+/// validate-then-written by `/settings/`; it is unrelated to `static_dir`
+/// even though both are configured under `web.toml`'s own `[server]` table.
 pub fn build_router(
     clients: Arc<McpClientSet>,
     static_dir: &Path,
+    web_config_path: &Path,
     primary_server: String,
 ) -> Router {
+    let web_config_path_buf = Arc::new(web_config_path.to_path_buf());
     let vault_state = VaultRoutesState {
         clients: Arc::clone(&clients),
         primary_server: primary_server.clone(),
+        web_config_path: Arc::clone(&web_config_path_buf),
     };
-    let app_state = AppRoutesState::new(Arc::clone(&clients), primary_server, clients.names());
-    // Three separate state types cannot share one `Router<S>`'s single
-    // state slot, so each sub-router resolves its own state before all
-    // three are merged into one `Router<()>`.
+    let app_state = AppRoutesState::new(
+        Arc::clone(&clients),
+        primary_server.clone(),
+        clients.names(),
+        Arc::clone(&web_config_path_buf),
+    );
+    let settings_state = SettingsRoutesState::new(
+        Arc::clone(&clients),
+        primary_server,
+        web_config_path.to_path_buf(),
+    );
+    // Four separate state types cannot share one `Router<S>`'s single state
+    // slot, so each sub-router resolves its own state before all four are
+    // merged into one `Router<()>`.
     let proxy_and_static = Router::new()
         .route("/mcp/{server_name}/{tool_name}", post(proxy::handle))
         .nest_service("/static", static_assets::service(static_dir))
@@ -88,7 +112,17 @@ pub fn build_router(
                 .delete(routes::vault_mutations::mutate),
         )
         .with_state(vault_state);
-    proxy_and_static.merge(apps).merge(vault)
+    let settings = Router::new()
+        .route(
+            "/settings/",
+            get(routes::settings::get)
+                .post(routes::settings::mutate)
+                .patch(routes::settings::mutate)
+                .put(routes::settings::mutate)
+                .delete(routes::settings::mutate),
+        )
+        .with_state(settings_state);
+    proxy_and_static.merge(apps).merge(vault).merge(settings)
 }
 
 #[cfg(test)]

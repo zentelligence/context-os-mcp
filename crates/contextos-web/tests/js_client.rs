@@ -44,8 +44,12 @@ async fn spawn_server(
     let config_path = support::write_vault_config(config_dir, vault_dir)?;
     let entry = support::real_contextos_entry("contextos", &config_path)?;
     let clients = Arc::new(contextos_web::mcp_client::McpClientSet::connect(&[entry]).await?);
-    let router =
-        contextos_web::build_router(clients, &bundled_static_dir(), "contextos".to_owned());
+    let router = contextos_web::build_router(
+        clients,
+        &bundled_static_dir(),
+        &config_dir.join("web.toml"),
+        "contextos".to_owned(),
+    );
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
     let handle = tokio::spawn(async move {

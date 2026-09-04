@@ -8,18 +8,26 @@
 {% if apps.is_empty() %}
   <p class="hint">No apps are registered under <code>registry/apps/</code> yet.</p>
 {% else %}
-  <ul class="apps-grid">
+  <div class="card-grid">
   {% for app in apps %}
-    <li class="app-card" data-kind="{{ app.kind_label }}">
+    <div class="row-card" data-kind="{{ app.kind_label }}">
+      <h4>{{ app.name }}</h4>
+      <dl>
+        <dt>Kind</dt><dd>{{ app.kind_label }}</dd>
+      {% if app.servable %}
+        <dt>Opens</dt><dd>{{ app.opens_label }}</dd>
+      {% else %}
+        <dt>Status</dt><dd><span class="status-chip pending">not yet supported</span></dd>
+      {% endif %}
+      </dl>
     {% if app.servable %}
-      <a href="/{{ vault_name }}/apps/{{ app.slug }}/" target="{{ app.target_attr }}">{{ app.name }}</a>
+      <a class="btn small primary" href="/{{ vault_name }}/apps/{{ app.slug }}/" target="{{ app.target_attr }}">Open &#8599;</a>
     {% else %}
-      <span class="app-name">{{ app.name }}</span>
-      <span class="app-status">not yet supported</span>
+      <button class="btn small" disabled>Open &#8599;</button>
     {% endif %}
-      <span class="app-kind">{{ app.kind_label }}</span>
-    </li>
+    </div>
   {% endfor %}
-  </ul>
+  </div>
 {% endif %}
+  <p class="hint">Discovered at startup from <code>registry/apps/</code>; use the shell's &#x21bb; Rescan to refresh without a restart.</p>
 </div>

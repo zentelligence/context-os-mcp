@@ -26,6 +26,7 @@ async fn router_over(vault_dir: &Path, config_dir: &Path) -> Result<Router, BoxE
     Ok(contextos_web::build_router(
         clients,
         config_dir,
+        &config_dir.join("web.toml"),
         "contextos".to_owned(),
     ))
 }
@@ -367,6 +368,75 @@ async fn a_base_file_renders_its_matched_rows_as_a_card_grid() -> Result<(), Box
     assert!(body.contains(&format!("href=\"/{VAULT_NAME}/task-one.md\"")));
     assert!(body.contains("active"));
     Ok(())
+}
+
+/// FR-222's view switcher must be `base_query`-backed (real `?view=`
+/// resolution), never a client-side re-filter of already-fetched rows: a
+/// per-view `filters` expression (`base_query.rs`'s
+/// `QueryDefinition::from_document`, `merge_and`) narrows which rows each
+/// named view actually returns, and switching the `?view=` query parameter
+/// on the real route must return the differently-filtered row set.
+const MULTI_VIEW_BASE: &str = "views:\n  - type: table\n    name: \"Active\"\n    filters: 'status == \"active\"'\n    order:\n      - file.path\n      - status\n  - type: table\n    name: \"Done\"\n    filters: 'status == \"done\"'\n    order:\n      - file.path\n      - status\n";
+
+#[tokio::test]
+async fn switching_the_view_tab_re_queries_base_query_with_the_named_views_own_filters()
+-> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(vault_dir.path(), "tasks.base", MULTI_VIEW_BASE)?;
+    write(
+        vault_dir.path(),
+        "task-active.md",
+        "---\nstatus: active\n---\n# Task active\n",
+    )?;
+    write(
+        vault_dir.path(),
+        "task-done.md",
+        "---\nstatus: done\n---\n# Task done\n",
+    )?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    // No `?view=` at all: defaults to the first view ("Active"), matching
+    // `base_query`'s own default and the tab strip marking it active.
+    //
+    // Checked via each row's own `data-note-path` (the row-edit form's own
+    // marker), not a bare filename substring match: the nav shell's own
+    // current-directory tree section also links every root-level file by
+    // name, `task-done.md` included, so a bare substring check would pass
+    // even when the base view itself correctly excluded that row.
+    let (status, default_body) = get(&router, &format!("/{VAULT_NAME}/tasks.base")).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(default_body.contains("data-note-path=\"task-active.md\""));
+    assert!(!default_body.contains("data-note-path=\"task-done.md\""));
+    assert!(tab_is_active(&default_body, "Active"), "{default_body}");
+    assert!(!tab_is_active(&default_body, "Done"), "{default_body}");
+
+    // Switching to the "Done" tab: a real `?view=Done` request, the exact
+    // request the tab's own `hx-get` issues, returns the "Done" view's own
+    // differently-filtered rows.
+    let (status, done_body) = get(&router, &format!("/{VAULT_NAME}/tasks.base?view=Done")).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(done_body.contains("data-note-path=\"task-done.md\""));
+    assert!(!done_body.contains("data-note-path=\"task-active.md\""));
+    assert!(tab_is_active(&done_body, "Done"), "{done_body}");
+    assert!(!tab_is_active(&done_body, "Active"), "{done_body}");
+    Ok(())
+}
+
+/// Whether the view-tab button labelled `name` carries the `active` class,
+/// tolerant of `askama`'s own exact attribute whitespace/ordering: finds
+/// the `<button ...>{name}</button>` block and checks its own `class`
+/// attribute value, rather than matching a brittle multi-line literal.
+fn tab_is_active(body: &str, name: &str) -> bool {
+    let label = format!(">{name}</button>");
+    let Some(label_at) = body.find(&label) else {
+        return false;
+    };
+    let Some(button_at) = body[..label_at].rfind("<button") else {
+        return false;
+    };
+    body[button_at..label_at].contains("class=\"active\"")
 }
 
 #[tokio::test]

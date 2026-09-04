@@ -16,7 +16,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
 use contextos_core::{PathError, VaultRoot, VaultRootInput, VaultSet};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// `web.toml`'s full schema (FR-203).
@@ -30,7 +30,11 @@ pub struct WebConfig {
 }
 
 impl WebConfig {
-    fn validate(&self) -> Result<(), WebConfigError> {
+    /// Re-checks every cross-field invariant [`load_web_config`] enforces on
+    /// load. `pub(crate)` so [`crate::config_writer::WebConfigDocument`]
+    /// (FR-251) can run the identical validator against an edited document
+    /// before persisting it, rather than duplicating these rules.
+    pub(crate) fn validate(&self) -> Result<(), WebConfigError> {
         validate_loopback_bind(&self.server.bind)?;
         let mut seen = std::collections::HashSet::new();
         for server in &self.mcp_servers {
@@ -121,8 +125,8 @@ pub enum WebLogLevel {
 /// a stdio and an HTTP entry can carry their own, non-overlapping required
 /// fields (`command`/`args` versus `endpoint`/`token_env`) rather than
 /// making every field optional on a single flat shape.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
-#[serde(tag = "transport", rename_all = "lowercase")]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(tag = "transport", rename_all = "lowercase", deny_unknown_fields)]
 pub enum McpServerConfig {
     Stdio {
         name: String,
@@ -166,6 +170,44 @@ pub fn load_web_config(path: &Path) -> Result<WebConfig, WebConfigError> {
     })?;
     config.validate()?;
     Ok(config)
+}
+
+/// The three `[server.ui]` keys `/settings/`'s Appearance pane and
+/// `contextos-web.css` give real, operator-visible effect (colour theme,
+/// font, and base text size, the exact triple `requirements.md`'s original
+/// skeleton names for `/settings/`); every other `[server.ui]` key stays
+/// persisted but inert, matching `config.rs`'s own "a rendering/theme
+/// concern deferred ... not enumerated here" stance for the table as a
+/// whole.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct Appearance {
+    pub theme: Option<String>,
+    pub font: Option<String>,
+    pub size: Option<String>,
+}
+
+/// Reads [`Appearance`] from `[server.ui]` fresh on every call (no
+/// caching): a `/settings/` appearance save takes effect on the very next
+/// page render. Never propagates a load failure to the caller (a
+/// nav-shell-only concern, per
+/// [`shell::build_nav`](crate::rendering::shell::build_nav)'s own "degrade
+/// rather than fail the page" contract) or coerces a non-string value (an
+/// operator-set number or table under one of these keys has no defined
+/// meaning to render, so it is treated as unset rather than guessed at).
+#[must_use]
+pub fn current_appearance(path: &Path) -> Appearance {
+    let Ok(config) = load_web_config(path) else {
+        return Appearance::default();
+    };
+    let string_value = |key: &str| match config.server.ui.get(key) {
+        Some(toml::Value::String(text)) => Some(text.clone()),
+        _ => None,
+    };
+    Appearance {
+        theme: string_value("theme"),
+        font: string_value("font"),
+        size: string_value("size"),
+    }
 }
 
 /// The subset of `config.toml`'s schema `contextos-web` reads (FR-202):

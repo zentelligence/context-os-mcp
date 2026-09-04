@@ -7,10 +7,75 @@
 <link rel="stylesheet" href="/static/contextos-web.css">
 </head>
 <body>
-<main class="vault-content"><h1>Fence fixture</h1>
+<div class="app">
+  <nav class="shell-nav">
+    <div class="vault-switcher">
+      <label for="vault-select">Vault</label>
+      <select id="vault-select" onchange="if(this.value) location.href='/'+this.value+'/';">
+
+        <option value="contract-fixture" selected>contract-fixture</option>
+
+      </select>
+    </div>
+
+    <ul class="nav-primary">
+
+      <li><a href="/contract-fixture/" class="active">📁 Vault browser</a></li>
+      <li><a href="/contract-fixture/apps/" class="">🧩 Apps</a></li>
+
+      <li><a href="/settings/" class="">⚙️ Settings</a></li>
+    </ul>
+
+
+    <div class="nav-section">
+      <h3>contract-fixture (root)</h3>
+
+      <ul class="nav-tree">
+
+        <li><a href="/contract-fixture/base-fixture.base" class="nav-tree-link">📄 base-fixture.base</a></li>
+
+        <li><a href="/contract-fixture/base-row.md" class="nav-tree-link">📄 base-row.md</a></li>
+
+        <li><a href="/contract-fixture/callout-fixture.md" class="nav-tree-link">📄 callout-fixture.md</a></li>
+
+        <li><a href="/contract-fixture/canvas-fixture.canvas" class="nav-tree-link">📄 canvas-fixture.canvas</a></li>
+
+        <li><a href="/contract-fixture/embed-fixture.md" class="nav-tree-link">📄 embed-fixture.md</a></li>
+
+        <li><a href="/contract-fixture/embed-target.md" class="nav-tree-link">📄 embed-target.md</a></li>
+
+        <li><a href="/contract-fixture/fence-fixture.md" class="nav-tree-link">📄 fence-fixture.md</a></li>
+
+        <li><a href="/contract-fixture/index.md" class="nav-tree-link">📄 index.md</a></li>
+
+        <li><a href="/contract-fixture/mermaid-fixture.mermaid" class="nav-tree-link">📄 mermaid-fixture.mermaid</a></li>
+
+        <li><a href="/contract-fixture/target-note.md" class="nav-tree-link">📄 target-note.md</a></li>
+
+        <li><a href="/contract-fixture/wikilink-fixture.md" class="nav-tree-link">📄 wikilink-fixture.md</a></li>
+
+      </ul>
+
+    </div>
+
+
+
+    <div class="shell-footer">
+      <form method="post" action="/contract-fixture/apps/rescan"><button type="submit" class="link-button">↻ Rescan apps</button></form>
+    </div>
+
+  </nav>
+
+  <div class="shell-main">
+    <div class="topbar"><span class="breadcrumb">contract-fixture / fence-fixture.md</span></div>
+    <main class="content"><h1>Fence fixture</h1>
 <div class="fence fence-warning fence-recognised" data-fence="warning"><div class="fence-label">warning</div><div class="fence-body"><p>A recognised fence body.</p>
 </div></div>
 </main>
+  </div>
+</div>
+<script src="/static/htmx.min.js"></script>
+<script src="/static/htmx-ext-json-enc.min.js"></script>
 <script src="/static/contextos-web-client.js"></script>
 </body>
 </html>

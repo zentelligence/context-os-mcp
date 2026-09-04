@@ -239,8 +239,8 @@ fn fr_50_frontmatter_field_filter_requires_exact_equality() -> Result<(), Box<dy
     index.index(&[
         document(
             &vault,
-            "jie/plan.md",
-            "---\nentity: jie\nregion: New South Wales\n---\n\nQuarterly budget plan.\n",
+            "zentelligence/plan.md",
+            "---\nentity: zentelligence\nregion: New South Wales\n---\n\nQuarterly budget plan.\n",
         )?,
         document(
             &vault,
@@ -250,10 +250,13 @@ fn fr_50_frontmatter_field_filter_requires_exact_equality() -> Result<(), Box<dy
     ])?;
 
     let mut entity_filter = Map::new();
-    entity_filter.insert("entity".to_owned(), Value::String("jie".to_owned()));
+    entity_filter.insert(
+        "entity".to_owned(),
+        Value::String("zentelligence".to_owned()),
+    );
     let by_entity = index.query(&plain_query("budget", &entity_filter))?;
     assert_eq!(by_entity.len(), 1);
-    assert_eq!(by_entity[0].path, "jie/plan.md");
+    assert_eq!(by_entity[0].path, "zentelligence/plan.md");
 
     let mut region_filter = Map::new();
     region_filter.insert(
@@ -262,7 +265,7 @@ fn fr_50_frontmatter_field_filter_requires_exact_equality() -> Result<(), Box<dy
     );
     let by_region = index.query(&plain_query("budget", &region_filter))?;
     assert_eq!(by_region.len(), 1);
-    assert_eq!(by_region[0].path, "jie/plan.md");
+    assert_eq!(by_region[0].path, "zentelligence/plan.md");
 
     let mut absent_filter = Map::new();
     absent_filter.insert("entity".to_owned(), Value::String("missing".to_owned()));

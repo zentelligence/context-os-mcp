@@ -19,6 +19,7 @@ pub mod fences;
 pub mod frontmatter;
 pub mod markdown;
 pub mod page;
+pub mod shell;
 pub mod wikilinks;
 
 pub use diagnostics::Diagnostic;

@@ -7,7 +7,105 @@
 <link rel="stylesheet" href="/static/contextos-web.css">
 </head>
 <body>
-<main class="vault-content"><div class="base-view" data-matched="8" data-truncated="false">
+<div class="app">
+  <nav class="shell-nav">
+    <div class="vault-switcher">
+      <label for="vault-select">Vault</label>
+      <select id="vault-select" onchange="if(this.value) location.href='/'+this.value+'/';">
+
+        <option value="contract-fixture" selected>contract-fixture</option>
+
+      </select>
+    </div>
+
+    <ul class="nav-primary">
+
+      <li><a href="/contract-fixture/" class="active">📁 Vault browser</a></li>
+      <li><a href="/contract-fixture/apps/" class="">🧩 Apps</a></li>
+
+      <li><a href="/settings/" class="">⚙️ Settings</a></li>
+    </ul>
+
+
+    <div class="nav-section">
+      <h3>contract-fixture (root)</h3>
+
+      <ul class="nav-tree">
+
+        <li><a href="/contract-fixture/base-fixture.base" class="nav-tree-link">📄 base-fixture.base</a></li>
+
+        <li><a href="/contract-fixture/base-row.md" class="nav-tree-link">📄 base-row.md</a></li>
+
+        <li><a href="/contract-fixture/callout-fixture.md" class="nav-tree-link">📄 callout-fixture.md</a></li>
+
+        <li><a href="/contract-fixture/canvas-fixture.canvas" class="nav-tree-link">📄 canvas-fixture.canvas</a></li>
+
+        <li><a href="/contract-fixture/embed-fixture.md" class="nav-tree-link">📄 embed-fixture.md</a></li>
+
+        <li><a href="/contract-fixture/embed-target.md" class="nav-tree-link">📄 embed-target.md</a></li>
+
+        <li><a href="/contract-fixture/fence-fixture.md" class="nav-tree-link">📄 fence-fixture.md</a></li>
+
+        <li><a href="/contract-fixture/index.md" class="nav-tree-link">📄 index.md</a></li>
+
+        <li><a href="/contract-fixture/mermaid-fixture.mermaid" class="nav-tree-link">📄 mermaid-fixture.mermaid</a></li>
+
+        <li><a href="/contract-fixture/target-note.md" class="nav-tree-link">📄 target-note.md</a></li>
+
+        <li><a href="/contract-fixture/wikilink-fixture.md" class="nav-tree-link">📄 wikilink-fixture.md</a></li>
+
+      </ul>
+
+    </div>
+
+
+
+    <div class="shell-footer">
+      <form method="post" action="/contract-fixture/apps/rescan"><button type="submit" class="link-button">↻ Rescan apps</button></form>
+    </div>
+
+  </nav>
+
+  <div class="shell-main">
+    <div class="topbar"><span class="breadcrumb">contract-fixture / base-fixture.base</span></div>
+    <main class="content"><div class="base-view" data-matched="8" data-truncated="false" hx-ext="json-enc">
+
+
+
+<div class="base-toolbar">
+  <div class="view-tabs">
+
+    <button
+      type="button"
+      class="active"
+      hx-get="/contract-fixture/base-fixture.base?view=All"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+    >All</button>
+
+  </div>
+  <button type="button" class="btn small" id="base-toggle-filter-editor">Edit view definition</button>
+</div>
+
+
+<div class="filter-editor" id="base-filter-editor" hidden>
+  <div class="hint">
+    Raw <code>filters</code> JSON for <code>base-fixture.base</code>. Saving dispatches <code>base_apply</code>'s
+    <code>set_filters</code> against the <code>.base</code> file itself &mdash; it changes which notes match,
+    never a matched note's own content.
+  </div>
+  <textarea id="base-filters-textarea" rows="6"></textarea>
+  <div class="save-bar">
+    <button
+      type="button"
+      class="btn primary small"
+      hx-patch="/contract-fixture/base-fixture.base"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+      hx-vals="js:(function(){try{var filters=JSON.parse(document.getElementById('base-filters-textarea').value);return {target:'definition',operations:[{op:'set_filters',filters:filters}]};}catch(e){alert('Invalid JSON: '+e.message);return {target:'definition',operations:[]};}})()"
+    >Save</button>
+  </div>
+</div>
 
 <div class="card-grid">
 
@@ -20,6 +118,24 @@
       <dt>status</dt><dd>active</dd>
     
     </dl>
+
+    <button type="button" class="btn small base-row-edit-toggle" data-target="base-row-edit-0">Edit</button>
+    <form
+      class="base-row-edit"
+      id="base-row-edit-0"
+      data-note-path="base-row.md"
+      hidden
+      hx-patch="/contract-fixture/base-fixture.base"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+      hx-vals="js:{target:'row', note_path:this.dataset.notePath, patch:(function(el){var p={};el.querySelectorAll('[data-field]').forEach(function(i){p[i.dataset.field]=i.value;});return p;})(this)}"
+    >
+    
+      <label>status<input type="text" data-field="status" value="active"></label>
+    
+      <button type="submit" class="btn primary small">Save</button>
+    </form>
+
   </div>
 
   <div class="row-card">
@@ -31,6 +147,24 @@
       <dt>status</dt><dd></dd>
     
     </dl>
+
+    <button type="button" class="btn small base-row-edit-toggle" data-target="base-row-edit-1">Edit</button>
+    <form
+      class="base-row-edit"
+      id="base-row-edit-1"
+      data-note-path="callout-fixture.md"
+      hidden
+      hx-patch="/contract-fixture/base-fixture.base"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+      hx-vals="js:{target:'row', note_path:this.dataset.notePath, patch:(function(el){var p={};el.querySelectorAll('[data-field]').forEach(function(i){p[i.dataset.field]=i.value;});return p;})(this)}"
+    >
+    
+      <label>status<input type="text" data-field="status" value=""></label>
+    
+      <button type="submit" class="btn primary small">Save</button>
+    </form>
+
   </div>
 
   <div class="row-card">
@@ -42,6 +176,24 @@
       <dt>status</dt><dd></dd>
     
     </dl>
+
+    <button type="button" class="btn small base-row-edit-toggle" data-target="base-row-edit-2">Edit</button>
+    <form
+      class="base-row-edit"
+      id="base-row-edit-2"
+      data-note-path="embed-fixture.md"
+      hidden
+      hx-patch="/contract-fixture/base-fixture.base"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+      hx-vals="js:{target:'row', note_path:this.dataset.notePath, patch:(function(el){var p={};el.querySelectorAll('[data-field]').forEach(function(i){p[i.dataset.field]=i.value;});return p;})(this)}"
+    >
+    
+      <label>status<input type="text" data-field="status" value=""></label>
+    
+      <button type="submit" class="btn primary small">Save</button>
+    </form>
+
   </div>
 
   <div class="row-card">
@@ -53,6 +205,24 @@
       <dt>status</dt><dd></dd>
     
     </dl>
+
+    <button type="button" class="btn small base-row-edit-toggle" data-target="base-row-edit-3">Edit</button>
+    <form
+      class="base-row-edit"
+      id="base-row-edit-3"
+      data-note-path="embed-target.md"
+      hidden
+      hx-patch="/contract-fixture/base-fixture.base"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+      hx-vals="js:{target:'row', note_path:this.dataset.notePath, patch:(function(el){var p={};el.querySelectorAll('[data-field]').forEach(function(i){p[i.dataset.field]=i.value;});return p;})(this)}"
+    >
+    
+      <label>status<input type="text" data-field="status" value=""></label>
+    
+      <button type="submit" class="btn primary small">Save</button>
+    </form>
+
   </div>
 
   <div class="row-card">
@@ -64,6 +234,24 @@
       <dt>status</dt><dd></dd>
     
     </dl>
+
+    <button type="button" class="btn small base-row-edit-toggle" data-target="base-row-edit-4">Edit</button>
+    <form
+      class="base-row-edit"
+      id="base-row-edit-4"
+      data-note-path="fence-fixture.md"
+      hidden
+      hx-patch="/contract-fixture/base-fixture.base"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+      hx-vals="js:{target:'row', note_path:this.dataset.notePath, patch:(function(el){var p={};el.querySelectorAll('[data-field]').forEach(function(i){p[i.dataset.field]=i.value;});return p;})(this)}"
+    >
+    
+      <label>status<input type="text" data-field="status" value=""></label>
+    
+      <button type="submit" class="btn primary small">Save</button>
+    </form>
+
   </div>
 
   <div class="row-card">
@@ -75,6 +263,24 @@
       <dt>status</dt><dd></dd>
     
     </dl>
+
+    <button type="button" class="btn small base-row-edit-toggle" data-target="base-row-edit-5">Edit</button>
+    <form
+      class="base-row-edit"
+      id="base-row-edit-5"
+      data-note-path="index.md"
+      hidden
+      hx-patch="/contract-fixture/base-fixture.base"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+      hx-vals="js:{target:'row', note_path:this.dataset.notePath, patch:(function(el){var p={};el.querySelectorAll('[data-field]').forEach(function(i){p[i.dataset.field]=i.value;});return p;})(this)}"
+    >
+    
+      <label>status<input type="text" data-field="status" value=""></label>
+    
+      <button type="submit" class="btn primary small">Save</button>
+    </form>
+
   </div>
 
   <div class="row-card">
@@ -86,6 +292,24 @@
       <dt>status</dt><dd></dd>
     
     </dl>
+
+    <button type="button" class="btn small base-row-edit-toggle" data-target="base-row-edit-6">Edit</button>
+    <form
+      class="base-row-edit"
+      id="base-row-edit-6"
+      data-note-path="target-note.md"
+      hidden
+      hx-patch="/contract-fixture/base-fixture.base"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+      hx-vals="js:{target:'row', note_path:this.dataset.notePath, patch:(function(el){var p={};el.querySelectorAll('[data-field]').forEach(function(i){p[i.dataset.field]=i.value;});return p;})(this)}"
+    >
+    
+      <label>status<input type="text" data-field="status" value=""></label>
+    
+      <button type="submit" class="btn primary small">Save</button>
+    </form>
+
   </div>
 
   <div class="row-card">
@@ -97,11 +321,50 @@
       <dt>status</dt><dd></dd>
     
     </dl>
+
+    <button type="button" class="btn small base-row-edit-toggle" data-target="base-row-edit-7">Edit</button>
+    <form
+      class="base-row-edit"
+      id="base-row-edit-7"
+      data-note-path="wikilink-fixture.md"
+      hidden
+      hx-patch="/contract-fixture/base-fixture.base"
+      hx-target="closest .base-view"
+      hx-swap="outerHTML"
+      hx-vals="js:{target:'row', note_path:this.dataset.notePath, patch:(function(el){var p={};el.querySelectorAll('[data-field]').forEach(function(i){p[i.dataset.field]=i.value;});return p;})(this)}"
+    >
+    
+      <label>status<input type="text" data-field="status" value=""></label>
+    
+      <button type="submit" class="btn primary small">Save</button>
+    </form>
+
   </div>
 
 </div>
 <p class="hint">8 row(s) matched.</p>
-</div></main>
+</div>
+<script>
+(function(){
+  var toggle = document.getElementById('base-toggle-filter-editor');
+  if(toggle){
+    toggle.addEventListener('click', function(){
+      var panel = document.getElementById('base-filter-editor');
+      if(panel) panel.hidden = !panel.hidden;
+    });
+  }
+  document.querySelectorAll('.base-row-edit-toggle').forEach(function(button){
+    button.addEventListener('click', function(){
+      var form = document.getElementById(button.dataset.target);
+      if(form) form.hidden = !form.hidden;
+    });
+  });
+})();
+</script></main>
+  </div>
+</div>
+<script src="/static/htmx.min.js"></script>
+<script src="/static/htmx-ext-json-enc.min.js"></script>
 <script src="/static/contextos-web-client.js"></script>
 </body>
 </html>
