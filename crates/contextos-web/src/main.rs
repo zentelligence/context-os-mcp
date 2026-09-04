@@ -84,7 +84,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let listener = TcpListener::bind(&config.server.bind).await?;
     let bound = listener.local_addr()?;
-    let router = build_router(clients, &config.server.static_dir, &cli.config, primary_server);
+    let router = build_router(
+        clients,
+        config.server.static_dir.as_deref(),
+        &cli.config,
+        primary_server,
+    );
     tracing::info!(bind = %bound, "contextos-web listening");
     axum::serve(listener, router).await?;
     Ok(())

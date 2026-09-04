@@ -13,7 +13,7 @@ async fn the_proxy_route_is_reachable_through_the_assembled_router() -> Result<(
     let dir = tempfile::tempdir()?;
     let router = build_router(
         clients,
-        dir.path(),
+        Some(dir.path()),
         &dir.path().join("web.toml"),
         "contextos".to_owned(),
     );
@@ -42,7 +42,7 @@ async fn the_static_route_is_reachable_through_the_assembled_router() -> Result<
     std::fs::write(dir.path().join("app.js"), b"console.log('hi');")?;
     let router = build_router(
         clients,
-        dir.path(),
+        Some(dir.path()),
         &dir.path().join("web.toml"),
         "contextos".to_owned(),
     );

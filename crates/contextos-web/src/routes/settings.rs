@@ -206,7 +206,10 @@ fn render(config: &WebConfig) -> String {
         .collect();
     let template = SettingsTemplate {
         bind: config.server.bind.clone(),
-        static_dir: config.server.static_dir.display().to_string(),
+        static_dir: config.server.static_dir.as_ref().map_or_else(
+            || "(none configured; bundled assets serve /static/)".to_owned(),
+            |path| path.display().to_string(),
+        ),
         log_level: format!("{:?}", config.server.log_level).to_ascii_lowercase(),
         log_file: config.server.log_file.clone(),
         ui,

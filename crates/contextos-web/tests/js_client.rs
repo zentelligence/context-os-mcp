@@ -31,12 +31,6 @@ fn node_is_available() -> bool {
         .is_ok_and(|output| output.status.success())
 }
 
-/// The crate's own bundled `static/` directory, which ships
-/// `contextos-web-client.js` as a real, checked-in asset.
-fn bundled_static_dir() -> std::path::PathBuf {
-    std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/static"))
-}
-
 async fn spawn_server(
     config_dir: &std::path::Path,
     vault_dir: &std::path::Path,
@@ -44,12 +38,10 @@ async fn spawn_server(
     let config_path = support::write_vault_config(config_dir, vault_dir)?;
     let entry = support::real_contextos_entry("contextos", &config_path)?;
     let clients = Arc::new(contextos_web::mcp_client::McpClientSet::connect(&[entry]).await?);
-    let router = contextos_web::build_router(
-        clients,
-        &bundled_static_dir(),
-        &config_dir.join("web.toml"),
-        "contextos".to_owned(),
-    );
+    // No `static_dir` configured: `contextos-web-client.js` is served from
+    // the crate's own embedded `static/` assets (FR-250), matching what a
+    // zero-configuration install actually serves.
+    let router = contextos_web::build_router(clients, None, &config_dir.join("web.toml"), "contextos".to_owned());
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
     let handle = tokio::spawn(async move {

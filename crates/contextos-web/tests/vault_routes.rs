@@ -25,7 +25,7 @@ async fn router_over(vault_dir: &Path, config_dir: &Path) -> Result<Router, BoxE
     let clients = Arc::new(McpClientSet::connect(&[entry]).await?);
     Ok(contextos_web::build_router(
         clients,
-        config_dir,
+        Some(config_dir),
         &config_dir.join("web.toml"),
         "contextos".to_owned(),
     ))

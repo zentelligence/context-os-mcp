@@ -61,7 +61,7 @@ pub async fn connect(config: &WebConfig) -> Result<Arc<McpClientSet>, McpConnect
 /// even though both are configured under `web.toml`'s own `[server]` table.
 pub fn build_router(
     clients: Arc<McpClientSet>,
-    static_dir: &Path,
+    static_dir: Option<&Path>,
     web_config_path: &Path,
     primary_server: String,
 ) -> Router {

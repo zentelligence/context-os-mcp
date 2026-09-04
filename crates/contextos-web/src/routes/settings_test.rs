@@ -31,7 +31,7 @@ async fn router_with_web_toml(contents: &str) -> Result<(tempfile::TempDir, axum
     let clients = Arc::new(McpClientSet::connect(&[]).await?);
     let router = build_router(
         clients,
-        dir.path(),
+        Some(dir.path()),
         &dir.path().join("web.toml"),
         "contextos".to_owned(),
     );
@@ -204,7 +204,7 @@ async fn a_fuzzed_body_naming_a_vault_field_never_touches_config_toml() -> Resul
     let clients = Arc::new(McpClientSet::connect(&[]).await?);
     let router = build_router(
         clients,
-        dir.path(),
+        Some(dir.path()),
         &dir.path().join("web.toml"),
         "contextos".to_owned(),
     );
@@ -392,7 +392,7 @@ async fn get_returns_a_validation_error_when_web_toml_cannot_be_read() -> Result
     let clients = Arc::new(McpClientSet::connect(&[]).await?);
     let router = build_router(
         clients,
-        dir.path(),
+        Some(dir.path()),
         &dir.path().join("web.toml"),
         "contextos".to_owned(),
     );

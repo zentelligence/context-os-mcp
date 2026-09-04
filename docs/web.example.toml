@@ -10,8 +10,13 @@
 # release, so a non-loopback bind is rejected at startup rather than
 # accepted and left unprotected.
 bind = "127.0.0.1:7332"
-# Directory served at /static/, never vault content.
-static_dir = "./static"
+# Optional. The crate's own bundled assets (CSS, JS) are embedded in the
+# binary and serve /static/ with no configuration at all, on every platform
+# and install layout. Set static_dir only to override or add to that
+# bundled set from an external directory; an operator-provided path here is
+# tried first, falling back to the embedded copy for any file it does not
+# itself contain.
+# static_dir = "/absolute/path/to/extra-static-assets"
 # Allowed values: "error", "warn", "info", "debug", "trace"
 log_level = "info"
 # Empty means log to stderr only.

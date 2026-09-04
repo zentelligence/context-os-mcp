@@ -71,8 +71,13 @@ fn validate_loopback_bind(bind: &str) -> Result<(), WebConfigError> {
 pub struct WebServerConfig {
     #[serde(default = "default_bind")]
     pub bind: String,
-    #[serde(default = "default_static_dir")]
-    pub static_dir: PathBuf,
+    /// An operator-configured override/addition to the crate's own bundled
+    /// `static/` assets (embedded in the binary, `static_assets` module);
+    /// optional, and `None` by default, since the bundled set already
+    /// makes `/static/` fully servable with no configuration at all
+    /// (FR-250).
+    #[serde(default)]
+    pub static_dir: Option<PathBuf>,
     #[serde(default)]
     pub log_level: WebLogLevel,
     #[serde(default)]
@@ -88,7 +93,7 @@ impl Default for WebServerConfig {
     fn default() -> Self {
         Self {
             bind: default_bind(),
-            static_dir: default_static_dir(),
+            static_dir: None,
             log_level: WebLogLevel::default(),
             log_file: String::new(),
             ui: toml::Table::default(),
@@ -98,10 +103,6 @@ impl Default for WebServerConfig {
 
 fn default_bind() -> String {
     "127.0.0.1:7332".to_owned()
-}
-
-fn default_static_dir() -> PathBuf {
-    PathBuf::from("./static")
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]

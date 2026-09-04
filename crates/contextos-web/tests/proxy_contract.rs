@@ -34,7 +34,7 @@ async fn a_successful_tool_call_returns_200_with_the_real_tool_result() -> Resul
     let clients = connected_clients(&[entry]).await?;
     let router = contextos_web::build_router(
         clients,
-        dir.path(),
+        Some(dir.path()),
         &dir.path().join("web.toml"),
         "contextos".to_owned(),
     );
@@ -70,7 +70,7 @@ async fn an_mcp_level_tool_error_is_still_a_200() -> Result<(), BoxError> {
     let clients = connected_clients(&[entry]).await?;
     let router = contextos_web::build_router(
         clients,
-        dir.path(),
+        Some(dir.path()),
         &dir.path().join("web.toml"),
         "contextos".to_owned(),
     );
@@ -103,7 +103,7 @@ async fn an_unconfigured_server_name_is_a_404_against_a_real_session() -> Result
     let clients = connected_clients(&[entry]).await?;
     let router = contextos_web::build_router(
         clients,
-        dir.path(),
+        Some(dir.path()),
         &dir.path().join("web.toml"),
         "contextos".to_owned(),
     );
@@ -139,7 +139,7 @@ async fn a_killed_contextos_mcp_process_is_a_502_not_a_hang() -> Result<(), BoxE
     let clients = Arc::new(clients);
     let router = contextos_web::build_router(
         Arc::clone(&clients),
-        dir.path(),
+        Some(dir.path()),
         &dir.path().join("web.toml"),
         "contextos".to_owned(),
     );

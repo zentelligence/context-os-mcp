@@ -50,7 +50,7 @@ async fn a_proxy_call_logs_fields_but_never_argument_or_result_content() -> Resu
     let clients = Arc::new(contextos_web::mcp_client::McpClientSet::connect(&[entry]).await?);
     let router = contextos_web::build_router(
         clients,
-        dir.path(),
+        Some(dir.path()),
         &dir.path().join("web.toml"),
         "contextos".to_owned(),
     );

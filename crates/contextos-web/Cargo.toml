@@ -37,6 +37,15 @@ clap.workspace = true
 contextos-core = { path = "../contextos-core" }
 directories.workspace = true
 pulldown-cmark.workspace = true
+# Embeds the crate's own `static/` assets (CSS, JS) into the binary at
+# compile time (FR-250), so `/static/` is servable with no configuration
+# and no dependency on the process's working directory or install layout;
+# an operator-configured `static_dir` remains an optional override on top.
+# `debug-embed` forces real embedding in `cargo test`/`cargo run` builds
+# too, rather than the crate's default debug-mode behaviour of reading
+# files from disk by their compiled-in source path, so tests exercise the
+# identical code path a release binary ships.
+rust-embed = { version = "8.12.0", default-features = false, features = ["mime-guess", "debug-embed"] }
 rmcp = { workspace = true, features = [
     "client",
     "transport-child-process",

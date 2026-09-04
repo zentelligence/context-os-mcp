@@ -18,6 +18,11 @@ The record below starts at the current version - 0.20.1. From this point forward
 
 - Renamed the `contextos-server` crate to `contextos-mcp` to disambiguate the MCP server from the web server planned for a future release. The installed binary name (`contextos`) and its CLI are unchanged.
 - `contextos-web`'s `--web-config` flag is now `--config` (the binary name already says "web"). `contextos-web`'s own `--help` description is now "ContextOS web UI", dropping "and MCP proxy" as an overstatement of what the CLI itself exposes. Both `contextos` and `contextos-web` now print a lowercase `v`-prefixed version (`v0.20.2`) for `--version`, matching the `vMAJOR.MINOR.PATCH` git tag convention releases already use.
+- `web.toml`'s `[server] static_dir` is now optional (previously always required, defaulting to the relative path `./static`): `contextos-web` embeds its own bundled `/static/` assets (CSS, JS) into the binary at compile time, so they serve with no configuration and no dependency on the process's working directory or install layout. A configured `static_dir` is now an override consulted first, falling back to the embedded copy for any file it does not itself contain, rather than the sole source.
+
+### Fixed
+
+- `/static/` no longer 404s on every request when `contextos-web` is launched from a directory that has no `static/` subdirectory next to it, such as a plain `cargo install` or a `PATH` binary directory on Windows: `static_dir`'s previous default (the relative path `./static`, resolved against the process's current working directory rather than the binary's own location) silently pointed nowhere in that layout, and startup gave no warning that it had. The crate's bundled assets are now embedded in the binary itself instead.
 
 ## [0.20.2] - 2026-09-03
 

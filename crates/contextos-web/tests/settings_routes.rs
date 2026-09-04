@@ -54,7 +54,7 @@ async fn router_with_two_servers(vault_dir: &Path, dir: &Path) -> Result<(Router
         args: vec!["--config".to_owned(), config_path.to_string_lossy().into_owned()],
     };
     let clients = Arc::new(McpClientSet::connect(&[contextos_entry, extra_entry]).await?);
-    let router = contextos_web::build_router(clients, dir, &web_config_path, "contextos".to_owned());
+    let router = contextos_web::build_router(clients, Some(dir), &web_config_path, "contextos".to_owned());
     Ok((router, web_config_path))
 }
 
@@ -157,7 +157,7 @@ async fn router_with_one_server(vault_dir: &Path, dir: &Path) -> Result<(Router,
     )?;
     let entry = support::real_contextos_entry("contextos", &config_path)?;
     let clients = Arc::new(McpClientSet::connect(&[entry]).await?);
-    let router = contextos_web::build_router(clients, dir, &web_config_path, "contextos".to_owned());
+    let router = contextos_web::build_router(clients, Some(dir), &web_config_path, "contextos".to_owned());
     Ok((router, web_config_path))
 }
 
@@ -229,7 +229,7 @@ async fn removing_an_mcp_server_an_app_depends_on_through_a_different_vault_is_s
         args: vec!["--config".to_owned(), config_path.to_string_lossy().into_owned()],
     };
     let clients = Arc::new(McpClientSet::connect(&[contextos_entry, extra_entry]).await?);
-    let router = contextos_web::build_router(clients, dir.path(), &web_config_path, "contextos".to_owned());
+    let router = contextos_web::build_router(clients, Some(dir.path()), &web_config_path, "contextos".to_owned());
 
     let (status, body) = delete(&router, r#"{"name":"extra"}"#).await?;
 
