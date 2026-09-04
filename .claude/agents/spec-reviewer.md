@@ -1,7 +1,7 @@
 ---
 name: spec-reviewer
 description: Checks behaviour, schemas, and delivery claims against the numbered ContextOS specification. Use before closing a requirement or claiming a phase gate.
-tools: [read, grep, glob, bash]
+tools: [Read, Grep, Glob, Bash]
 model: inherit
 ---
 

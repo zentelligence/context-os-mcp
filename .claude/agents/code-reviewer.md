@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 description: Reviews a diff against the ContextOS Server code-review lens. Use proactively after implementing a behaviour and before declaring any change complete.
-tools: [read, grep, glob, bash]
+tools: [Read, Grep, Glob, Bash]
 model: inherit
 ---
 
