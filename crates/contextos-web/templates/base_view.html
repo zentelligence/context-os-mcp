@@ -1,0 +1,20 @@
+<div class="base-view" data-matched="{{ matched }}" data-truncated="{{ truncated }}">
+{% if has_diagnostics %}
+{{ diagnostics_html|safe }}
+{% endif %}
+<div class="card-grid">
+{% for row in rows %}
+  <div class="row-card">
+    <h4>
+    {% if row.has_link %}<a href="{{ row.href }}">{{ row.title }}</a>{% else %}{{ row.title }}{% endif %}
+    </h4>
+    <dl>
+    {% for column in row.columns %}
+      <dt>{{ column.name }}</dt><dd>{{ column.value }}</dd>
+    {% endfor %}
+    </dl>
+  </div>
+{% endfor %}
+</div>
+<p class="hint">{{ matched }} row(s) matched{% if truncated %} (truncated){% endif %}.</p>
+</div>

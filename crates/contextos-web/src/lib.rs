@@ -4,6 +4,8 @@ pub mod app;
 pub mod config;
 pub mod mcp_client;
 pub mod proxy;
+pub mod rendering;
+pub mod routes;
 pub mod static_assets;
 
 pub use app::{build_router, connect};

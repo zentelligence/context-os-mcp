@@ -1,0 +1,9 @@
+<div class="diagnostic-panel">
+{% for d in diagnostics %}
+  <div class="diagnostic" data-code="{{ d.code }}">
+    <span class="diagnostic-code">{{ d.code }}</span>
+    <span class="diagnostic-path">{{ d.path }}</span>
+    <p class="diagnostic-message">{{ d.message }}</p>
+  </div>
+{% endfor %}
+</div>

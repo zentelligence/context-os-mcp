@@ -23,6 +23,7 @@ license = "Apache-2.0"
 publish = false
 
 [workspace.dependencies]
+askama = { version = "0.16.0", default-features = false, features = ["std", "derive"] }
 astro = "2.0.0"
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
 base64 = "0.22.1"
@@ -56,7 +57,15 @@ merman-core = "=0.8.0-alpha.3"
 merman-render = "=0.8.0-alpha.3"
 mime_guess = "2.0.5"
 petgraph = { version = "0.8.3", default-features = false, features = ["stable_graph"] }
+# `contextos-web` only: stage 5 general Markdown-to-HTML conversion (OFM's
+# CommonMark/GFM base, `web-rendering.md` §1) with raw-HTML block passthrough,
+# which the custom OFM-extension stages (frontmatter, triple-colon fences,
+# wikilinks/embeds, callouts, Mermaid) rely on to inject their own rendered
+# HTML ahead of this stage running. `html` for the renderer itself; GFM-style
+# tables/strikethrough/footnotes are enabled via `Options` at call sites, not
+# a Cargo feature.
 proptest = { version = "1.11.0", default-features = false, features = ["std"] }
+pulldown-cmark = { version = "0.13.4", default-features = false, features = ["html"] }
 reqwest = { version = "0.13.4", default-features = false, features = ["blocking", "rustls"] }
 rmcp = { version = "=2.2.0", default-features = false, features = ["macros", "server", "transport-io", "transport-streamable-http-server"] }
 # Pinned exactly per phase-5-decision-addendum.md A5: pre-1.0, so the

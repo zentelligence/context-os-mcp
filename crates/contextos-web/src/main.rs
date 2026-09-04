@@ -40,9 +40,15 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // ever bound on a partially-connected client set.
     let clients = connect(&config).await?;
 
+    let primary_server = config
+        .mcp_servers
+        .first()
+        .map(|entry| entry.name().to_owned())
+        .unwrap_or_default();
+
     let listener = TcpListener::bind(&config.server.bind).await?;
     let bound = listener.local_addr()?;
-    let router = build_router(clients, &config.server.static_dir);
+    let router = build_router(clients, &config.server.static_dir, primary_server);
     tracing::info!(bind = %bound, "contextos-web listening");
     axum::serve(listener, router).await?;
     Ok(())

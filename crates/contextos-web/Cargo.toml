@@ -18,7 +18,17 @@ path = "src/main.rs"
 # error bodies use. `contextos-mcp` does not need this feature (rmcp owns
 # its own JSON-RPC framing), so it stays off the shared workspace default
 # and is added here instead.
-axum = { workspace = true, features = ["json"] }
+# `query`: on top of `json`, needed for the `axum::extract::Query`
+# extractor the vault content routes use for `?raw=1`/`?view=` (FR-221).
+axum = { workspace = true, features = ["json", "query"] }
+# Rendering pipeline page/fragment composition (`web-architecture.md` §6,
+# `NFR-W02`): "rendering pipeline output ... is composed into Askama
+# templates, not generated as raw string concatenation".
+askama.workspace = true
+# `.mermaid`-extension standalone-file rendering and the generic "anything
+# else" content route (`web-routes.md` §2) decode `fs_attach_file`'s
+# base64-encoded blob resources.
+base64.workspace = true
 camino.workspace = true
 clap.workspace = true
 # `VaultPath`, `VaultRoot`, `VaultSet`, config-loading types only (FR-200,
@@ -26,6 +36,7 @@ clap.workspace = true
 # a service-crate trait directly (FR-201).
 contextos-core = { path = "../contextos-core" }
 directories.workspace = true
+pulldown-cmark.workspace = true
 rmcp = { workspace = true, features = [
     "client",
     "transport-child-process",

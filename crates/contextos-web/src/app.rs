@@ -12,11 +12,12 @@ use std::path::Path;
 use std::sync::Arc;
 
 use axum::Router;
-use axum::routing::post;
+use axum::routing::{get, post};
 
 use crate::config::WebConfig;
 use crate::mcp_client::{McpClientSet, McpConnectError};
-use crate::{proxy, static_assets};
+use crate::routes::vault::VaultRoutesState;
+use crate::{proxy, routes, static_assets};
 
 /// Connects every `[[mcp_server]]` entry in `config`, failing fast on the
 /// first handshake failure (FR-204).
@@ -29,15 +30,44 @@ pub async fn connect(config: &WebConfig) -> Result<Arc<McpClientSet>, McpConnect
     Ok(Arc::new(clients))
 }
 
-/// Builds the full HTTP router: the MCP proxy route (FR-210) and `/static/`
-/// (FR-250). Vault content routes (FR-220 to FR-225) and `/settings/`
-/// (FR-251) are Phase 15 and Phase 17 work respectively and are not part of
-/// this phase's router.
-pub fn build_router(clients: Arc<McpClientSet>, static_dir: &Path) -> Router {
-    Router::new()
+/// Builds the full HTTP router: the MCP proxy route (FR-210), `/static/`
+/// (FR-250), and the vault content routes (FR-220 to FR-225a). `/settings/`
+/// (FR-251) is Phase 17 work and is not part of this router yet.
+///
+/// Vault content routes issue every tool call against `primary_server`
+/// (`web.toml`'s first configured `[[mcp_server]]` entry, `FR-203`: "the
+/// first entry always the local `contextos-mcp` instance"), distinct from
+/// the MCP proxy route, which is addressed by whatever `server_name` the
+/// caller names in the URL itself.
+pub fn build_router(
+    clients: Arc<McpClientSet>,
+    static_dir: &Path,
+    primary_server: String,
+) -> Router {
+    let vault_state = VaultRoutesState {
+        clients: Arc::clone(&clients),
+        primary_server,
+    };
+    // Two separate state types (`Arc<McpClientSet>` for the proxy/static
+    // routes, `VaultRoutesState` for the vault content routes) cannot share
+    // one `Router<S>`'s single state slot, so each sub-router resolves its
+    // own state before the two are merged into one `Router<()>`.
+    let proxy_and_static = Router::new()
         .route("/mcp/{server_name}/{tool_name}", post(proxy::handle))
         .nest_service("/static", static_assets::service(static_dir))
-        .with_state(clients)
+        .with_state(clients);
+    let vault = Router::new()
+        .route("/{vault_name}/", get(routes::vault::get_root))
+        .route(
+            "/{vault_name}/{*relative_path}",
+            get(routes::vault::get_path)
+                .post(routes::vault_mutations::mutate)
+                .patch(routes::vault_mutations::mutate)
+                .put(routes::vault_mutations::mutate)
+                .delete(routes::vault_mutations::mutate),
+        )
+        .with_state(vault_state);
+    proxy_and_static.merge(vault)
 }
 
 #[cfg(test)]

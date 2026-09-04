@@ -31,7 +31,7 @@ async fn a_successful_tool_call_returns_200_with_the_real_tool_result() -> Resul
     let config_path = support::write_vault_config(dir.path(), &vault)?;
     let entry = support::real_contextos_entry("contextos", &config_path)?;
     let clients = connected_clients(&[entry]).await?;
-    let router = contextos_web::build_router(clients, dir.path());
+    let router = contextos_web::build_router(clients, dir.path(), "contextos".to_owned());
 
     let response = router
         .oneshot(
@@ -62,7 +62,7 @@ async fn an_mcp_level_tool_error_is_still_a_200() -> Result<(), BoxError> {
     let config_path = support::write_vault_config(dir.path(), &vault)?;
     let entry = support::real_contextos_entry("contextos", &config_path)?;
     let clients = connected_clients(&[entry]).await?;
-    let router = contextos_web::build_router(clients, dir.path());
+    let router = contextos_web::build_router(clients, dir.path(), "contextos".to_owned());
 
     let response = router
         .oneshot(
@@ -90,7 +90,7 @@ async fn an_unconfigured_server_name_is_a_404_against_a_real_session() -> Result
     let config_path = support::write_vault_config(dir.path(), &vault)?;
     let entry = support::real_contextos_entry("contextos", &config_path)?;
     let clients = connected_clients(&[entry]).await?;
-    let router = contextos_web::build_router(clients, dir.path());
+    let router = contextos_web::build_router(clients, dir.path(), "contextos".to_owned());
 
     let response = router
         .oneshot(
@@ -121,7 +121,8 @@ async fn a_killed_contextos_mcp_process_is_a_502_not_a_hang() -> Result<(), BoxE
         .pid()
         .ok_or("a stdio client reports its child PID")?;
     let clients = Arc::new(clients);
-    let router = contextos_web::build_router(Arc::clone(&clients), dir.path());
+    let router =
+        contextos_web::build_router(Arc::clone(&clients), dir.path(), "contextos".to_owned());
 
     std::process::Command::new("kill")
         .args(["-KILL", &pid.to_string()])
