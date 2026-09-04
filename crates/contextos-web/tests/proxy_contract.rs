@@ -7,6 +7,7 @@
 mod support;
 
 use std::sync::Arc;
+#[cfg(unix)]
 use std::time::Duration;
 
 use axum::body::{Body, to_bytes};
