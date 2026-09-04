@@ -4,6 +4,7 @@ fn empty_nav() -> NavData {
     NavData {
         vaults: Vec::new(),
         current_vault: None,
+        nav_target_vault: None,
         directory_label: None,
         entries: Vec::new(),
         breadcrumb: "settings".to_owned(),
@@ -77,11 +78,33 @@ fn a_vault_independent_page_renders_no_tree_section() {
 fn marks_the_active_primary_nav_item() {
     let nav = NavData {
         current_vault: Some("vault".to_owned()),
+        nav_target_vault: Some("vault".to_owned()),
         active_apps_screen: true,
         ..empty_nav()
     };
     let html = render_page(&nav, "Apps", "<p>Body.</p>");
     assert!(html.contains("href=\"/vault/apps/\" class=\"active\""));
+}
+
+#[test]
+fn vault_browser_and_apps_stay_clickable_on_a_vault_independent_page() {
+    let nav = NavData {
+        current_vault: None,
+        nav_target_vault: Some("vault".to_owned()),
+        active_settings_screen: true,
+        ..empty_nav()
+    };
+    let html = render_page(&nav, "Settings", "<p>Body.</p>");
+    assert!(html.contains("<a href=\"/vault/\" class=\"\">📁 Vault browser</a>"));
+    assert!(html.contains("<a href=\"/vault/apps/\" class=\"\">🧩 Apps</a>"));
+    assert!(!html.contains("<span class=\"nav-dir\">📁 Vault browser</span>"));
+}
+
+#[test]
+fn vault_browser_and_apps_are_inert_when_no_vault_is_configured_at_all() {
+    let html = render_page(&empty_nav(), "Settings", "<p>Body.</p>");
+    assert!(html.contains("<span class=\"nav-dir\">📁 Vault browser</span>"));
+    assert!(html.contains("<span class=\"nav-dir\">🧩 Apps</span>"));
 }
 
 #[test]

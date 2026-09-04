@@ -317,3 +317,33 @@ async fn an_appearance_save_takes_effect_on_the_next_vault_page_render() -> Resu
     assert!(after_body.contains("<html lang=\"en\" data-theme=\"dark\" data-font=\"serif\" data-size=\"large\">"));
     Ok(())
 }
+
+#[tokio::test]
+async fn settings_renders_the_same_with_or_without_a_trailing_slash() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    let (router, _web_config_path) = router_with_one_server(vault_dir.path(), dir.path()).await?;
+
+    let (status_slash, body_slash) = get(&router, "/settings/").await?;
+    let (status_bare, body_bare) = get(&router, "/settings").await?;
+    assert_eq!(status_slash, StatusCode::OK);
+    assert_eq!(status_bare, StatusCode::OK);
+    assert_eq!(body_slash, body_bare);
+    Ok(())
+}
+
+#[tokio::test]
+async fn settings_keeps_the_vault_browser_and_apps_nav_links_clickable() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    let (router, _web_config_path) = router_with_one_server(vault_dir.path(), dir.path()).await?;
+
+    let (status, body) = get(&router, "/settings/").await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(&format!("<a href=\"/{VAULT_NAME}/\"")));
+    assert!(body.contains(&format!("<a href=\"/{VAULT_NAME}/apps/\"")));
+    assert!(!body.contains("<span class=\"nav-dir\">"));
+    Ok(())
+}

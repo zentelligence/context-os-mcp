@@ -801,6 +801,7 @@ dependencies = [
  "contextos-core",
  "contextos-mcp",
  "directories",
+ "ignore",
  "pulldown-cmark",
  "rmcp",
  "rust-embed",

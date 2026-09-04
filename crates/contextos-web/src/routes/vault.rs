@@ -1,7 +1,9 @@
 //! Vault content routes (`web-routes.md` §2):
 //! `GET /{{vault_name}}/{{relative-path}}` and its directory form, plus the
 //! `POST`/`PATCH`/`PUT`/`DELETE` mutation dispatch in
-//! [`mutate`](super::vault_mutations).
+//! [`mutate`](super::vault_mutations). Also the bare HTTP server root's own
+//! [`get_server_root`], a `contextos-web`-only convenience `web-routes.md`
+//! does not itself name a page for.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -9,14 +11,14 @@ use std::sync::Arc;
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::response::{IntoResponse, Response};
+use axum::response::{IntoResponse, Redirect, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::config;
 use crate::mcp_client::{McpCallError, McpClient, McpClientSet};
-use crate::rendering::shell::ActiveScreen;
-use crate::rendering::{base, canvas, markdown, page, shell};
+use crate::rendering::shell::{self, ActiveScreen};
+use crate::rendering::{base, canvas, markdown, page};
 
 /// Shared state a vault content route needs: the connected MCP sessions,
 /// the name of the `[[mcp_server]]` entry every vault operation is issued
@@ -191,6 +193,27 @@ pub(crate) fn html_response(html: String) -> Response {
 
 fn raw_response(content: String) -> Response {
     (StatusCode::OK, [("content-type", "text/plain; charset=utf-8")], content).into_response()
+}
+
+/// `GET /` (the bare HTTP server root): `web-routes.md` names no page at
+/// this literal path, since every vault-content and app route always
+/// carries `vault_name` as its own first segment, so this redirects to
+/// somewhere that does resolve, mirroring the nav shell's own "no page-
+/// specific vault yet, fall back to the first configured one" behaviour
+/// ([`shell::build_nav`]'s `nav_target_vault`): the first configured
+/// vault's own root, or `/settings/` when no vault is configured at all (or
+/// the primary MCP session cannot be reached to ask).
+pub async fn get_server_root(State(state): State<VaultRoutesState>) -> Response {
+    let Ok(client) = state.client() else {
+        return Redirect::to("/settings/").into_response();
+    };
+    let target = shell::configured_vault_names(client)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .next()
+        .map_or_else(|| "/settings/".to_owned(), |name| format!("/{name}/"));
+    Redirect::to(&target).into_response()
 }
 
 /// `GET /{{vault_name}}/` (root directory).

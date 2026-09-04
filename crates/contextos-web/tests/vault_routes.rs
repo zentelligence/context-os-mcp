@@ -137,6 +137,95 @@ async fn a_bare_path_resolving_to_a_directory_renders_the_same_as_its_trailing_s
     Ok(())
 }
 
+#[tokio::test]
+async fn a_bare_vault_root_with_no_trailing_slash_renders_the_same_as_its_trailing_slash_form() -> Result<(), BoxError>
+{
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status_slash, body_slash) = get(&router, &format!("/{VAULT_NAME}/")).await?;
+    let (status_bare, body_bare) = get(&router, &format!("/{VAULT_NAME}")).await?;
+    assert_eq!(status_slash, StatusCode::OK);
+    assert_eq!(status_bare, StatusCode::OK);
+    assert_eq!(body_slash, body_bare);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------
+// Bare HTTP server root
+// ---------------------------------------------------------------------
+
+#[tokio::test]
+async fn the_bare_server_root_redirects_to_the_first_configured_vault() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let response = router.oneshot(Request::builder().uri("/").body(Body::empty())?).await?;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    let Some(location) = response.headers().get("location") else {
+        return Err("a redirect carries a Location header".into());
+    };
+    assert_eq!(location, &format!("/{VAULT_NAME}/"));
+    Ok(())
+}
+
+// ---------------------------------------------------------------------
+// Nav tree: sub-directories only, hidden entries excluded
+// ---------------------------------------------------------------------
+
+#[tokio::test]
+async fn the_nav_tree_lists_sub_directories_only_never_files() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(vault_dir.path(), "readme.md", "# Readme\n")?;
+    write(vault_dir.path(), "notes/index.md", "# Notes\n")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/")).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains(&format!("/{VAULT_NAME}/notes/")));
+    assert!(!body.contains(&format!("/{VAULT_NAME}/readme.md")));
+    Ok(())
+}
+
+#[tokio::test]
+async fn the_nav_tree_excludes_dot_prefixed_entries() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(vault_dir.path(), "notes/index.md", "# Notes\n")?;
+    write(vault_dir.path(), ".obsidian/workspace.json", "{}")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/")).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains(&format!("/{VAULT_NAME}/notes/")));
+    assert!(!body.contains(".obsidian"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn the_nav_tree_excludes_entries_matched_by_the_vault_roots_own_gitignore() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write(vault_dir.path(), "notes/index.md", "# Notes\n")?;
+    write(vault_dir.path(), "build-output/index.md", "# Build output\n")?;
+    write(vault_dir.path(), ".gitignore", "build-output/\n")?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status, body) = get(&router, &format!("/{VAULT_NAME}/")).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains(&format!("/{VAULT_NAME}/notes/")));
+    assert!(!body.contains(&format!("/{VAULT_NAME}/build-output/")));
+    Ok(())
+}
+
 // ---------------------------------------------------------------------
 // Markdown rendering: wikilinks, embeds, fences, callouts
 // ---------------------------------------------------------------------

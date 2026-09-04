@@ -39,6 +39,14 @@ pub struct NavData {
     /// switcher still lists every configured vault, but no tree section or
     /// vault-scoped breadcrumb segment is rendered.
     pub current_vault: Option<String>,
+    /// The vault the "Vault browser" and "Apps" primary-nav links target:
+    /// `current_vault` itself when there is one, otherwise the first
+    /// configured vault, so those two links stay clickable from a vault-
+    /// independent page like `/settings/` instead of degrading to inert
+    /// text merely because the current page has no vault of its own.
+    /// `None` only when no vault is configured at all (or none could be
+    /// listed), the one case those links have nothing to point at.
+    pub nav_target_vault: Option<String>,
     /// The nav tree section's own heading: the directory it lists, or
     /// `None` when there is no current-vault context at all.
     pub directory_label: Option<String>,

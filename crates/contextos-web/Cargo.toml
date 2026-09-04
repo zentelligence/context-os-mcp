@@ -36,6 +36,13 @@ clap.workspace = true
 # a service-crate trait directly (FR-201).
 contextos-core = { path = "../contextos-core" }
 directories.workspace = true
+# `.gitignore`-style pattern matching for the nav shell's directory tree
+# (`web-routes.md`'s vault browser): the vault root's own `.gitignore`,
+# fetched as plain text over MCP, is compiled and matched with the same
+# crate `contextos-fs` already uses for its own hidden-pattern exclusion, so
+# glob semantics stay identical without contextos-web depending on
+# contextos-fs itself (FR-201).
+ignore.workspace = true
 pulldown-cmark.workspace = true
 # Embeds the crate's own `static/` assets (CSS, JS) into the binary at
 # compile time (FR-250), so `/static/` is servable with no configuration

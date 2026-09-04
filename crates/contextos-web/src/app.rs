@@ -85,13 +85,28 @@ pub fn build_router(
         .route("/mcp/{server_name}/{tool_name}", post(proxy::handle))
         .nest_service("/static", static_assets::service(static_dir))
         .with_state(clients);
+    // Every "collection root" path is registered twice, bare and with a
+    // trailing slash, both resolving to the identical handler: axum's
+    // `{*wildcard}` segment cannot match zero path segments, so without the
+    // bare form a request that omits the trailing slash (`/vault/apps`
+    // rather than `/vault/apps/`) would fall through to no route at all
+    // (`GET /{vault_name}/{*relative_path}` needs at least one segment past
+    // `vault_name`) rather than 404 with the same handler that the
+    // trailing-slash form reaches. This mirrors the wildcard route's own
+    // already-bare-path-tolerant behaviour one level down (a vault
+    // sub-directory already renders identically with or without its own
+    // trailing slash, since `resolve_kind` does not care).
     let apps = Router::new()
+        .route("/{vault_name}/apps", get(routes::apps::list))
         .route("/{vault_name}/apps/", get(routes::apps::list))
         .route("/{vault_name}/apps/rescan", post(routes::apps::rescan))
+        .route("/{vault_name}/apps/{slug}", get(routes::apps::serve_root))
         .route("/{vault_name}/apps/{slug}/", get(routes::apps::serve_root))
         .route("/{vault_name}/apps/{slug}/{*sub_path}", get(routes::apps::serve_path))
         .with_state(app_state);
     let vault = Router::new()
+        .route("/", get(routes::vault::get_server_root))
+        .route("/{vault_name}", get(routes::vault::get_root))
         .route("/{vault_name}/", get(routes::vault::get_root))
         .route(
             "/{vault_name}/{*relative_path}",
@@ -103,6 +118,14 @@ pub fn build_router(
         )
         .with_state(vault_state);
     let settings = Router::new()
+        .route(
+            "/settings",
+            get(routes::settings::get)
+                .post(routes::settings::mutate)
+                .patch(routes::settings::mutate)
+                .put(routes::settings::mutate)
+                .delete(routes::settings::mutate),
+        )
         .route(
             "/settings/",
             get(routes::settings::get)

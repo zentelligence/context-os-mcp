@@ -150,6 +150,40 @@ async fn a_valid_spa_manifest_registers_and_serves() -> Result<(), BoxError> {
 }
 
 #[tokio::test]
+async fn the_apps_listing_and_a_registered_apps_root_render_identically_without_a_trailing_slash()
+-> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let config_dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    write_app(
+        vault_dir.path(),
+        "task-register",
+        r#"
+            name = "Task Register Dashboard"
+            kind = "spa"
+            entry = "index.html"
+            target = "_blank"
+        "#,
+        "index.html",
+        "<html><body>Task Register</body></html>",
+    )?;
+    let router = router_over(vault_dir.path(), config_dir.path()).await?;
+
+    let (status_slash, body_slash) = get(&router, &format!("/{VAULT_NAME}/apps/")).await?;
+    let (status_bare, body_bare) = get(&router, &format!("/{VAULT_NAME}/apps")).await?;
+    assert_eq!(status_slash, StatusCode::OK);
+    assert_eq!(status_bare, StatusCode::OK);
+    assert_eq!(body_slash, body_bare);
+
+    let (status_slash, body_slash) = get(&router, &format!("/{VAULT_NAME}/apps/task-register/")).await?;
+    let (status_bare, body_bare) = get(&router, &format!("/{VAULT_NAME}/apps/task-register")).await?;
+    assert_eq!(status_slash, StatusCode::OK);
+    assert_eq!(status_bare, StatusCode::OK);
+    assert_eq!(body_slash, body_bare);
+    Ok(())
+}
+
+#[tokio::test]
 async fn a_spa_apps_sub_path_falls_back_to_its_own_entry_file_spa_routing() -> Result<(), BoxError> {
     let vault_dir = tempfile::tempdir()?;
     let config_dir = tempfile::tempdir()?;

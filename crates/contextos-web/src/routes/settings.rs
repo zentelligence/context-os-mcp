@@ -270,6 +270,7 @@ async fn settings_nav(state: &SettingsRoutesState) -> page::NavData {
         None => page::NavData {
             vaults: Vec::new(),
             current_vault: None,
+            nav_target_vault: None,
             directory_label: None,
             entries: Vec::new(),
             breadcrumb: "settings".to_owned(),
