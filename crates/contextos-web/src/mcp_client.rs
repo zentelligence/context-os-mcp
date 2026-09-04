@@ -174,6 +174,15 @@ impl McpClientSet {
     pub fn get(&self, name: &str) -> Option<&Arc<McpClient>> {
         self.0.get(name)
     }
+
+    /// Every configured `[[mcp_server]]` name, in no particular order.
+    /// Used to validate a `manifest.toml`'s own `mcp_servers` allow-list
+    /// (`FR-232`) without a second copy of the configured name list
+    /// threaded separately through `build_router`.
+    #[must_use]
+    pub fn names(&self) -> Vec<String> {
+        self.0.keys().cloned().collect()
+    }
 }
 
 /// Failures constructing an MCP client session (`McpClient::connect`,

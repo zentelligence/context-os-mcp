@@ -1,0 +1,25 @@
+<div class="apps-list">
+  <div class="apps-list-header">
+    <h1>Apps</h1>
+    <form method="post" action="/{{ vault_name }}/apps/rescan" class="apps-rescan">
+      <button type="submit" class="icon-button" title="Rescan registry/apps/ for new or changed apps" aria-label="Rescan apps">&#x21bb;</button>
+    </form>
+  </div>
+{% if apps.is_empty() %}
+  <p class="hint">No apps are registered under <code>registry/apps/</code> yet.</p>
+{% else %}
+  <ul class="apps-grid">
+  {% for app in apps %}
+    <li class="app-card" data-kind="{{ app.kind_label }}">
+    {% if app.servable %}
+      <a href="/{{ vault_name }}/apps/{{ app.slug }}/" target="{{ app.target_attr }}">{{ app.name }}</a>
+    {% else %}
+      <span class="app-name">{{ app.name }}</span>
+      <span class="app-status">not yet supported</span>
+    {% endif %}
+      <span class="app-kind">{{ app.kind_label }}</span>
+    </li>
+  {% endfor %}
+  </ul>
+{% endif %}
+</div>

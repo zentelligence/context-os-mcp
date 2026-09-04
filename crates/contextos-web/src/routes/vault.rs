@@ -33,14 +33,14 @@ impl VaultRoutesState {
     }
 }
 
-fn server_not_configured() -> Response {
+pub(crate) fn server_not_configured() -> Response {
     error_response(
         StatusCode::INTERNAL_SERVER_ERROR,
         "mcp/server-not-configured",
     )
 }
 
-fn error_response(status: StatusCode, code: &'static str) -> Response {
+pub(crate) fn error_response(status: StatusCode, code: &'static str) -> Response {
     #[derive(Serialize)]
     struct Body {
         error: &'static str,
@@ -48,11 +48,11 @@ fn error_response(status: StatusCode, code: &'static str) -> Response {
     (status, Json(Body { error: code })).into_response()
 }
 
-fn not_found() -> Response {
+pub(crate) fn not_found() -> Response {
     error_response(StatusCode::NOT_FOUND, "route/not-found")
 }
 
-fn unreachable() -> Response {
+pub(crate) fn unreachable() -> Response {
     error_response(StatusCode::BAD_GATEWAY, "mcp/unreachable")
 }
 
@@ -115,6 +115,81 @@ async fn read_text(client: &McpClient, path: String) -> Result<String, Box<Respo
     }
 }
 
+/// The outcome of fetching a file's content via `fs_attach_file` and
+/// converting the returned MCP resource block into an HTTP response body
+/// with its MCP-resolved content type.
+pub(crate) enum Attached {
+    Found(Response),
+    NotFound,
+}
+
+/// Calls `fs_attach_file` on `vault_path` and converts the result into an
+/// HTTP response with the MCP-resolved content type, reusing
+/// `fs_attach_file`'s existing binary/text detection (`D-15`) rather than
+/// this crate inventing a second one. Shared by [`render_other_file`] (the
+/// vault content route's "anything else" dispatch) and the app-serving
+/// route (`routes::apps`), which fetches a registered app's own bundle
+/// files the identical way, since both are "serve this vault file's bytes
+/// with its real content type" (FR-201: still an MCP tool call, never a
+/// direct filesystem read).
+///
+/// # Errors
+///
+/// Returns [`McpCallError::Unreachable`] when the MCP transport itself
+/// fails.
+pub(crate) async fn fetch_attached(
+    client: &McpClient,
+    vault_path: String,
+) -> Result<Attached, McpCallError> {
+    let mut args = Map::new();
+    args.insert("path".to_owned(), Value::String(vault_path));
+    let result = client.call_tool("fs_attach_file".to_owned(), args).await?;
+    if result.is_error == Some(true) {
+        return Ok(Attached::NotFound);
+    }
+    for block in &result.content {
+        let rmcp::model::ContentBlock::Resource(embedded) = block else {
+            continue;
+        };
+        match &embedded.resource {
+            rmcp::model::ResourceContents::TextResourceContents {
+                mime_type, text, ..
+            } => {
+                let content_type = mime_type
+                    .clone()
+                    .unwrap_or_else(|| "text/plain; charset=utf-8".to_owned());
+                return Ok(Attached::Found(
+                    (
+                        StatusCode::OK,
+                        [("content-type", content_type)],
+                        text.clone(),
+                    )
+                        .into_response(),
+                ));
+            }
+            rmcp::model::ResourceContents::BlobResourceContents {
+                mime_type, blob, ..
+            } => {
+                use base64::Engine;
+                if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(blob) {
+                    let content_type = mime_type
+                        .clone()
+                        .unwrap_or_else(|| "application/octet-stream".to_owned());
+                    return Ok(Attached::Found(
+                        (StatusCode::OK, [("content-type", content_type)], bytes).into_response(),
+                    ));
+                }
+            }
+            // `ResourceContents` is `#[non_exhaustive]`: `fs_attach_file`
+            // only ever returns the two variants matched above, but a
+            // future third variant must fail closed here (fall through to
+            // `NotFound` below), never panic.
+            _ => {}
+        }
+    }
+    Ok(Attached::NotFound)
+}
+
 pub(crate) fn extension_of(relative_path: &str) -> &str {
     relative_path
         .rsplit('/')
@@ -123,7 +198,7 @@ pub(crate) fn extension_of(relative_path: &str) -> &str {
         .map_or("", |(_, ext)| ext)
 }
 
-fn html_response(html: String) -> Response {
+pub(crate) fn html_response(html: String) -> Response {
     (
         StatusCode::OK,
         [("content-type", "text/html; charset=utf-8")],
@@ -257,56 +332,11 @@ async fn render_file(
 /// `fs_attach_file`'s existing detection (`D-15`), never a 404 for a real
 /// file that simply has no dedicated rendering pipeline.
 async fn render_other_file(client: &McpClient, vault_name: &str, relative_path: &str) -> Response {
-    let mut args = Map::new();
-    args.insert(
-        "path".to_owned(),
-        Value::String(format!("{vault_name}://{relative_path}")),
-    );
-    let result = match client.call_tool("fs_attach_file".to_owned(), args).await {
-        Ok(result) => result,
-        Err(McpCallError::Unreachable { .. }) => return unreachable(),
-    };
-    if result.is_error == Some(true) {
-        return not_found();
+    match fetch_attached(client, format!("{vault_name}://{relative_path}")).await {
+        Ok(Attached::Found(response)) => response,
+        Ok(Attached::NotFound) => not_found(),
+        Err(McpCallError::Unreachable { .. }) => unreachable(),
     }
-    for block in &result.content {
-        let rmcp::model::ContentBlock::Resource(embedded) = block else {
-            continue;
-        };
-        match &embedded.resource {
-            rmcp::model::ResourceContents::TextResourceContents {
-                mime_type, text, ..
-            } => {
-                let content_type = mime_type
-                    .clone()
-                    .unwrap_or_else(|| "text/plain; charset=utf-8".to_owned());
-                return (
-                    StatusCode::OK,
-                    [("content-type", content_type)],
-                    text.clone(),
-                )
-                    .into_response();
-            }
-            rmcp::model::ResourceContents::BlobResourceContents {
-                mime_type, blob, ..
-            } => {
-                use base64::Engine;
-                if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(blob) {
-                    let content_type = mime_type
-                        .clone()
-                        .unwrap_or_else(|| "application/octet-stream".to_owned());
-                    return (StatusCode::OK, [("content-type", content_type)], bytes)
-                        .into_response();
-                }
-            }
-            // `ResourceContents` is `#[non_exhaustive]`: `fs_attach_file`
-            // only ever returns the two variants matched above, but a
-            // future third variant must fail closed here (fall through to
-            // `not_found()` below), never panic.
-            _ => {}
-        }
-    }
-    not_found()
 }
 
 #[derive(Debug, Deserialize)]

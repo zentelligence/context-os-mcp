@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod app;
+pub mod apps;
 pub mod config;
 pub mod mcp_client;
 pub mod proxy;
@@ -9,6 +10,7 @@ pub mod routes;
 pub mod static_assets;
 
 pub use app::{build_router, connect};
+pub use apps::{AppKind, AppStatus, AppTarget, RegisteredApp, discover_apps};
 pub use config::{
     McpServerConfig, WebConfig, WebConfigError, WebLogLevel, WebServerConfig, load_vault_set,
     load_web_config,
