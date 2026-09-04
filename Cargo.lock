@@ -645,6 +645,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "contextos-mcp"
+version = "0.20.2"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "clap",
+ "contextos-core",
+ "contextos-ephemeris",
+ "contextos-fs",
+ "contextos-git",
+ "contextos-index",
+ "contextos-mermaid",
+ "contextos-obsidian",
+ "contextos-oplog",
+ "contextos-search",
+ "directories",
+ "dunce",
+ "git2",
+ "globset",
+ "hf-hub",
+ "inquire",
+ "rmcp",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sysinfo",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "toml_edit",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "contextos-mermaid"
 version = "0.20.2"
 dependencies = [
@@ -697,45 +736,6 @@ dependencies = [
  "thiserror",
  "time",
  "tracing",
-]
-
-[[package]]
-name = "contextos-server"
-version = "0.20.2"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "clap",
- "contextos-core",
- "contextos-ephemeris",
- "contextos-fs",
- "contextos-git",
- "contextos-index",
- "contextos-mermaid",
- "contextos-obsidian",
- "contextos-oplog",
- "contextos-search",
- "directories",
- "dunce",
- "git2",
- "globset",
- "hf-hub",
- "inquire",
- "rmcp",
- "serde",
- "serde_json",
- "sha2",
- "sysinfo",
- "tempfile",
- "thiserror",
- "time",
- "tokio",
- "tokio-util",
- "toml",
- "toml_edit",
- "tower",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

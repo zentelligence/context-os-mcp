@@ -30,7 +30,7 @@ const MAX_RESPONSE_BODY_BYTES: usize = 8 * 1024 * 1024;
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Construction input for [`OpenAiCompatible`], mirroring
-/// `contextos_server::config::EmbeddingConfig`'s `openai-compatible`
+/// `contextos_mcp::config::EmbeddingConfig`'s `openai-compatible`
 /// fields.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpenAiCompatibleConfig {

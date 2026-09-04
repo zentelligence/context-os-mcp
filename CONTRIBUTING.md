@@ -53,7 +53,7 @@ The full rules live in `AGENTS.md` and `.claude/rules/`. In brief:
 - All tool paths become a validated `VaultPath` before entering a service; never accept a raw `Path`/`PathBuf` at a domain or service boundary.
 - All mutations pass through the single write pipeline (validate, conflict check, atomic write, event routing). No handler or extension module writes to the filesystem directly.
 - Project type conversions use `From`/`TryFrom` only; no free-form `to_*`/`from_*`/`convert_*` helpers.
-- Keep dependency direction hexagonal, strictly towards `contextos-core`; library crates never depend on `contextos-server`.
+- Keep dependency direction hexagonal, strictly towards `contextos-core`; library crates never depend on `contextos-mcp`.
 - Use `tracing`, never `println!`/`eprintln!`; never log vault content, tokens, secrets, or full sensitive paths at INFO or above.
 - Australian English spelling and grammar for operator-facing text and documentation, including the Oxford comma. Markdown prose is soft-wrapped, one line per paragraph.
 - Maximum 1000 lines per code file.

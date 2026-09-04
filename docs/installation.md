@@ -15,7 +15,7 @@ cargo build --workspace --release
 or install the `contextos` binary onto your `PATH`:
 
 ```sh
-cargo install --path crates/contextos-server
+cargo install --path crates/contextos-mcp
 ```
 
 ## First run

@@ -240,7 +240,7 @@ fn in_scope(excludes: &[String], relative: &str) -> bool {
 
 /// Reports whether `relative` names a markdown file by extension: this
 /// crate's one definition of "markdown file" (case-insensitive `.md`),
-/// reused by `contextos-server`'s MCP resources surface so that surface
+/// reused by `contextos-mcp`'s MCP resources surface so that surface
 /// never grows a second, potentially divergent definition.
 #[must_use]
 pub fn is_markdown(relative: &str) -> bool {

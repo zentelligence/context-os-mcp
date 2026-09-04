@@ -2,7 +2,7 @@
 
 # ContextOS Server (`context-os-mcp`)
 
-Rust MCP server for operating ContextOS knowledge vaults: safe filesystem parity plus vault-aware indexing, operation logging, local Git recovery, Obsidian operations, and layered query services. Cargo workspace of library crates behind the `contextos-server` binary; the installed binary name is `contextos`.
+Rust MCP server for operating ContextOS knowledge vaults: safe filesystem parity plus vault-aware indexing, operation logging, local Git recovery, Obsidian operations, and layered query services. Cargo workspace of library crates behind the `contextos-mcp` binary; the installed binary name is `contextos`.
 
 **`AGENTS.md` is the binding contract for every substantive task in this repository. Read it before changing anything; nothing in this file weakens it.** The `.claude/` directory holds the detailed rules, workflows, review lenses, and templates it references, applied automatically through Claude Code's skills, subagents, and hooks; Codex sessions read the same files directly as a secondary, occasional surface.
 
@@ -24,16 +24,16 @@ Product behaviour (requirements and specification) is specified outside this rep
 | Completion gate | `just ci` |
 | Guidance checks plus gate | `.claude/scripts/check.sh` |
 | Targeted red/green test | `cargo test -p <crate> <test_name> -- --exact` |
-| Run against a disposable vault | `cargo run -p contextos-server --bin contextos -- --vault <dir>` |
-| Support check | `cargo run -p contextos-server --bin contextos -- --config <path> doctor` |
+| Run against a disposable vault | `cargo run -p contextos-mcp --bin contextos -- --vault <dir>` |
+| Support check | `cargo run -p contextos-mcp --bin contextos -- --config <path> doctor` |
 
 Never claim a check passed unless it actually ran and succeeded. Report any
 skipped check and the reason.
 
 ## Architecture in one screen
 
-- Hexagonal workspace; every dependency edge points towards `contextos-core`. Library crates never depend on `contextos-server`.
-- `contextos-core` owns `VaultPath`, `VaultSet`, operation events, routing policy, domain errors, and the write-pipeline contracts. Capability crates: `contextos-fs`, `contextos-obsidian`, `contextos-index`, `contextos-oplog`, `contextos-git`, and (Phase 4) `contextos-search`. `contextos-server` is the composition root and MCP adapter.
+- Hexagonal workspace; every dependency edge points towards `contextos-core`. Library crates never depend on `contextos-mcp`.
+- `contextos-core` owns `VaultPath`, `VaultSet`, operation events, routing policy, domain errors, and the write-pipeline contracts. Capability crates: `contextos-fs`, `contextos-obsidian`, `contextos-index`, `contextos-oplog`, `contextos-git`, and (Phase 4) `contextos-search`. `contextos-mcp` is the composition root and MCP adapter.
 - Every mutation flows through one pipeline: validate → conflict check → temp write + fsync + atomic rename → `OperationEvent` → index / oplog / Git / search. The completed write is the contract; downstream failures become typed warnings, never a rolled-back write.
 - `Origin::Internal` is the recursion guard: internal writes skip index and oplog routing but still reach Git. The routing policy lives in `contextos-core::routing`, expressed in types, not string comparisons.
 - All tool paths become a validated `VaultPath` before entering a service. `VaultPath::try_new` is the sole security boundary; no raw `Path` or `PathBuf` crosses a domain or service boundary.
@@ -81,6 +81,6 @@ Source-of-truth precedence: explicit user instruction → `AGENTS.md` → number
 
 ## Repository gotchas
 
-- The binary name `contextos` is coupled to `env!("CARGO_BIN_EXE_contextos")` in `contextos-server` tests; a bin rename must update both or the change reverts under test.
+- The binary name `contextos` is coupled to `env!("CARGO_BIN_EXE_contextos")` in `contextos-mcp` tests; a bin rename must update both or the change reverts under test.
 - `.claude/scripts/check.sh` validates every relative Markdown link in the repository and rejects trailing whitespace in guidance files; keep new documentation clean or the gate fails.
 - Per-phase change briefs and requirement-to-test matrices are maintained outside this repository (see `CLAUDE.local.md` for the location); keep them updated as implementation progresses rather than reconstructing them at the end.

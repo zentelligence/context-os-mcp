@@ -1,6 +1,6 @@
 //! FR-54, D-05: `EmbeddingProviderConfig`, the config-only provider
 //! selection swap. Constructing a provider from this enum is the one
-//! surface `contextos-server`'s configuration will eventually drive
+//! surface `contextos-mcp`'s configuration will eventually drive
 //! (a later stage); these tests prove the swap needs no code change, only a
 //! different enum variant, matching the plan's "gate's swap test is
 //! config-only" requirement.

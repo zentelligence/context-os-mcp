@@ -5,8 +5,8 @@ The architecture is hexagonal. Domain contracts remain independent of MCP, Tokio
 ## Dependency boundaries
 
 - `contextos-core` owns `VaultPath`, vault identity, operation events, domain errors, and ports. It has no adapter dependencies.
-- Capability crates depend on core and, only where specified, lower-level codec crates. They never import `contextos-server`.
-- `contextos-server` is the composition root and MCP adapter. Tool handlers translate requests to domain types, call services, and translate results.
+- Capability crates depend on core and, only where specified, lower-level codec crates. They never import `contextos-mcp`.
+- `contextos-mcp` is the composition root and MCP adapter. Tool handlers translate requests to domain types, call services, and translate results.
 - Extension modules use injected core services. They do not bypass validation, logging, versioning, or indexing.
 - Keep transport types out of service signatures. Convert at the adapter edge with `From` or `TryFrom` and validate before calling a service. Do not hide boundary translation in free-form helper functions.
 

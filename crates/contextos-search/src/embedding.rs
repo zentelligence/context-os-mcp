@@ -5,20 +5,20 @@
 //! [`crate::openai_embedder`], and, behind the default-on `semantic-local`
 //! feature, [`crate::fastembed_embedder`]). This module also owns
 //! [`EmbeddingProviderConfig`], a vault-agnostic mirror of
-//! `contextos_server::config::EmbeddingConfig`'s `provider`, `model`,
+//! `contextos_mcp::config::EmbeddingConfig`'s `provider`, `model`,
 //! `endpoint`, and `api_key_env` fields, and the `TryFrom` conversion that
 //! turns it into a running provider. The conversion lives here (rather than
-//! in `contextos-server`) because only this crate sees both the config
-//! shape and the concrete provider types; `contextos-server` never depends
+//! in `contextos-mcp`) because only this crate sees both the config
+//! shape and the concrete provider types; `contextos-mcp` never depends
 //! on a lower crate's absence, and library crates never depend on
-//! `contextos-server` (architecture.md dependency direction).
+//! `contextos-mcp` (architecture.md dependency direction).
 //!
 //! Every method here is synchronous, matching every other capability trait
 //! in this crate ([`crate::IndexesText`], [`crate::LinkGraph`]): this crate
 //! has no async runtime dependency at all. Blocking CPU work (local ONNX
 //! inference) and blocking network I/O (the openai-compatible HTTP call)
 //! are the composition root's responsibility to offload, exactly as
-//! `contextos-server` already offloads every other blocking search and
+//! `contextos-mcp` already offloads every other blocking search and
 //! filesystem call through `tokio::task::spawn_blocking` rather than this
 //! crate reaching for an async trait or a bundled runtime.
 
@@ -61,7 +61,7 @@ pub trait EmbedsText: Send + Sync {
 }
 
 /// Vault-agnostic embedding provider selection configuration, mirroring
-/// `contextos_server::config::EmbeddingConfig` (`provider`, `model`,
+/// `contextos_mcp::config::EmbeddingConfig` (`provider`, `model`,
 /// `endpoint`, `api_key_env`) so provider selection stays purely
 /// configuration-driven: swapping `provider` between `local` and
 /// `openai-compatible` in the vault's TOML changes which variant the server

@@ -31,7 +31,7 @@ Prior existence of an error, deviation, or violation is no excuse for perpetuati
 - Follow trait-first development.
 - Use test-driven delivery for every behaviour change: red, green, then refactor. See [`.claude/workflows/tdd.md`](.claude/workflows/tdd.md).
 - Do not add production behaviour until a focused test has failed for the expected reason. Bug fixes require a regression test.
-- Keep dependency direction hexagonal and strictly towards `contextos-core`. Library crates never depend on `contextos-server`.
+- Keep dependency direction hexagonal and strictly towards `contextos-core`. Library crates never depend on `contextos-mcp`.
 - All tool paths must become a validated `VaultPath` before entering a service. Do not accept raw `Path` or `PathBuf` at domain or service boundaries.
 - All mutations pass through the write pipeline. No tool handler or extension module writes directly to the filesystem.
 - Production code contains no `unsafe`, `unwrap`, or `expect`. Use typed errors and preserve stable machine-readable error codes.

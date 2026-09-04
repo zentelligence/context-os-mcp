@@ -74,7 +74,7 @@ jobs:
           key: release-${{ matrix.target }}
 
       - name: Build contextos (release)
-        run: cargo build --release --locked -p contextos-server --bin contextos --target ${{ matrix.target }}
+        run: cargo build --release --locked -p contextos-mcp --bin contextos --target ${{ matrix.target }}
 
       - name: Package (tar.gz)
         if: matrix.archive == 'tar.gz'

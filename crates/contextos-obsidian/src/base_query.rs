@@ -35,7 +35,7 @@ pub struct FileMetadata<'a> {
 /// representation, not resolved through the link graph, so they work
 /// without one); `backlinks` are vault-relative paths resolved through the
 /// link graph when one is available, empty otherwise (see
-/// `contextos-server`'s orchestration for how each is populated).
+/// `contextos-mcp`'s orchestration for how each is populated).
 #[derive(Clone, Copy, Debug)]
 pub struct RowContext<'a> {
     pub frontmatter: &'a Map<String, Value>,
@@ -669,7 +669,7 @@ fn parse_literal(text: &str, path: &str) -> Result<Value, BaseQueryError> {
 ///
 /// See [`BaseQueryError::FormulaReference`] and
 /// [`BaseQueryError::UnsupportedFileProperty`]. Exposed publicly for
-/// `base_query`'s sort-key resolution (`contextos-server`), which needs
+/// `base_query`'s sort-key resolution (`contextos-mcp`), which needs
 /// the same "formula and unrecognised file properties are errors, missing
 /// frontmatter is `None`" semantics filter evaluation already applies.
 pub fn resolve_property(

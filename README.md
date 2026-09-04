@@ -23,7 +23,7 @@ See [`docs/mcp-tools.md`](docs/mcp-tools.md) for the full tool catalogue.
 Requires a recent stable Rust toolchain (see `rust-version` in `Cargo.toml`).
 
 ```sh
-cargo install --path crates/contextos-server
+cargo install --path crates/contextos-mcp
 ```
 
 or build from a checkout without installing:
@@ -78,7 +78,7 @@ Hexagonal Cargo workspace; every dependency edge points towards `contextos-core`
 | `contextos-search` | Text, graph, vector, and embedding services |
 | `contextos-mermaid` | Mermaid diagram parsing, layout, and SVG rendering |
 | `contextos-ephemeris` | Optional astronomical/astrological calculations (moon phase, solar events, personal-year periods) |
-| `contextos-server` | MCP tool registry, configuration, stdio, and HTTP transports |
+| `contextos-mcp` | MCP tool registry, configuration, stdio, and HTTP transports |
 
 Every mutation passes through one write pipeline: validate, check for conflicts, write atomically (temp file, fsync, rename), then route the resulting event to the index, operation log, Git, and search substrates. A downstream substrate failure becomes a typed warning; it never rolls back a completed write.
 

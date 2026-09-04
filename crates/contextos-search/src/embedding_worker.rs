@@ -19,7 +19,7 @@
 //! events. Determinism therefore needs no scheduler abstraction beyond the
 //! already-established [`contextos_core::Clock`]: timestamps come from the
 //! injected clock, and *when* to call `process_one` is left to the caller,
-//! exactly as the plan's "do not wire into contextos-server's real event
+//! exactly as the plan's "do not wire into contextos-mcp's real event
 //! routing yet" instruction requires.
 //!
 //! A single path's provider or store failure never stops the worker or

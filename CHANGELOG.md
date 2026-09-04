@@ -13,6 +13,10 @@ The record below starts at the current version - 0.20.1. From this point forward
 
 - Nothing yet.
 
+### Changed
+
+- Renamed the `contextos-server` crate to `contextos-mcp` to disambiguate the MCP server from the web server planned for a future release. The installed binary name (`contextos`) and its CLI are unchanged.
+
 ## [0.20.2] - 2026-09-03
 
 ### Fixed

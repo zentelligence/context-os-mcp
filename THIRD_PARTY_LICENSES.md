@@ -8229,16 +8229,16 @@ limitations under the License.
 ### Apache License 2.0
 
 Used by:
-- `contextos-core` 0.21.0
-- `contextos-ephemeris` 0.21.0
-- `contextos-fs` 0.21.0
-- `contextos-git` 0.21.0
-- `contextos-index` 0.21.0
-- `contextos-mermaid` 0.21.0
-- `contextos-obsidian` 0.21.0
-- `contextos-oplog` 0.21.0
-- `contextos-search` 0.21.0
-- `contextos-server` 0.21.0
+- `contextos-core` 0.20.2
+- `contextos-ephemeris` 0.20.2
+- `contextos-fs` 0.20.2
+- `contextos-git` 0.20.2
+- `contextos-index` 0.20.2
+- `contextos-mcp` 0.20.2
+- `contextos-mermaid` 0.20.2
+- `contextos-obsidian` 0.20.2
+- `contextos-oplog` 0.20.2
+- `contextos-search` 0.20.2
 - `allocator-api2` 0.2.21
 - `android_system_properties` 0.1.5
 - `anyhow` 1.0.104

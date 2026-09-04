@@ -5,11 +5,11 @@ members = [
     "crates/contextos-fs",
     "crates/contextos-git",
     "crates/contextos-index",
+    "crates/contextos-mcp",
     "crates/contextos-mermaid",
     "crates/contextos-obsidian",
     "crates/contextos-oplog",
     "crates/contextos-search",
-    "crates/contextos-server",
 ]
 resolver = "3"
 

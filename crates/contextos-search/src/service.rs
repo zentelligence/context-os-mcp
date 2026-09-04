@@ -1,7 +1,7 @@
 //! Combined per-vault search service.
 //!
 //! `VaultSearchService` wires one vault root's text index and link graph
-//! behind a single `UpdatesSearch` consumer, so `contextos-server` can route
+//! behind a single `UpdatesSearch` consumer, so `contextos-mcp` can route
 //! every completed mutation to whichever of the two derived indexes are
 //! enabled for that vault, and expose one query, status, and rebuild surface
 //! over both.
