@@ -47,7 +47,7 @@
     </h4>
     <dl>
     {% for column in row.columns %}
-      <dt>{{ column.name }}</dt><dd>{{ column.value }}</dd>
+      <dt>{{ column.label }}</dt><dd>{% if let Some(href) = column.href %}<a href="{{ href }}">{{ column.value }}</a>{% else %}{{ column.value }}{% endif %}</dd>
     {% endfor %}
     </dl>
 {% if let Some(note_path) = row.note_path %}
@@ -63,7 +63,9 @@
       hx-vals="js:{target:'row', note_path:this.dataset.notePath, patch:(function(el){var p={};el.querySelectorAll('[data-field]').forEach(function(i){p[i.dataset.field]=i.value;});return p;})(this)}"
     >
     {% for column in row.columns %}
-      <label>{{ column.name }}<input type="text" data-field="{{ column.name }}" value="{{ column.value }}"></label>
+    {% if !column.is_formula %}
+      <label>{{ column.label }}<input type="text" data-field="{{ column.name }}" value="{{ column.value }}"></label>
+    {% endif %}
     {% endfor %}
       <button type="submit" class="btn primary small">Save</button>
     </form>

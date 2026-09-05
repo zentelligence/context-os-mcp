@@ -10,6 +10,8 @@
 //! `base_apply` respectively), dispatched by `routes::vault_mutations`,
 //! never by this rendering module.
 
+use std::collections::HashMap;
+
 use askama::Template;
 use serde::Deserialize;
 use serde_json::Value;
@@ -19,8 +21,27 @@ use crate::rendering::diagnostics::{self, Diagnostic};
 
 #[derive(Debug, Clone)]
 struct RowColumn {
+    /// The raw column key (`"status"`, `"formula.id_link"`): the row-edit
+    /// form's own `data-field`, a real frontmatter key `frontmatter_update`
+    /// can patch, so this is never replaced by `label`.
     name: String,
+    /// The column's own `properties.<name>.displayName` from the `.base`
+    /// document when set (`"ID"` for `formula.id_link`, say), falling back
+    /// to `name` itself: purely the text shown to a reader, never used to
+    /// address anything.
+    label: String,
     value: String,
+    /// `Some(href)` when this column's value is a `base_query` link
+    /// (`file.asLink`'s resolved JSON shape, `{"type":"link", "target":
+    /// ..., "display": ...}`): `value` is the link's own display text,
+    /// rendered as an anchor to `href` rather than plain text.
+    href: Option<String>,
+    /// Whether `name` is a `formula.*` display column: computed, never
+    /// real frontmatter, so the row-edit form never offers it as a
+    /// patchable field (posting a formula name back through
+    /// `frontmatter_update` would write a bogus frontmatter key, not
+    /// update anything the note actually has).
+    is_formula: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -95,7 +116,7 @@ pub async fn render_view(
     path: &str,
     view: Option<&str>,
 ) -> Result<String, McpCallError> {
-    let (view_names, filters_json) = read_definition(mcp, vault_name, path).await?;
+    let (view_names, filters_json, display_names) = read_definition(mcp, vault_name, path).await?;
 
     let mut args = serde_json::Map::new();
     args.insert("path".to_owned(), Value::String(format!("{vault_name}://{path}")));
@@ -129,7 +150,7 @@ pub async fn render_view(
     let rows_json: Vec<serde_json::Map<String, Value>> = serde_json::from_str(&structured.content).unwrap_or_default();
     let rows: Vec<RowView> = rows_json
         .iter()
-        .map(|row| row_view(row, &structured.columns, vault_name))
+        .map(|row| row_view(row, &structured.columns, vault_name, &display_names))
         .collect();
 
     let diagnostics_html = if structured.diagnostics.is_empty() {
@@ -160,24 +181,32 @@ pub async fn render_view(
 
 /// Reads the `.base` file's own definition via `base_read` for the parts
 /// `base_query`'s result does not carry: every declared view's name (the
-/// tab strip) and the top-level `filters` value (the view-definition
-/// editor's pre-filled content). A read or parse failure degrades to an
-/// empty tab strip and an empty filter editor rather than failing the
-/// whole render: the row grid itself is still meaningful without them.
+/// tab strip), the top-level `filters` value (the view-definition editor's
+/// pre-filled content), and every column's own `properties.<name>
+/// .displayName` (a reader-facing label only, e.g. `"ID"` for
+/// `formula.id_link`; the row-edit form still addresses the column by its
+/// raw name, never this label). A read or parse failure degrades to an
+/// empty tab strip, an empty filter editor, and raw column names as labels,
+/// rather than failing the whole render: the row grid itself is still
+/// meaningful without them.
 ///
 /// # Errors
 ///
 /// Returns [`McpCallError::Unreachable`] when the MCP transport itself
 /// fails.
-async fn read_definition(mcp: &McpClient, vault_name: &str, path: &str) -> Result<(Vec<String>, String), McpCallError> {
+async fn read_definition(
+    mcp: &McpClient,
+    vault_name: &str,
+    path: &str,
+) -> Result<(Vec<String>, String, HashMap<String, String>), McpCallError> {
     let mut args = serde_json::Map::new();
     args.insert("path".to_owned(), Value::String(format!("{vault_name}://{path}")));
     let result = mcp.call_tool("base_read".to_owned(), args).await?;
     if result.is_error == Some(true) {
-        return Ok((Vec::new(), String::new()));
+        return Ok((Vec::new(), String::new(), HashMap::new()));
     }
     let Ok(read) = result.into_typed::<BaseReadStructured>() else {
-        return Ok((Vec::new(), String::new()));
+        return Ok((Vec::new(), String::new(), HashMap::new()));
     };
     let view_names = read
         .definition
@@ -196,33 +225,101 @@ async fn read_definition(mcp: &McpClient, vault_name: &str, path: &str) -> Resul
         .get("filters")
         .map(|filters| serde_json::to_string_pretty(filters).unwrap_or_default())
         .unwrap_or_default();
-    Ok((view_names, filters_json))
+    let display_names = read
+        .definition
+        .get("properties")
+        .and_then(Value::as_object)
+        .map(|properties| {
+            properties
+                .iter()
+                .filter_map(|(name, definition)| {
+                    let display_name = definition.get("displayName")?.as_str()?;
+                    Some((name.clone(), display_name.to_owned()))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok((view_names, filters_json, display_names))
 }
 
-fn row_view(row: &serde_json::Map<String, Value>, columns: &[String], vault_name: &str) -> RowView {
-    let file_path = row.get("file.path").and_then(Value::as_str);
-    let (has_link, href) = match file_path {
+/// Builds one row's card data. The card's own identity (title, link,
+/// `frontmatter_update` target) is always the row's file path, found
+/// however it happens to be available: an explicit `file.path` column when
+/// the view's own `order` includes one, or otherwise any `file.asLink(...)`
+/// column's own `target` (every such link necessarily targets the row's own
+/// file, regardless of where that column sits in `order`). This is
+/// deliberately independent of column order or position: `order` controls
+/// only which data a view chooses to display, and in what sequence a reader
+/// scans it, not which one is somehow "the" title, a distinction Obsidian's
+/// own Bases schema does not draw either.
+fn row_view(
+    row: &serde_json::Map<String, Value>,
+    columns: &[String],
+    vault_name: &str,
+    display_names: &HashMap<String, String>,
+) -> RowView {
+    let file_path = row
+        .get("file.path")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .or_else(|| columns.iter().find_map(|name| link_target(row.get(name))));
+    let (has_link, href) = match &file_path {
         Some(p) => (true, format!("/{vault_name}/{p}")),
         None => (false, String::new()),
     };
-    let title = file_path
-        .map(|p| p.rsplit('/').next().unwrap_or(p).to_owned())
-        .or_else(|| columns.first().and_then(|c| row.get(c)).map(stringify))
-        .unwrap_or_else(|| "(untitled)".to_owned());
+    let title = file_path.as_deref().map_or_else(
+        || "(untitled)".to_owned(),
+        |p| p.rsplit('/').next().unwrap_or(p).to_owned(),
+    );
     let column_views = columns
         .iter()
         .filter(|c| c.as_str() != "file.path")
-        .map(|name| RowColumn {
-            name: name.clone(),
-            value: row.get(name).map(stringify).unwrap_or_default(),
+        .map(|name| {
+            let (value, href) = column_value(row.get(name), vault_name);
+            RowColumn {
+                name: name.clone(),
+                label: display_names.get(name).cloned().unwrap_or_else(|| name.clone()),
+                value,
+                href,
+                is_formula: name.starts_with("formula."),
+            }
         })
         .collect();
     RowView {
         title,
         has_link,
         href,
-        note_path: file_path.map(str::to_owned),
+        note_path: file_path,
         columns: column_views,
+    }
+}
+
+/// The vault-relative path a `base_query` link (`file.asLink`'s resolved
+/// JSON shape) targets, or `None` for any other value shape.
+fn link_target(value: Option<&Value>) -> Option<String> {
+    match value {
+        Some(Value::Object(object)) if object.get("type").and_then(Value::as_str) == Some("link") => {
+            object.get("target").and_then(Value::as_str).map(str::to_owned)
+        }
+        _ => None,
+    }
+}
+
+/// Resolves one column's display text and, when the column's value is a
+/// `base_query` link, the vault route it should link to.
+fn column_value(value: Option<&Value>, vault_name: &str) -> (String, Option<String>) {
+    if let Some(target) = link_target(value) {
+        let display = value
+            .and_then(Value::as_object)
+            .and_then(|object| object.get("display"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        return (display, Some(format!("/{vault_name}/{target}")));
+    }
+    match value {
+        Some(value) => (stringify(value), None),
+        None => (String::new(), None),
     }
 }
 

@@ -9,10 +9,14 @@ The record below starts at the current version - 0.20.1. From this point forward
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-09-05
+
 ### Added
 
 - `contextos-web`, a new crate and second binary in this workspace (Phase 14): an `mcp_client` module that spawns or connects to configured MCP servers (`web.toml`'s `[[mcp_server]]` list) and performs the `initialize` handshake before serving any request; a `POST /mcp/{server_name}/{tool_name}` proxy route giving any HTTP caller deterministic, non-model-mediated MCP tool calls; and `/static/` asset serving. Not yet a browsable web UI: vault content rendering, app registration, and a settings UI are later phases (15 to 17).
 - `contextos-web service install` / `uninstall` / `status`: registers (or removes, or reports on) `contextos-web` as an auto-starting, per-user background service, none of the three needing elevation, via `systemd --user` on Linux, a `launchd` `LaunchAgent` on macOS, or a Scheduled Task on Windows. The release archive for each platform now also includes the `contextos-web` binary alongside `contextos`.
+- `base_query`: `file.inFolder(folder)`, matching Obsidian's own "in folder or subfolder" Bases function. Recognised as a scan-root narrowing hint the same way `file.folder == "..."` already was, so a Base whose filter uses it (rather than the unnarrowable `file.folder == "..." || file.folder.contains(".../")` idiom the lack of a real `inFolder` previously forced) no longer requires a full vault-wide scan.
+- `base_query` display columns: a formula whose body is a bare property reference now resolves to that property's own value, and `file.asLink(display?)` resolves to a link targeting the row's own file (`display` defaulting to the file's basename when omitted or empty). Every other formula (arithmetic, `if()`, date functions, and the rest of Obsidian's formula language) still shows the existing "not evaluated" marker rather than guessing at a value. `contextos-web`'s Base card view renders a resolved link as a real, clickable anchor rather than raw JSON.
 
 ### Changed
 
@@ -23,6 +27,9 @@ The record below starts at the current version - 0.20.1. From this point forward
 ### Fixed
 
 - `/static/` no longer 404s on every request when `contextos-web` is launched from a directory that has no `static/` subdirectory next to it, such as a plain `cargo install` or a `PATH` binary directory on Windows: `static_dir`'s previous default (the relative path `./static`, resolved against the process's current working directory rather than the binary's own location) silently pointed nowhere in that layout, and startup gave no warning that it had. The crate's bundled assets are now embedded in the binary itself instead.
+- `base_query`'s scan-root narrowing (`scan_root_hint`) could silently narrow a scan, and drop genuine matches, when a `file.path`/`file.folder` equality leaf sat inside an `or` or `not` filter node, or inside a compound `&&`/`||`/`!`/`(...)` filter string its previous whole-string parser did not actually respect. Both are now evaluated with the same `and`/`or`/`not` grammar and safety rules `evaluate_filters` itself uses: narrowing only through a safe `and` conjunct, an `or` only when every operand agrees on the identical hint, never through a `not`.
+- `contextos-web`'s Base card view no longer offers a `formula.*` display column as an editable, patchable field in a row's edit form: saving the form unchanged previously wrote the formula's own name or "not evaluated" marker text back into the note's real frontmatter as a bogus key.
+- `contextos-web` vault content, apps-list, and settings-page rendering issued every independent MCP round trip, and every `web.toml` read (one of them a blocking filesystem read running directly on the async executor thread), strictly sequentially. Independent work (nav-shell assembly, a note's content fetch/render, appearance/config loads) now runs concurrently via `tokio::join!`, and every blocking `web.toml` read or write moved onto `spawn_blocking`.
 
 ## [0.20.2] - 2026-09-03
 

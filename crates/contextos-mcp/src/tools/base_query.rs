@@ -201,7 +201,11 @@ pub(crate) fn run(
 
     let mut rows = Vec::with_capacity(limited.len());
     for row in &limited {
-        rows.push(resolve_row(&definition.columns, &row.row_context())?);
+        rows.push(resolve_row(
+            &definition.columns,
+            &row.row_context(),
+            &definition.formulas,
+        )?);
     }
     let content = render(&definition.columns, &rows, format);
 

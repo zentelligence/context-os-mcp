@@ -63,6 +63,13 @@ pub struct QueryDefinition {
     pub columns: Vec<String>,
     pub sort: Vec<SortKey>,
     pub limit: Option<usize>,
+    /// The document's top-level `formulas` map (name to expression string),
+    /// empty when absent: `formulas` is a document-level-only key, never
+    /// per-view, matching Obsidian's own Bases schema. Consulted only when
+    /// resolving a `formula.*` display column ([`resolve_column`]); a
+    /// `formula.*` reference in a filter or sort key is unaffected and
+    /// still fails closed.
+    pub formulas: Map<String, Value>,
 }
 
 impl QueryDefinition {
@@ -115,11 +122,13 @@ impl QueryDefinition {
         if columns.is_empty() {
             return Err(BaseQueryError::NoColumns { view: selected_name });
         }
+        let formulas = formula_map(definition.get("formulas"));
         Ok(Self {
             filters,
             columns,
             sort,
             limit,
+            formulas,
         })
     }
 
@@ -147,13 +156,33 @@ impl QueryDefinition {
                 view: "(inline)".to_owned(),
             });
         }
+        let formulas = formula_map(definition.get("formulas"));
         Ok(Self {
             filters,
             columns,
             sort,
             limit,
+            formulas,
         })
     }
+}
+
+/// Reads a `formulas` map's string-valued entries only: a non-string
+/// formula body (structurally invalid per the schema) is dropped rather
+/// than rejecting the whole query, since [`resolve_formula`] degrades to
+/// the "not evaluated" marker for any formula it does not recognise
+/// anyway.
+fn formula_map(value: Option<&Value>) -> Map<String, Value> {
+    value
+        .and_then(Value::as_object)
+        .map(|formulas| {
+            formulas
+                .iter()
+                .filter(|(_, expression)| expression.is_string())
+                .map(|(name, expression)| (name.clone(), expression.clone()))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn merge_and(top: Option<&Value>, view: Option<&Value>) -> Option<Value> {
@@ -800,43 +829,138 @@ fn validate_property_name(property: &str, path: &str) -> Result<(), BaseQueryErr
     Ok(())
 }
 
-/// One resolved display-column value: either the property's JSON value
-/// (`Null` when a frontmatter key is absent) or an unevaluated formula
-/// marker. Unlike a filter or sort key, a display column naming
-/// `formula.*` is not an error: `base_query` never computes formula
-/// values, but it still shows the column, carrying the formula name rather
-/// than a value.
+/// One resolved display-column value: the property's JSON value (`Null`
+/// when a frontmatter key is absent), a resolved link to the row's own
+/// file, or an unevaluated formula marker for any formula body outside the
+/// documented subset [`resolve_formula`] evaluates. Unlike a filter or sort
+/// key, a display column naming `formula.*` is never an error: an
+/// unrecognised formula body still shows the column, carrying the formula
+/// name rather than a value, the same graceful-degradation policy an
+/// unsupported filter expression does not get (there, failing closed is
+/// the whole point).
 #[derive(Clone, Debug, PartialEq)]
 pub enum ColumnValue {
     Value(Value),
     UnevaluatedFormula(String),
+    /// `file.asLink(display?)`: a link to the row's own file
+    /// ([`RowContext::file`]'s `path`), with `display` as its label.
+    Link {
+        target: String,
+        display: String,
+    },
 }
 
-/// Resolves one display column's value for one row.
+/// Resolves one display column's value for one row. `formulas` is the
+/// document's own `formulas` map ([`QueryDefinition::formulas`]), consulted
+/// only for a `formula.*` column.
 ///
 /// # Errors
 ///
 /// Returns [`BaseQueryError::UnsupportedFileProperty`] for a `file.*`
 /// accessor outside Obsidian's own documented set. A `formula.*` column
-/// always succeeds, resolving to [`ColumnValue::UnevaluatedFormula`].
-pub fn resolve_column(column: &str, row: &RowContext<'_>, path: &str) -> Result<ColumnValue, BaseQueryError> {
+/// always succeeds: see [`resolve_formula`] for which formula bodies
+/// resolve to a real value versus [`ColumnValue::UnevaluatedFormula`].
+pub fn resolve_column(
+    column: &str,
+    row: &RowContext<'_>,
+    path: &str,
+    formulas: &Map<String, Value>,
+) -> Result<ColumnValue, BaseQueryError> {
     if let Some(name) = column.strip_prefix("formula.") {
-        return Ok(ColumnValue::UnevaluatedFormula(name.to_owned()));
+        return Ok(resolve_formula(name, formulas, row, path));
     }
     let value = resolve_property(column, row, path)?.unwrap_or(Value::Null);
     Ok(ColumnValue::Value(value))
 }
 
-/// Resolves every column for one row, in column order.
+/// Evaluates a documented subset of Obsidian's formula language: a formula
+/// body that is (after trimming) a bare property reference (any `file.*`
+/// property, or a frontmatter/`note.*` key — the same reference grammar
+/// [`resolve_property`] already applies to a filter leaf or column name)
+/// resolves to that property's own value, and `file.asLink(display?)`
+/// resolves to a [`ColumnValue::Link`] targeting the row's own file, with
+/// `display` evaluated the same way (a bare property reference), defaulting
+/// to the file's own basename when the argument is omitted or evaluates to
+/// no value — Obsidian's own Bases links never render with empty text.
+/// Every other formula body (arithmetic, `if()`, date functions, any
+/// function this subset does not implement) degrades to
+/// [`ColumnValue::UnevaluatedFormula`] rather than guessing at a value or
+/// failing the whole query.
+fn resolve_formula(name: &str, formulas: &Map<String, Value>, row: &RowContext<'_>, path: &str) -> ColumnValue {
+    let unevaluated = || ColumnValue::UnevaluatedFormula(name.to_owned());
+    let Some(Value::String(expression)) = formulas.get(name) else {
+        return unevaluated();
+    };
+    let trimmed = expression.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix("file.asLink(")
+        .and_then(|rest| rest.strip_suffix(')'))
+    {
+        return match resolve_link_display(inner.trim(), row, path) {
+            Some(display) => ColumnValue::Link {
+                target: row.file.path.to_owned(),
+                display,
+            },
+            None => unevaluated(),
+        };
+    }
+    if is_bare_property_reference(trimmed) {
+        return match resolve_property(trimmed, row, path) {
+            Ok(value) => ColumnValue::Value(value.unwrap_or(Value::Null)),
+            Err(_) => unevaluated(),
+        };
+    }
+    unevaluated()
+}
+
+/// Resolves `file.asLink`'s own `display` argument: empty (no argument)
+/// always yields the file's own basename; a bare property reference that
+/// resolves to no value (absent or `null`) also falls back to the
+/// basename, matching Obsidian's own "a link always shows some text"
+/// behaviour; any other argument shape (not a bare property reference, or
+/// one this subset cannot resolve) yields `None`, signalling the whole
+/// formula is unevaluated.
+fn resolve_link_display(argument: &str, row: &RowContext<'_>, path: &str) -> Option<String> {
+    if argument.is_empty() {
+        return Some(row.file.basename.to_owned());
+    }
+    if !is_bare_property_reference(argument) {
+        return None;
+    }
+    match resolve_property(argument, row, path) {
+        Ok(Some(value)) => Some(scalar_text(&value)),
+        Ok(None) => Some(row.file.basename.to_owned()),
+        Err(_) => None,
+    }
+}
+
+/// Whether `expr` is syntactically a bare property reference rather than a
+/// larger expression: every documented property/frontmatter-key name is
+/// alphanumerics, `_`, `.`, or `-` only, so any other character (an
+/// operator, a quote, whitespace, a function call's parentheses) means
+/// this is some other formula shape [`resolve_formula`] does not evaluate.
+fn is_bare_property_reference(expr: &str) -> bool {
+    !expr.is_empty()
+        && expr
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+}
+
+/// Resolves every column for one row, in column order. `formulas` is the
+/// document's own `formulas` map, see [`resolve_column`].
 ///
 /// # Errors
 ///
 /// See [`resolve_column`].
-pub fn resolve_row(columns: &[String], row: &RowContext<'_>) -> Result<Vec<ColumnValue>, BaseQueryError> {
+pub fn resolve_row(
+    columns: &[String],
+    row: &RowContext<'_>,
+    formulas: &Map<String, Value>,
+) -> Result<Vec<ColumnValue>, BaseQueryError> {
     columns
         .iter()
         .enumerate()
-        .map(|(index, column)| resolve_column(column, row, &format!("columns[{index}]")))
+        .map(|(index, column)| resolve_column(column, row, &format!("columns[{index}]"), formulas))
         .collect()
 }
 
@@ -865,6 +989,7 @@ fn cell_text(value: &ColumnValue) -> String {
     match value {
         ColumnValue::UnevaluatedFormula(name) => format!("formula.{name} (not evaluated)"),
         ColumnValue::Value(value) => scalar_text(value),
+        ColumnValue::Link { target, display } => format!("[{display}]({target})"),
     }
 }
 
@@ -916,6 +1041,13 @@ fn render_json(columns: &[String], rows: &[Vec<ColumnValue>]) -> String {
                 let json_value = match value {
                     ColumnValue::UnevaluatedFormula(name) => Value::String(format!("formula.{name} (not evaluated)")),
                     ColumnValue::Value(value) => value.clone(),
+                    ColumnValue::Link { target, display } => {
+                        let mut link = Map::new();
+                        link.insert("type".to_owned(), Value::String("link".to_owned()));
+                        link.insert("target".to_owned(), Value::String(target.clone()));
+                        link.insert("display".to_owned(), Value::String(display.clone()));
+                        Value::Object(link)
+                    }
                 };
                 object.insert(column.clone(), json_value);
             }
@@ -1007,7 +1139,9 @@ pub enum BaseQueryError {
     MalformedDefinition { path: String, violation: String },
     #[error("Base query filter at {path} is not supported: {expression}")]
     UnsupportedFilterExpression { path: String, expression: String },
-    #[error("Base query filter at {path} references formula.{name}, which base_query never evaluates")]
+    #[error(
+        "Base query filter at {path} references formula.{name}, which base_query never evaluates in a filter or sort key"
+    )]
     FormulaReference { path: String, name: String },
     #[error("Base query filter at {path} references unsupported file property file.{property}")]
     UnsupportedFileProperty { path: String, property: String },
@@ -1040,7 +1174,7 @@ impl BaseQueryError {
                 "Rewrite the filter using ==, !=, .contains(), file.hasTag(), file.inFolder(), &&, ||, !, or (...) grouping, or remove it."
             }
             Self::FormulaReference { .. } => {
-                "base_query does not evaluate formulas; remove the formula.* reference or filter on a property instead."
+                "base_query does not evaluate formula.* in a filter or sort key; remove the reference or filter/sort on a property instead."
             }
             Self::UnsupportedFileProperty { .. } => {
                 "base_query supports file.ext, file.name, file.basename, file.path, file.folder, file.size, file.ctime, file.mtime, file.tags, file.links, file.embeds, file.backlinks, and file.properties; use a frontmatter property for anything else."
@@ -1623,46 +1757,148 @@ mod tests {
     }
 
     #[test]
-    fn a_formula_display_column_is_an_unevaluated_marker_not_an_error() -> Result<(), Box<dyn std::error::Error>> {
+    fn a_formula_display_column_with_no_matching_formula_definition_is_an_unevaluated_marker_not_an_error()
+    -> Result<(), Box<dyn std::error::Error>> {
         let frontmatter = frontmatter(json!({}));
         let row = active_row(&frontmatter, &[]);
-        let value = resolve_column("formula.display_status", &row, "columns[0]")?;
+        let value = resolve_column("formula.display_status", &row, "columns[0]", &Map::new())?;
         assert_eq!(value, ColumnValue::UnevaluatedFormula("display_status".to_owned()));
         Ok(())
     }
 
     #[test]
+    fn a_formula_body_outside_the_documented_subset_is_an_unevaluated_marker_not_an_error()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let formulas = frontmatter(json!({ "days_old": "(now() - file.ctime).days" }));
+        let frontmatter = frontmatter(json!({}));
+        let row = active_row(&frontmatter, &[]);
+        let value = resolve_column("formula.days_old", &row, "columns[0]", &formulas)?;
+        assert_eq!(value, ColumnValue::UnevaluatedFormula("days_old".to_owned()));
+        Ok(())
+    }
+
+    #[test]
+    fn a_bare_property_reference_formula_resolves_to_that_propertys_own_value() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let formulas = frontmatter(json!({ "priority_display": "priority", "path_display": "file.path" }));
+        let frontmatter = frontmatter(json!({ "priority": "high" }));
+        let row = active_row(&frontmatter, &[]);
+        assert_eq!(
+            resolve_column("formula.priority_display", &row, "columns[0]", &formulas)?,
+            ColumnValue::Value(json!("high"))
+        );
+        assert_eq!(
+            resolve_column("formula.path_display", &row, "columns[0]", &formulas)?,
+            ColumnValue::Value(json!("notes/alpha.md"))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn file_as_link_resolves_to_a_link_targeting_the_rows_own_file() -> Result<(), Box<dyn std::error::Error>> {
+        let formulas = frontmatter(json!({
+            "id_link": "file.asLink(note.id)",
+            "bare_link": "file.asLink()",
+        }));
+        let frontmatter = frontmatter(json!({ "id": "a-042" }));
+        let row = active_row(&frontmatter, &[]);
+        assert_eq!(
+            resolve_column("formula.id_link", &row, "columns[0]", &formulas)?,
+            ColumnValue::Link {
+                target: "notes/alpha.md".to_owned(),
+                display: "a-042".to_owned(),
+            }
+        );
+        // No argument: falls back to the file's own basename.
+        assert_eq!(
+            resolve_column("formula.bare_link", &row, "columns[0]", &formulas)?,
+            ColumnValue::Link {
+                target: "notes/alpha.md".to_owned(),
+                display: "alpha".to_owned(),
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn file_as_link_falls_back_to_the_basename_when_its_display_property_is_absent()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let formulas = frontmatter(json!({ "id_link": "file.asLink(note.id)" }));
+        let frontmatter = frontmatter(json!({}));
+        let row = active_row(&frontmatter, &[]);
+        assert_eq!(
+            resolve_column("formula.id_link", &row, "columns[0]", &formulas)?,
+            ColumnValue::Link {
+                target: "notes/alpha.md".to_owned(),
+                display: "alpha".to_owned(),
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn file_as_link_with_an_argument_outside_the_documented_subset_is_an_unevaluated_marker()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let formulas = frontmatter(json!({ "title_link": "file.asLink(note.title + \"!\")" }));
+        let frontmatter = frontmatter(json!({}));
+        let row = active_row(&frontmatter, &[]);
+        assert_eq!(
+            resolve_column("formula.title_link", &row, "columns[0]", &formulas)?,
+            ColumnValue::UnevaluatedFormula("title_link".to_owned())
+        );
+        Ok(())
+    }
+
+    #[test]
     fn resolve_row_resolves_frontmatter_file_and_formula_columns_in_order() -> Result<(), Box<dyn std::error::Error>> {
+        let formulas = frontmatter(json!({ "title_link": "file.asLink()" }));
         let frontmatter = frontmatter(json!({ "status": "active" }));
         let row = active_row(&frontmatter, &[]);
         let columns = [
             "file.name".to_owned(),
             "status".to_owned(),
             "formula.display_status".to_owned(),
+            "formula.title_link".to_owned(),
             "missing".to_owned(),
         ];
-        let resolved = resolve_row(&columns, &row)?;
+        let resolved = resolve_row(&columns, &row, &formulas)?;
         assert_eq!(resolved[0], ColumnValue::Value(json!("alpha.md")));
         assert_eq!(resolved[1], ColumnValue::Value(json!("active")));
         assert_eq!(
             resolved[2],
             ColumnValue::UnevaluatedFormula("display_status".to_owned())
         );
-        assert_eq!(resolved[3], ColumnValue::Value(Value::Null));
+        assert_eq!(
+            resolved[3],
+            ColumnValue::Link {
+                target: "notes/alpha.md".to_owned(),
+                display: "alpha".to_owned(),
+            }
+        );
+        assert_eq!(resolved[4], ColumnValue::Value(Value::Null));
         Ok(())
     }
 
     #[test]
-    fn render_table_escapes_pipes_and_marks_unevaluated_formulas() {
-        let columns = ["file.name".to_owned(), "formula.display_status".to_owned()];
+    fn render_table_escapes_pipes_marks_unevaluated_formulas_and_renders_links_as_markdown() {
+        let columns = [
+            "file.name".to_owned(),
+            "formula.display_status".to_owned(),
+            "formula.id_link".to_owned(),
+        ];
         let rows = vec![vec![
             ColumnValue::Value(json!("a | b")),
             ColumnValue::UnevaluatedFormula("display_status".to_owned()),
+            ColumnValue::Link {
+                target: "notes/alpha.md".to_owned(),
+                display: "a-042".to_owned(),
+            },
         ]];
         let table = render(&columns, &rows, QueryFormat::Table);
         assert_eq!(
             table,
-            "| file.name | formula.display_status |\n| --- | --- |\n| a \\| b | formula.display_status (not evaluated) |\n"
+            "| file.name | formula.display_status | formula.id_link |\n| --- | --- | --- |\n\
+             | a \\| b | formula.display_status (not evaluated) | [a-042](notes/alpha.md) |\n"
         );
     }
 
@@ -1673,6 +1909,22 @@ mod tests {
         let content = render(&columns, &rows, QueryFormat::Json);
         let parsed: Value = serde_json::from_str(&content)?;
         assert_eq!(parsed, json!([{ "status": "active" }]));
+        Ok(())
+    }
+
+    #[test]
+    fn render_json_represents_a_link_column_as_a_typed_object() -> Result<(), Box<dyn std::error::Error>> {
+        let columns = ["formula.id_link".to_owned()];
+        let rows = vec![vec![ColumnValue::Link {
+            target: "notes/alpha.md".to_owned(),
+            display: "a-042".to_owned(),
+        }]];
+        let content = render(&columns, &rows, QueryFormat::Json);
+        let parsed: Value = serde_json::from_str(&content)?;
+        assert_eq!(
+            parsed,
+            json!([{ "formula.id_link": { "type": "link", "target": "notes/alpha.md", "display": "a-042" } }])
+        );
         Ok(())
     }
 
