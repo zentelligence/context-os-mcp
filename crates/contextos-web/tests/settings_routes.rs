@@ -9,6 +9,7 @@ mod support;
 
 use std::path::Path;
 use std::sync::Arc;
+#[cfg(unix)]
 use std::time::Duration;
 
 use axum::Router;
@@ -351,7 +352,10 @@ async fn settings_keeps_the_vault_browser_and_apps_nav_links_clickable() -> Resu
 
 /// Slices the `<li data-name="{name}">...</li>` fragment for one MCP server
 /// row out of a rendered `/settings/` body, so an assertion about that row's
-/// own status icon cannot be satisfied by a different row's markup.
+/// own status icon cannot be satisfied by a different row's markup. Used
+/// only by the killed-session test below, which is itself `#[cfg(unix)]`
+/// (the `kill` command it shells out to has no Windows equivalent here).
+#[cfg(unix)]
 fn mcp_server_row<'a>(body: &'a str, name: &str) -> Result<&'a str, BoxError> {
     let marker = format!("data-name=\"{name}\">");
     let start = body.find(&marker).ok_or_else(|| format!("no {name:?} row in {body}"))?;
