@@ -266,36 +266,138 @@ pub enum ScanRootHint<'a> {
     Path(&'a str),
 }
 
-/// Returns the first `file.path == "..."` or `file.folder == "..."` filter
-/// leaf's literal value found anywhere in the tree, for use as a vault-scan
-/// root optimisation (see [`leaf_scan_hint`] for why `.contains()` is
-/// deliberately never a source of this hint). Purely an optimisation hint:
-/// every candidate file still passes the full filter tree, so a caller
-/// ignoring this or scanning a broader root than it suggests cannot change
-/// which rows match.
+/// Returns a provably safe vault-scan-root narrowing hint for `filters`, or
+/// `None` when no such hint can be established. Purely an optimisation
+/// hint: every candidate file still passes the full filter tree, so a
+/// caller ignoring this or scanning a broader root than it suggests cannot
+/// change which rows match — but a hint this function does return must
+/// never cause a genuine match to be skipped, which is why `and`/`or`/`not`
+/// (at both the JSON-tree level a merged view's filters take, and the
+/// `&&`/`||`/`!`/`(...)` level one filter string's own leaves combine at)
+/// apply different rules:
+///
+/// - `and`: any single narrowed conjunct safely bounds the whole
+///   conjunction, since every conjunct must hold for a match.
+/// - `or`: safe only when every operand agrees on the identical hint — an
+///   operand with no hint, or a different one, means a match could satisfy
+///   the `or` from outside any single narrowed root.
+/// - `not`: never narrowed. A hint on the negated operand describes where
+///   matches *of that operand* live, not matches of its negation.
 #[must_use]
 pub fn scan_root_hint(filters: Option<&Value>) -> Option<ScanRootHint<'_>> {
     let filters = filters?;
     if let Some(expr) = filters.as_str() {
-        return leaf_scan_hint(expr);
+        return expression_scan_hint(expr);
     }
     let object = filters.as_object()?;
-    let (_, operands) = object.iter().next()?;
+    let (operator, operands) = object.iter().next()?;
     let operands = operands.as_array()?;
-    operands.iter().find_map(|operand| scan_root_hint(Some(operand)))
+    match operator.as_str() {
+        "and" => operands.iter().find_map(|operand| scan_root_hint(Some(operand))),
+        "or" => merge_or_hints(operands.iter().map(|operand| scan_root_hint(Some(operand)))),
+        _ => None,
+    }
 }
 
-/// Only an equality leaf on `file.path` or `file.folder` is eligible:
-/// equality anchors the whole string, so its value is a provably safe scan
-/// root (as a parent directory for `file.path`, directly for
-/// `file.folder`). `.contains()` is deliberately excluded from both, even
-/// though it is a supported filter leaf: a substring can appear anywhere in
-/// a path or folder name (`contains("archive")` matches
-/// `notes/archive-2024.md`, outside any `archive/` directory), so narrowing
-/// the scan on it could silently drop genuine matches rather than merely
-/// cost a slower scan.
+/// Parses `expr` with the identical `&&`/`||`/`!`/`(...)` grammar and
+/// precedence [`evaluate_expression`] evaluates, resolving to a narrowing
+/// hint (via [`leaf_scan_hint`] at each leaf) instead of a boolean, and
+/// applying [`scan_root_hint`]'s own and/or/not safety rules at the string
+/// level too. An expression this walker cannot fully parse (anything
+/// outside the documented grammar, including a genuine syntax error)
+/// yields no hint rather than guessing: `evaluate_filters` still runs the
+/// real grammar and reports any syntax error itself.
+fn expression_scan_hint(expr: &str) -> Option<ScanRootHint<'_>> {
+    let mut cursor = ExpressionCursor { text: expr, pos: 0 };
+    let hint = hint_or(&mut cursor);
+    cursor.skip_whitespace();
+    if cursor.pos != cursor.text.len() {
+        return None;
+    }
+    hint
+}
+
+fn hint_or<'a>(cursor: &mut ExpressionCursor<'a>) -> Option<ScanRootHint<'a>> {
+    let mut hints = vec![hint_and(cursor)];
+    loop {
+        cursor.skip_whitespace();
+        if !cursor.rest().starts_with("||") {
+            return merge_or_hints(hints.into_iter());
+        }
+        cursor.pos += 2;
+        hints.push(hint_and(cursor));
+    }
+}
+
+fn hint_and<'a>(cursor: &mut ExpressionCursor<'a>) -> Option<ScanRootHint<'a>> {
+    let mut hint = hint_not(cursor);
+    loop {
+        cursor.skip_whitespace();
+        if !cursor.rest().starts_with("&&") {
+            return hint;
+        }
+        cursor.pos += 2;
+        let rhs = hint_not(cursor);
+        hint = hint.or(rhs);
+    }
+}
+
+fn hint_not<'a>(cursor: &mut ExpressionCursor<'a>) -> Option<ScanRootHint<'a>> {
+    cursor.skip_whitespace();
+    if cursor.rest().starts_with('!') && !cursor.rest().starts_with("!=") {
+        cursor.pos += 1;
+        // Still walked, purely to advance the cursor past the negated
+        // operand's own span (matching `parse_not`'s recursion): a negated
+        // leaf's hint is never safe to propagate, so the result itself is
+        // discarded.
+        let _ = hint_not(cursor);
+        return None;
+    }
+    hint_primary(cursor)
+}
+
+fn hint_primary<'a>(cursor: &mut ExpressionCursor<'a>) -> Option<ScanRootHint<'a>> {
+    cursor.skip_whitespace();
+    if cursor.rest().starts_with('(') {
+        cursor.pos += 1;
+        let hint = hint_or(cursor);
+        cursor.skip_whitespace();
+        if !cursor.rest().starts_with(')') {
+            return None;
+        }
+        cursor.pos += 1;
+        return hint;
+    }
+    let leaf = scan_leaf(cursor);
+    leaf_scan_hint(leaf.trim())
+}
+
+/// Applies [`scan_root_hint`]'s `or` safety rule: a hint only when every
+/// operand yielded a hint and every one is identical.
+fn merge_or_hints<'a>(mut hints: impl Iterator<Item = Option<ScanRootHint<'a>>>) -> Option<ScanRootHint<'a>> {
+    let first = hints.next()??;
+    hints.all(|hint| hint == Some(first)).then_some(first)
+}
+
+/// Only an equality leaf on `file.path` or `file.folder`, or a
+/// `file.inFolder(...)` call, is eligible: equality anchors the whole
+/// string, and `inFolder` is anchored at the start of the candidate's own
+/// folder by definition (see [`in_folder`]), so either is a provably safe
+/// scan root (as a parent directory for `file.path`, directly for
+/// `file.folder`/`file.inFolder`). `.contains()` is deliberately excluded
+/// from all of these, even though it is a supported filter leaf: a
+/// substring can appear anywhere in a path or folder name
+/// (`contains("archive")` matches `notes/archive-2024.md`, outside any
+/// `archive/` directory), so narrowing the scan on it could silently drop
+/// genuine matches rather than merely cost a slower scan.
 fn leaf_scan_hint(expr: &str) -> Option<ScanRootHint<'_>> {
     let trimmed = expr.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix("file.inFolder(")
+        .and_then(|rest| rest.strip_suffix(')'))
+    {
+        return parse_quoted(inner.trim()).map(ScanRootHint::Folder);
+    }
     let (property, operator, rhs) = parse_comparison(trimmed)?;
     if !matches!(operator, ComparisonOp::Equal) {
         return None;
@@ -376,8 +478,9 @@ fn evaluate_node(node: &Value, row: &RowContext<'_>, path: &str) -> Result<bool,
 }
 
 /// Parses and evaluates one string filter leaf, which may combine
-/// individual leaves (`==`, `!=`, `.contains()`, `file.hasTag()`) with
-/// `&&`, unary `!`, `||`, and `(...)` grouping. Obsidian's own
+/// individual leaves (`==`, `!=`, `.contains()`, `file.hasTag()`,
+/// `file.inFolder()`) with `&&`, unary `!`, `||`, and `(...)` grouping.
+/// Obsidian's own
 /// documentation states Bases expressions "follow JavaScript behavior";
 /// this uses exactly JavaScript's own precedence for these operators (`!`
 /// binds tightest, then `&&`, then `||` loosest), rather than inventing a
@@ -485,7 +588,8 @@ fn parse_primary(cursor: &mut ExpressionCursor<'_>, row: &RowContext<'_>, path: 
 /// Scans forward from the cursor's current position to the end of one
 /// leaf expression: up to (but not consuming) a top-level `&&`, `||`, or
 /// `)`, respecting quoted string literals and the leaf grammar's own
-/// balanced parentheses (`.contains(...)`, `file.hasTag(...)`), so a
+/// balanced parentheses (`.contains(...)`, `file.hasTag(...)`,
+/// `file.inFolder(...)`), so a
 /// quoted or function-call `&`/`|`/`)` is never mistaken for an operator
 /// or a grouping close.
 fn scan_leaf<'a>(cursor: &mut ExpressionCursor<'a>) -> &'a str {
@@ -539,6 +643,13 @@ fn evaluate_leaf(expr: &str, row: &RowContext<'_>, path: &str) -> Result<bool, B
     {
         return Ok(row.tags.iter().any(|candidate| candidate == tag));
     }
+    if let Some(inner) = trimmed
+        .strip_prefix("file.inFolder(")
+        .and_then(|rest| rest.strip_suffix(')'))
+        && let Some(folder) = parse_quoted(inner.trim())
+    {
+        return Ok(in_folder(row.file.folder, folder));
+    }
     if let Some((property, needle)) = parse_contains(trimmed) {
         let value = resolve_property(property, row, path)?;
         return Ok(match value {
@@ -559,6 +670,17 @@ fn evaluate_leaf(expr: &str, row: &RowContext<'_>, path: &str) -> Result<bool, B
         path: path.to_owned(),
         expression: trimmed.to_owned(),
     })
+}
+
+/// Obsidian's own `file.inFolder(folder)` semantics: true when the
+/// candidate's `file.folder` is exactly `folder` or nested under it
+/// (`folder` followed by `/`) — "in folder or subfolder", depth rather than
+/// a bare-equality breadth match. Unlike `.contains()`, this is anchored at
+/// the start of `candidate_folder`, so [`leaf_scan_hint`] can safely treat
+/// it as a scan-root narrowing hint.
+fn in_folder(candidate_folder: &str, folder: &str) -> bool {
+    let folder = folder.trim_end_matches('/');
+    candidate_folder == folder || candidate_folder.starts_with(&format!("{folder}/"))
 }
 
 fn parse_contains(expr: &str) -> Option<(&str, &str)> {
@@ -915,7 +1037,7 @@ impl BaseQueryError {
             }
             Self::MalformedDefinition { .. } => "Correct the reported definition path and retry.",
             Self::UnsupportedFilterExpression { .. } => {
-                "Rewrite the filter using ==, !=, .contains(), file.hasTag(), &&, ||, !, or (...) grouping, or remove it."
+                "Rewrite the filter using ==, !=, .contains(), file.hasTag(), file.inFolder(), &&, ||, !, or (...) grouping, or remove it."
             }
             Self::FormulaReference { .. } => {
                 "base_query does not evaluate formulas; remove the formula.* reference or filter on a property instead."
@@ -1315,6 +1437,121 @@ mod tests {
 
         let contains = json!("file.folder.contains(\"tasks\")");
         assert_eq!(scan_root_hint(Some(&contains)), None);
+    }
+
+    #[test]
+    fn file_in_folder_matches_the_folder_itself_and_any_subfolder_but_not_a_sibling_with_a_shared_prefix()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let frontmatter = frontmatter(json!({}));
+        let exact = RowContext {
+            frontmatter: &frontmatter,
+            file: FileMetadata {
+                folder: "memory/tasks",
+                ..active_row(&frontmatter, &[]).file
+            },
+            ..active_row(&frontmatter, &[])
+        };
+        assert!(evaluate_filters(
+            Some(&json!("file.inFolder(\"memory/tasks\")")),
+            &exact
+        )?);
+
+        let nested = RowContext {
+            file: FileMetadata {
+                folder: "memory/tasks/altorum/finance",
+                ..exact.file
+            },
+            ..exact
+        };
+        assert!(evaluate_filters(
+            Some(&json!("file.inFolder(\"memory/tasks\")")),
+            &nested
+        )?);
+
+        // "memory/tasks2" shares "memory/tasks" as a string prefix but is a
+        // sibling folder, not a subfolder: `file.inFolder` must not treat
+        // the two as related the way an unanchored `.contains()` would.
+        let sibling = RowContext {
+            file: FileMetadata {
+                folder: "memory/tasks2",
+                ..exact.file
+            },
+            ..exact
+        };
+        assert!(!evaluate_filters(
+            Some(&json!("file.inFolder(\"memory/tasks\")")),
+            &sibling
+        )?);
+        Ok(())
+    }
+
+    #[test]
+    fn scan_root_hint_recognises_file_in_folder_as_a_safe_narrowing_hint() {
+        let filters = json!("file.inFolder(\"memory/tasks\")");
+        assert_eq!(
+            scan_root_hint(Some(&filters)),
+            Some(ScanRootHint::Folder("memory/tasks"))
+        );
+    }
+
+    #[test]
+    fn scan_root_hint_never_narrows_through_or_unless_every_operand_agrees() {
+        // The real bug this guards: an `or` where only one operand happens
+        // to carry a `file.folder`/`file.path` equality leaf must not
+        // narrow the scan, since a row could satisfy the `or` through the
+        // *other* operand, entirely outside that leaf's directory.
+        let disagreeing = json!({
+            "or": ["file.folder == \"a\"", "status == \"active\""]
+        });
+        assert_eq!(scan_root_hint(Some(&disagreeing)), None);
+
+        // Every operand agreeing on the identical hint is still safe.
+        let agreeing = json!({
+            "or": ["file.folder == \"a\"", "file.folder == \"a\""]
+        });
+        assert_eq!(scan_root_hint(Some(&agreeing)), Some(ScanRootHint::Folder("a")));
+    }
+
+    #[test]
+    fn scan_root_hint_never_narrows_through_not() {
+        // A hint on the negated operand describes where matches *of that
+        // operand* live, not matches of its negation: narrowing here would
+        // scan only "a" when the real matches are everywhere outside it.
+        let filters = json!({ "not": ["file.folder == \"a\""] });
+        assert_eq!(scan_root_hint(Some(&filters)), None);
+    }
+
+    #[test]
+    fn scan_root_hint_parses_compound_string_expressions_with_the_real_grammar() {
+        // `&&`: either conjunct narrowing is safe, regardless of position.
+        assert_eq!(
+            scan_root_hint(Some(&json!("file.basename != \"index\" && file.folder == \"a\""))),
+            Some(ScanRootHint::Folder("a"))
+        );
+
+        // The exact real-world shape memory/tasks.base uses: a `||` whose
+        // second operand is an unanchored `.contains()` must not narrow,
+        // even combined with an outer `&&` and parentheses, and even though
+        // a naive whole-string `==`/`!=` split would previously have
+        // mis-parsed this compound expression entirely.
+        let unsafe_shape = json!(
+            "(file.folder == \"memory/tasks\" || file.folder.contains(\"memory/tasks/\")) && file.basename != \"index\""
+        );
+        assert_eq!(scan_root_hint(Some(&unsafe_shape)), None);
+
+        // The `file.inFolder`-based rewrite of that same intent narrows
+        // correctly: it is a single anchored leaf, not an `or`.
+        let rewritten = json!("file.inFolder(\"memory/tasks\") && file.basename != \"index\"");
+        assert_eq!(
+            scan_root_hint(Some(&rewritten)),
+            Some(ScanRootHint::Folder("memory/tasks"))
+        );
+
+        // `!`-negated leaves never narrow.
+        assert_eq!(
+            scan_root_hint(Some(&json!("!(file.folder == \"a\") && status == \"active\""))),
+            None
+        );
     }
 
     #[test]

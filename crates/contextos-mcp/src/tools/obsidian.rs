@@ -291,7 +291,7 @@ impl ContextOsServer {
 
     #[tool(
         name = "base_query",
-        description = "Execute a Base view's filter tree against the vault and return matching rows as a Markdown table (default), JSON, or CSV. Evaluates a documented subset of the Bases filter grammar (==, !=, .contains(), file.hasTag(), and/or/not, and every documented file.* property: ext/name/basename/path/folder/size/ctime/mtime/tags/links/embeds/backlinks/properties); formulas are never evaluated and are shown as an unevaluated marker.",
+        description = "Execute a Base view's filter tree against the vault and return matching rows as a Markdown table (default), JSON, or CSV. Evaluates a documented subset of the Bases filter grammar (==, !=, .contains(), file.hasTag(), file.inFolder(), and/or/not, and every documented file.* property: ext/name/basename/path/folder/size/ctime/mtime/tags/links/embeds/backlinks/properties); formulas are never evaluated and are shown as an unevaluated marker. Prefer file.inFolder(\"...\") over file.folder == \"...\" || file.folder.contains(\".../\") to scope a query to a directory and its subdirectories: file.inFolder() also lets the scan itself narrow to that directory, where the .contains() form cannot.",
         output_schema = fallible_output_schema_for::<BaseQueryToolResult>()
     )]
     async fn query_base(
