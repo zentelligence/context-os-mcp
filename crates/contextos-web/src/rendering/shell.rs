@@ -114,7 +114,15 @@ async fn directory_entries(
     };
     let mut args = Map::new();
     args.insert("path".to_owned(), Value::String(target));
-    let result = client.call_tool("fs_list_directory".to_owned(), args).await?;
+    // `fs_list_directory` and the root `.gitignore` read are independent
+    // MCP round trips (neither's result feeds the other's request), so they
+    // are issued concurrently rather than paying two sequential IPC
+    // latencies for one nav-tree render.
+    let (result, gitignore) = tokio::join!(
+        Box::pin(client.call_tool("fs_list_directory".to_owned(), args)),
+        Box::pin(root_gitignore(client, vault_name)),
+    );
+    let result = result?;
     if result.is_error == Some(true) {
         return Ok(Vec::new());
     }
@@ -126,7 +134,6 @@ async fn directory_entries(
     } else {
         format!("{directory_path}/")
     };
-    let gitignore = root_gitignore(client, vault_name).await;
     let mut dirs: Vec<DirEntryResult> = listing
         .entries
         .into_iter()
@@ -254,7 +261,20 @@ pub async fn build_nav(
     breadcrumb_suffix: Option<&str>,
     tree_directory: Option<&str>,
 ) -> NavData {
-    let vault_names = configured_vault_names(client).await.unwrap_or_default();
+    // `vault_info` (the switcher's own list) and the current directory's
+    // entries are two independent MCP round trips: neither's request
+    // depends on the other's result, so they are issued concurrently rather
+    // than paying their IPC latencies back to back on every page render.
+    let directory_path = tree_directory.unwrap_or("").trim_matches('/');
+    let (vault_names, entries) = if let Some(vault_name) = vault_name {
+        let (vault_names, entries) = tokio::join!(
+            Box::pin(configured_vault_names(client)),
+            Box::pin(directory_entries(client, vault_name, directory_path)),
+        );
+        (vault_names.unwrap_or_default(), entries.unwrap_or_default())
+    } else {
+        (configured_vault_names(client).await.unwrap_or_default(), Vec::new())
+    };
     let vaults: Vec<NavVault> = vault_names
         .into_iter()
         .map(|name| {
@@ -266,16 +286,7 @@ pub async fn build_nav(
         .map(str::to_owned)
         .or_else(|| vaults.first().map(|entry| entry.name.clone()));
 
-    let (directory_breadcrumb, entries) = if let Some(vault_name) = vault_name {
-        let directory_path = tree_directory.unwrap_or("").trim_matches('/');
-        let breadcrumb = breadcrumb_segments(vault_name, directory_path);
-        let entries = directory_entries(client, vault_name, directory_path)
-            .await
-            .unwrap_or_default();
-        (Some(breadcrumb), entries)
-    } else {
-        (None, Vec::new())
-    };
+    let directory_breadcrumb = vault_name.map(|vault_name| breadcrumb_segments(vault_name, directory_path));
     let breadcrumb = vault_name.map_or_else(settings_breadcrumb, |name| {
         let trimmed = breadcrumb_suffix.unwrap_or("").trim_matches('/');
         breadcrumb_segments(name, trimmed)

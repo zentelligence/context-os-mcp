@@ -244,18 +244,50 @@ fn html_response(html: String) -> Response {
 /// `HX-Request` header) gets the full page, chrome and all; an
 /// HTMX-driven request gets the bare fragment it will swap in.
 pub async fn get(State(state): State<SettingsRoutesState>, headers: HeaderMap) -> Response {
-    match read_current(&state.web_config_path) {
+    let is_hx_request = headers.contains_key("hx-request");
+    if is_hx_request {
+        return match read_current_blocking(Arc::clone(&state.web_config_path)).await {
+            Ok(config) => html_response(render(&config)),
+            Err(response) => *response,
+        };
+    }
+    // `web.toml`'s own read (for the page itself), the nav shell, and the
+    // appearance read are three independent reads: none depends on
+    // another's result, so all three run concurrently rather than paying
+    // their costs (two of them blocking filesystem reads, moved onto
+    // `spawn_blocking` rather than the async executor thread) one after
+    // another.
+    let appearance_path = Arc::clone(&state.web_config_path);
+    let (config, mut nav, appearance) = tokio::join!(
+        read_current_blocking(Arc::clone(&state.web_config_path)),
+        Box::pin(settings_nav(&state)),
+        async move {
+            tokio::task::spawn_blocking(move || current_appearance(&appearance_path))
+                .await
+                .unwrap_or_default()
+        },
+    );
+    match config {
         Ok(config) => {
             let fragment = render(&config);
-            if headers.contains_key("hx-request") {
-                html_response(fragment)
-            } else {
-                let mut nav = settings_nav(&state).await;
-                nav.appearance = current_appearance(&state.web_config_path);
-                html_response(page::render_page(&nav, "Settings", &fragment))
-            }
+            nav.appearance = appearance;
+            html_response(page::render_page(&nav, "Settings", &fragment))
         }
         Err(response) => *response,
+    }
+}
+
+/// Runs [`read_current`] (a blocking filesystem read and TOML parse) on
+/// `spawn_blocking` rather than the async executor thread. The `JoinError`
+/// arm is unreachable in practice, since [`read_current`] never panics, but
+/// still must be handled rather than unwrapped.
+async fn read_current_blocking(path: Arc<PathBuf>) -> Result<WebConfig, Box<Response>> {
+    match tokio::task::spawn_blocking(move || read_current(&path)).await {
+        Ok(result) => result,
+        Err(_join_error) => Err(Box::new(error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "settings/blocking-task-failed",
+        ))),
     }
 }
 
@@ -396,9 +428,11 @@ pub async fn mutate(State(state): State<SettingsRoutesState>, method: Method, bo
         Err(response) => return *response,
     };
 
-    let source = match std::fs::read_to_string(state.web_config_path.as_path()) {
-        Ok(source) => source,
-        Err(source) => return read_failure(&source),
+    let read_path = state.web_config_path.as_path().to_owned();
+    let source = match tokio::task::spawn_blocking(move || std::fs::read_to_string(read_path)).await {
+        Ok(Ok(source)) => source,
+        Ok(Err(source)) => return read_failure(&source),
+        Err(_join_error) => return error(StatusCode::INTERNAL_SERVER_ERROR, "settings/blocking-task-failed"),
     };
     let mut document = match WebConfigDocument::parse(&source) {
         Ok(document) => document,
@@ -448,12 +482,15 @@ pub async fn mutate(State(state): State<SettingsRoutesState>, method: Method, bo
         }
     }
 
-    let rendered = document.render();
-    if let Err(source) = write_atomically(&state.web_config_path, rendered.as_bytes()) {
-        return read_failure(&source);
+    let write_path = state.web_config_path.as_path().to_owned();
+    let rendered = document.render().into_bytes();
+    match tokio::task::spawn_blocking(move || write_atomically(&write_path, &rendered)).await {
+        Ok(Ok(())) => {}
+        Ok(Err(source)) => return read_failure(&source),
+        Err(_join_error) => return error(StatusCode::INTERNAL_SERVER_ERROR, "settings/blocking-task-failed"),
     }
 
-    match read_current(&state.web_config_path) {
+    match read_current_blocking(Arc::clone(&state.web_config_path)).await {
         Ok(config) => html_response(render(&config)),
         Err(response) => *response,
     }

@@ -209,8 +209,27 @@ pub async fn list(State(state): State<AppRoutesState>, Path(vault_name): Path<St
             if headers.contains_key("hx-request") {
                 html_response(fragment)
             } else {
-                let mut nav = shell::build_nav(client, ActiveScreen::Apps, Some(&vault_name), Some("apps"), None).await;
-                nav.appearance = config::current_appearance(&state.web_config_path);
+                // The nav shell and `web.toml`'s appearance are independent
+                // reads: the appearance load is also a blocking filesystem
+                // read and parse, so it runs on `spawn_blocking` rather than
+                // the async executor thread, concurrently with the nav
+                // shell's own MCP round trips rather than after them.
+                let web_config_path = Arc::clone(&state.web_config_path);
+                let (mut nav, appearance) = tokio::join!(
+                    Box::pin(shell::build_nav(
+                        client,
+                        ActiveScreen::Apps,
+                        Some(&vault_name),
+                        Some("apps"),
+                        None
+                    )),
+                    async move {
+                        tokio::task::spawn_blocking(move || config::current_appearance(&web_config_path))
+                            .await
+                            .unwrap_or_default()
+                    },
+                );
+                nav.appearance = appearance;
                 html_response(page::render_page(&nav, "Apps", &fragment))
             }
         }

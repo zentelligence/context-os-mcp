@@ -285,9 +285,22 @@ async fn get_dispatch(
         Ok(client) => client,
         Err(response) => return *response,
     };
-    let appearance = config::current_appearance(&state.web_config_path);
     let trimmed = relative_path.trim_end_matches('/');
-    let kind = match resolve_kind(client, &vault_name, trimmed).await {
+    // `web.toml`'s appearance read is a small blocking filesystem read and
+    // parse, and does not depend on `resolve_kind`'s MCP round trip (or vice
+    // versa): moving it off the async executor thread via `spawn_blocking`
+    // and running it concurrently with `resolve_kind` avoids both blocking
+    // the runtime and paying the two costs back to back.
+    let web_config_path = Arc::clone(&state.web_config_path);
+    let (appearance, kind) = tokio::join!(
+        async move {
+            tokio::task::spawn_blocking(move || config::current_appearance(&web_config_path))
+                .await
+                .unwrap_or_default()
+        },
+        Box::pin(resolve_kind(client, &vault_name, trimmed)),
+    );
+    let kind = match kind {
         Ok(kind) => kind,
         Err(response) => return *response,
     };
@@ -318,19 +331,27 @@ async fn render_directory(
     } else {
         format!("{vault_name}://{trimmed}/index.md")
     };
-    let raw = match read_text(client, index_path).await {
-        Ok(raw) => raw,
-        Err(response) => return *response,
+    // The index note's own content (read, then rendered) and the nav shell
+    // (vault switcher plus this directory's own entries) are independent:
+    // the nav shell needs only `vault_name`/`trimmed`, never the note's
+    // content, so the two chains run concurrently rather than paying the
+    // content chain's MCP round trips before the nav shell's own begin.
+    let content = async {
+        let raw = read_text(client, index_path).await?;
+        Ok::<_, Box<Response>>(markdown::render(client, vault_name, &raw, 0).await)
     };
-    let rendered = markdown::render(client, vault_name, &raw, 0).await;
-    let mut nav = shell::build_nav(
+    let nav = shell::build_nav(
         client,
         ActiveScreen::Vault,
         Some(vault_name),
         Some(trimmed),
         Some(trimmed),
-    )
-    .await;
+    );
+    let (rendered, mut nav) = tokio::join!(Box::pin(content), Box::pin(nav));
+    let rendered = match rendered {
+        Ok(rendered) => rendered,
+        Err(response) => return *response,
+    };
     nav.appearance = appearance.clone();
     html_response(page::render_page(&nav, trimmed, &rendered.html))
 }
@@ -355,22 +376,44 @@ async fn render_file(
 
     match extension.as_str() {
         "md" => {
-            let raw = match read_text(client, vault_path).await {
-                Ok(raw) => raw,
-                Err(response) => return *response,
+            // The note's own content (read, then rendered) and the nav
+            // shell are independent: the nav shell needs only
+            // `vault_name`/`relative_path`, never the note's content, so
+            // the two chains run concurrently rather than paying the
+            // content chain's MCP round trips before the nav shell's own
+            // begin.
+            let content = async {
+                let raw = read_text(client, vault_path).await?;
+                Ok::<_, Box<Response>>(markdown::render(client, vault_name, &raw, 0).await)
             };
-            let rendered = markdown::render(client, vault_name, &raw, 0).await;
-            let nav = file_nav(client, vault_name, relative_path, appearance).await;
-            html_response(page::render_page(&nav, relative_path, &rendered.html))
-        }
-        "base" => match base::render_view(client, vault_name, relative_path, query.view.as_deref()).await {
-            Ok(fragment) if is_hx_request => html_response(fragment),
-            Ok(fragment) => {
-                let nav = file_nav(client, vault_name, relative_path, appearance).await;
-                html_response(page::render_page(&nav, relative_path, &fragment))
+            let nav = file_nav(client, vault_name, relative_path, appearance);
+            let (rendered, nav) = tokio::join!(Box::pin(content), Box::pin(nav));
+            match rendered {
+                Ok(rendered) => html_response(page::render_page(&nav, relative_path, &rendered.html)),
+                Err(response) => *response,
             }
-            Err(McpCallError::Unreachable { .. }) => unreachable(),
-        },
+        }
+        "base" if is_hx_request => {
+            match base::render_view(client, vault_name, relative_path, query.view.as_deref()).await {
+                Ok(fragment) => html_response(fragment),
+                Err(McpCallError::Unreachable { .. }) => unreachable(),
+            }
+        }
+        "base" => {
+            let (fragment, nav) = tokio::join!(
+                Box::pin(base::render_view(
+                    client,
+                    vault_name,
+                    relative_path,
+                    query.view.as_deref()
+                )),
+                Box::pin(file_nav(client, vault_name, relative_path, appearance)),
+            );
+            match fragment {
+                Ok(fragment) => html_response(page::render_page(&nav, relative_path, &fragment)),
+                Err(McpCallError::Unreachable { .. }) => unreachable(),
+            }
+        }
         "canvas" => render_canvas(client, vault_name, relative_path, appearance).await,
         "mermaid" => render_standalone_mermaid(client, vault_name, relative_path, appearance).await,
         _ => render_other_file(client, vault_name, relative_path).await,
