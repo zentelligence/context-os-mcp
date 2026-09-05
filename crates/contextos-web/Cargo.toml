@@ -73,6 +73,11 @@ tower.workspace = true
 tower-http.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+# Daily log-rotation boundaries and rotated-filename timestamps
+# (`logging.rs`); the same already-audited, workspace-pinned crate
+# `contextos-core` uses for `OperationEvent` timestamps (`Clock`,
+# `pipeline.rs`), not a new dependency to the workspace.
+time = { workspace = true, features = ["formatting", "parsing", "macros"] }
 
 [dev-dependencies]
 # Dev-only: proves FR-202 (contextos-web's independent config.toml vault-list

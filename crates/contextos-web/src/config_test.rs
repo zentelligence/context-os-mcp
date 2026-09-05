@@ -243,6 +243,123 @@ fn load_vault_set_rejects_a_config_with_no_vaults() -> Result<(), Box<dyn std::e
 }
 
 #[test]
+fn size_rotation_without_a_log_file_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(
+        dir.path(),
+        "web.toml",
+        r"
+            [server]
+            log_max_size_mb = 10
+        ",
+    )?;
+
+    let result = load_web_config(&path);
+
+    assert!(matches!(result, Err(WebConfigError::LogRotationWithoutFile)));
+    Ok(())
+}
+
+#[test]
+fn daily_rotation_without_a_log_file_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(
+        dir.path(),
+        "web.toml",
+        r"
+            [server]
+            log_rotate_daily = true
+        ",
+    )?;
+
+    let result = load_web_config(&path);
+
+    assert!(matches!(result, Err(WebConfigError::LogRotationWithoutFile)));
+    Ok(())
+}
+
+#[test]
+fn retention_without_a_log_file_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(
+        dir.path(),
+        "web.toml",
+        r"
+            [server]
+            log_retention_files = 5
+        ",
+    )?;
+
+    let result = load_web_config(&path);
+
+    assert!(matches!(result, Err(WebConfigError::LogRotationWithoutFile)));
+    Ok(())
+}
+
+#[test]
+fn a_zero_size_rotation_threshold_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(
+        dir.path(),
+        "web.toml",
+        r#"
+            [server]
+            log_file = "contextos-web.log"
+            log_max_size_mb = 0
+        "#,
+    )?;
+
+    let result = load_web_config(&path);
+
+    assert!(matches!(result, Err(WebConfigError::InvalidLogRotation { .. })));
+    Ok(())
+}
+
+#[test]
+fn retention_with_no_rotation_trigger_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(
+        dir.path(),
+        "web.toml",
+        r#"
+            [server]
+            log_file = "contextos-web.log"
+            log_retention_days = 7
+        "#,
+    )?;
+
+    let result = load_web_config(&path);
+
+    assert!(matches!(result, Err(WebConfigError::InvalidLogRotation { .. })));
+    Ok(())
+}
+
+#[test]
+fn size_and_daily_rotation_with_retention_is_accepted() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(
+        dir.path(),
+        "web.toml",
+        r#"
+            [server]
+            log_file = "contextos-web.log"
+            log_max_size_mb = 10
+            log_rotate_daily = true
+            log_retention_days = 30
+            log_retention_files = 10
+        "#,
+    )?;
+
+    let config = load_web_config(&path)?;
+
+    assert_eq!(config.server.log_max_size_mb, Some(10));
+    assert!(config.server.log_rotate_daily);
+    assert_eq!(config.server.log_retention_days, Some(30));
+    assert_eq!(config.server.log_retention_files, Some(10));
+    Ok(())
+}
+
+#[test]
 fn current_appearance_reads_theme_font_and_size_from_server_ui() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempdir()?;
     let path = write(

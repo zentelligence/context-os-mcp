@@ -47,6 +47,25 @@ fn renders_the_vault_switcher_with_every_configured_vault() {
 }
 
 #[test]
+fn the_vault_switcher_is_hidden_when_only_one_vault_is_configured() {
+    let nav = NavData {
+        vaults: vec![NavVault {
+            name: "vault".to_owned(),
+            is_current: true,
+        }],
+        ..empty_nav()
+    };
+    let html = render_page(&nav, "note.md", "<p>Body.</p>");
+    assert!(!html.contains("vault-switcher"));
+}
+
+#[test]
+fn the_vault_switcher_is_hidden_when_no_vault_is_configured() {
+    let html = render_page(&empty_nav(), "Settings", "<p>Body.</p>");
+    assert!(!html.contains("vault-switcher"));
+}
+
+#[test]
 fn renders_the_current_directorys_entries_in_the_nav_tree() {
     let nav = NavData {
         current_vault: Some("vault".to_owned()),

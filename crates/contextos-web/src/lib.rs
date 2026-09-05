@@ -5,6 +5,7 @@ pub mod apps;
 pub mod atomic_write;
 pub mod config;
 pub mod config_writer;
+pub mod logging;
 pub mod mcp_client;
 pub mod proxy;
 pub mod rendering;

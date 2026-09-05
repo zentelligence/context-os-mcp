@@ -44,6 +44,7 @@
 {% for server in mcp_servers %}
           <li data-name="{{ server.name }}">
             <div class="mcp-server-row">
+              <span class="mcp-server-status" title="{{ server.status_label }}">{{ server.status_icon }}</span>
               <span class="mcp-server-name">{{ server.name }}</span>
               <span class="mcp-server-transport">{{ server.transport }}</span>
               <span class="mcp-server-detail">{{ server.detail }}</span>
@@ -133,6 +134,10 @@
           <dt>static_dir</dt><dd>{{ static_dir }}</dd>
           <dt>log_level</dt><dd>{{ log_level }}</dd>
           <dt>log_file</dt><dd>{% if log_file.is_empty() %}(stderr){% else %}{{ log_file }}{% endif %}</dd>
+{% if !log_file.is_empty() %}
+          <dt>log rotation</dt><dd>{{ log_rotation }}</dd>
+          <dt>log retention</dt><dd>{{ log_retention }}</dd>
+{% endif %}
         </dl>
       </section>
     </div>

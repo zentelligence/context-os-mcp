@@ -9,6 +9,7 @@ mod support;
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::Router;
 use axum::body::{Body, to_bytes};
@@ -345,5 +346,115 @@ async fn settings_keeps_the_vault_browser_and_apps_nav_links_clickable() -> Resu
     assert!(body.contains(&format!("<a href=\"/{VAULT_NAME}/\"")));
     assert!(body.contains(&format!("<a href=\"/{VAULT_NAME}/apps/\"")));
     assert!(!body.contains("<span class=\"nav-dir\">"));
+    Ok(())
+}
+
+/// Slices the `<li data-name="{name}">...</li>` fragment for one MCP server
+/// row out of a rendered `/settings/` body, so an assertion about that row's
+/// own status icon cannot be satisfied by a different row's markup.
+fn mcp_server_row<'a>(body: &'a str, name: &str) -> Result<&'a str, BoxError> {
+    let marker = format!("data-name=\"{name}\">");
+    let start = body.find(&marker).ok_or_else(|| format!("no {name:?} row in {body}"))?;
+    let rest = &body[start..];
+    let end = rest.find("</li>").unwrap_or(rest.len());
+    Ok(&rest[..end])
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn the_mcp_server_status_icon_reflects_a_killed_session() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    let config_path = support::write_vault_config(dir.path(), vault_dir.path())?;
+    let contextos_binary = support::contextos_mcp_binary()?;
+    let web_config_path = write_two_server_web_toml(dir.path(), &contextos_binary.to_string_lossy(), &config_path)?;
+    let contextos_entry = support::real_contextos_entry("contextos", &config_path)?;
+    let extra_entry = contextos_web::McpServerConfig::Stdio {
+        name: "extra".to_owned(),
+        command: contextos_binary.to_string_lossy().into_owned(),
+        args: vec!["--config".to_owned(), config_path.to_string_lossy().into_owned()],
+    };
+    let clients = McpClientSet::connect(&[contextos_entry, extra_entry]).await?;
+    let extra_pid = clients
+        .get("extra")
+        .ok_or("the just-connected extra client is present")?
+        .pid()
+        .ok_or("a stdio client reports its child PID")?;
+    let clients = Arc::new(clients);
+    let router = contextos_web::build_router(
+        Arc::clone(&clients),
+        Some(dir.path()),
+        &web_config_path,
+        "contextos".to_owned(),
+    );
+
+    let (status, body) = get(&router, "/settings/").await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(mcp_server_row(&body, "extra")?.contains("title=\"Connected\">🟢"));
+    assert!(mcp_server_row(&body, "contextos")?.contains("title=\"Connected\">🟢"));
+
+    std::process::Command::new("kill")
+        .args(["-KILL", &extra_pid.to_string()])
+        .status()?;
+
+    // The transport does not notice the closed pipe synchronously with the
+    // kill signal (the same reasoning `proxy_contract.rs`'s own killed-process
+    // test documents); poll with a bounded overall timeout rather than a
+    // fixed sleep, so this is as fast as the OS allows and still
+    // deterministic.
+    let poll = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let (status, body) = get(&router, "/settings/").await?;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            if mcp_server_row(&body, "extra")?.contains("title=\"Unreachable\">🔴") {
+                return Ok::<String, BoxError>(body);
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await;
+    let Ok(body) = poll else {
+        return Err("the extra row's status icon must reflect the killed session well before this timeout".into());
+    };
+    let body = body?;
+    assert!(
+        mcp_server_row(&body, "contextos")?.contains("title=\"Connected\">🟢"),
+        "an unrelated session's status must stay unaffected: {body}"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn settings_displays_the_configured_log_rotation_and_retention() -> Result<(), BoxError> {
+    let vault_dir = tempfile::tempdir()?;
+    let dir = tempfile::tempdir()?;
+    write(vault_dir.path(), "index.md", "# Root\n")?;
+    let config_path = support::write_vault_config(dir.path(), vault_dir.path())?;
+    let contextos_binary = support::contextos_mcp_binary()?;
+    let web_config_path = dir.path().join("web.toml");
+    let log_path = dir.path().join("contextos-web.log");
+    #[allow(clippy::unnecessary_debug_formatting)]
+    let config_path_value = format!("{config_path:?}");
+    #[allow(clippy::unnecessary_debug_formatting)]
+    let log_path_value = format!("{log_path:?}");
+    let command_value = contextos_binary.to_string_lossy();
+    std::fs::write(
+        &web_config_path,
+        format!(
+            "[server]\nlog_file = {log_path_value}\nlog_max_size_mb = 10\nlog_rotate_daily = true\nlog_retention_days = 30\nlog_retention_files = 5\n\n\
+             [[mcp_server]]\nname = \"contextos\"\ntransport = \"stdio\"\ncommand = {command_value:?}\nargs = [\"--config\", {config_path_value}, \"--stdio\"]\n"
+        ),
+    )?;
+    let entry = support::real_contextos_entry("contextos", &config_path)?;
+    let clients = Arc::new(McpClientSet::connect(&[entry]).await?);
+    let router = contextos_web::build_router(clients, Some(dir.path()), &web_config_path, "contextos".to_owned());
+
+    let (status, body) = get(&router, "/settings/").await?;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(&log_path.display().to_string()), "{body}");
+    assert!(body.contains("every 10 MB and daily"), "{body}");
+    assert!(body.contains("30 days, 5 files"), "{body}");
     Ok(())
 }

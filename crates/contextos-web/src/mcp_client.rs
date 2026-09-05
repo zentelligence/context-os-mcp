@@ -110,6 +110,20 @@ impl McpClient {
         self.pid
     }
 
+    /// A generic liveness probe: `tools/list` is a capability every MCP
+    /// server supports (unlike a ContextOS-specific tool such as
+    /// `vault_info`, which a third-party `[[mcp_server]]` entry has no
+    /// obligation to expose), so it is the cheapest transport-agnostic way
+    /// to tell a session that is still genuinely responding from one whose
+    /// underlying process or connection has died since the initial
+    /// handshake. Used by the `/settings/` MCP servers pane to show each
+    /// configured entry's live status rather than only its static
+    /// configuration.
+    #[must_use]
+    pub async fn is_reachable(&self) -> bool {
+        self.running.list_tools(None).await.is_ok()
+    }
+
     /// Calls `tool_name` on this session with `arguments`, relaying whatever
     /// the MCP server itself returns (including an MCP-level tool error
     /// result) unmodified.
@@ -169,6 +183,33 @@ impl McpClientSet {
     #[must_use]
     pub fn names(&self) -> Vec<String> {
         self.0.keys().cloned().collect()
+    }
+
+    /// Probes every currently-connected session's [`McpClient::is_reachable`]
+    /// concurrently (one `tools/list` round trip per session, none of them
+    /// depending on another's result), returning each session's name mapped
+    /// to whether it is still responding. A name absent from the result was
+    /// never connected in this process at all (for example, a
+    /// `[[mcp_server]]` entry added to `web.toml` since the last restart):
+    /// callers distinguish that from a connected-but-now-unreachable session
+    /// by checking map membership, not just the boolean.
+    #[must_use]
+    pub async fn probe_status(&self) -> HashMap<String, bool> {
+        let mut probes = tokio::task::JoinSet::new();
+        for client in self.0.values() {
+            let client = Arc::clone(client);
+            probes.spawn(async move {
+                let reachable = client.is_reachable().await;
+                (client.name().to_owned(), reachable)
+            });
+        }
+        let mut statuses = HashMap::with_capacity(probes.len());
+        while let Some(result) = probes.join_next().await {
+            if let Ok((name, reachable)) = result {
+                statuses.insert(name, reachable);
+            }
+        }
+        statuses
     }
 }
 

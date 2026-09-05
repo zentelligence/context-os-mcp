@@ -20,6 +20,75 @@ command = "contextos-mcp"
 args = ["--stdio"]
 "#;
 
+#[test]
+fn a_reachable_server_is_connected() {
+    let statuses = HashMap::from([("contextos".to_owned(), true)]);
+    assert_eq!(mcp_server_status("contextos", &statuses), ("🟢", "Connected"));
+}
+
+#[test]
+fn a_session_present_but_no_longer_responding_is_unreachable() {
+    let statuses = HashMap::from([("contextos".to_owned(), false)]);
+    assert_eq!(mcp_server_status("contextos", &statuses), ("🔴", "Unreachable"));
+}
+
+#[test]
+fn a_name_with_no_session_at_all_is_not_connected() {
+    let statuses = HashMap::new();
+    assert_eq!(
+        mcp_server_status("contextos", &statuses),
+        ("⚪", "Not connected (restart required)")
+    );
+}
+
+#[test]
+fn no_rotation_trigger_displays_as_never() {
+    assert_eq!(log_rotation_display(&WebServerConfig::default()), "Never");
+}
+
+#[test]
+fn a_size_trigger_alone_names_its_threshold() {
+    let server = WebServerConfig {
+        log_max_size_mb: Some(10),
+        ..WebServerConfig::default()
+    };
+    assert_eq!(log_rotation_display(&server), "every 10 MB");
+}
+
+#[test]
+fn a_daily_trigger_alone_reads_daily() {
+    let server = WebServerConfig {
+        log_rotate_daily: true,
+        ..WebServerConfig::default()
+    };
+    assert_eq!(log_rotation_display(&server), "daily");
+}
+
+#[test]
+fn both_triggers_are_joined_with_and() {
+    let server = WebServerConfig {
+        log_max_size_mb: Some(10),
+        log_rotate_daily: true,
+        ..WebServerConfig::default()
+    };
+    assert_eq!(log_rotation_display(&server), "every 10 MB and daily");
+}
+
+#[test]
+fn no_retention_bound_displays_as_kept_indefinitely() {
+    assert_eq!(log_retention_display(&WebServerConfig::default()), "Kept indefinitely");
+}
+
+#[test]
+fn both_retention_bounds_are_joined_with_a_comma() {
+    let server = WebServerConfig {
+        log_retention_days: Some(30),
+        log_retention_files: Some(10),
+        ..WebServerConfig::default()
+    };
+    assert_eq!(log_retention_display(&server), "30 days, 10 files");
+}
+
 async fn router_with_web_toml(contents: &str) -> Result<(tempfile::TempDir, axum::Router), BoxError> {
     let dir = tempfile::tempdir()?;
     std::fs::write(dir.path().join("web.toml"), contents)?;

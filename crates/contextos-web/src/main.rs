@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 
     let config = load_web_config(&cli.config)?;
-    initialise_tracing(config.server.log_level);
+    initialise_tracing(&config.server)?;
 
     tracing::info!(
         name = "contextos-web",
@@ -152,17 +152,37 @@ async fn run_service_command(action: ServiceAction, config_path: PathBuf) -> Res
     Ok(())
 }
 
-fn initialise_tracing(level: contextos_web::WebLogLevel) {
-    let filter = match level {
+/// Builds the actual `tracing` subscriber from `[server]`'s logging fields:
+/// `log_level` always applied, `log_file` (with its `log_max_size_mb`,
+/// `log_rotate_daily`, `log_retention_days`, `log_retention_files`
+/// companions) opened as a real rotating destination when set, stderr
+/// (`main.rs`'s original, still-default behaviour) when it is empty.
+/// Closes the gap where `log_file` was accepted and even displayed on
+/// `/settings/` but never actually used: every log line went to stderr
+/// regardless of its value.
+///
+/// # Errors
+///
+/// Returns the underlying [`std::io::Error`] when `log_file` is set but
+/// cannot be opened (for example, its parent directory does not exist): a
+/// startup error, not a lazily-discovered one, matching `mcp_client`'s own
+/// connect-time failure discipline.
+fn initialise_tracing(server: &contextos_web::WebServerConfig) -> std::io::Result<()> {
+    let filter = match server.log_level {
         contextos_web::WebLogLevel::Error => "error",
         contextos_web::WebLogLevel::Warn => "warn",
         contextos_web::WebLogLevel::Info => "info",
         contextos_web::WebLogLevel::Debug => "debug",
         contextos_web::WebLogLevel::Trace => "trace",
     };
+    let writer = match contextos_web::logging::open(server)? {
+        Some(rotating) => tracing_subscriber::fmt::writer::BoxMakeWriter::new(std::sync::Mutex::new(rotating)),
+        None => tracing_subscriber::fmt::writer::BoxMakeWriter::new(std::io::stderr),
+    };
     let _ = tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::new(filter))
-        .with_writer(std::io::stderr)
+        .with_writer(writer)
         .with_ansi(false)
         .try_init();
+    Ok(())
 }

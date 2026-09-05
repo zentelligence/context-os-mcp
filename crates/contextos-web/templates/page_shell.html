@@ -9,6 +9,7 @@
 <body>
 <div class="app">
   <nav class="shell-nav">
+{% if nav.vaults.len() > 1 %}
     <div class="vault-switcher">
       <label for="vault-select">Vault</label>
       <select id="vault-select" onchange="if(this.value) location.href='/'+this.value+'/';">
@@ -17,6 +18,7 @@
 {% endfor %}
       </select>
     </div>
+{% endif %}
 
     <ul class="nav-primary">
 {% if let Some(target_vault) = nav.nav_target_vault %}

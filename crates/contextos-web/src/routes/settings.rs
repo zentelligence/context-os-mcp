@@ -10,6 +10,7 @@
 //! vault list it holds is exclusively a `contextos-mcp` CLI or hand-edit
 //! concern.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -23,7 +24,7 @@ use serde_json::{Map, Value};
 
 use crate::apps::{self, RegisteredApp};
 use crate::atomic_write::write_atomically;
-use crate::config::{McpServerConfig, WebConfig, current_appearance};
+use crate::config::{McpServerConfig, WebConfig, WebServerConfig, current_appearance};
 use crate::config_writer::{WebConfigDocument, WebConfigWriterError};
 use crate::mcp_client::{McpCallError, McpClient, McpClientSet};
 use crate::rendering::page;
@@ -153,6 +154,22 @@ struct McpServerRow {
     args: Option<String>,
     endpoint: Option<String>,
     token_env: Option<String>,
+    status_icon: &'static str,
+    status_label: &'static str,
+}
+
+/// Classifies one `[[mcp_server]]` entry's live status against `statuses`
+/// (an [`crate::mcp_client::McpClientSet::probe_status`] result): a name
+/// absent from the map was never connected this process at all (added to
+/// `web.toml` since the last restart, and only takes effect on the next
+/// one), distinct from a name present but no longer responding (its process
+/// or connection died after a successful startup handshake).
+fn mcp_server_status(name: &str, statuses: &HashMap<String, bool>) -> (&'static str, &'static str) {
+    match statuses.get(name) {
+        Some(true) => ("🟢", "Connected"),
+        Some(false) => ("🔴", "Unreachable"),
+        None => ("⚪", "Not connected (restart required)"),
+    }
 }
 
 #[derive(Template)]
@@ -162,40 +179,88 @@ struct SettingsTemplate {
     static_dir: String,
     log_level: String,
     log_file: String,
+    log_rotation: String,
+    log_retention: String,
     ui: Vec<(String, String)>,
     mcp_servers: Vec<McpServerRow>,
 }
 
-fn render(config: &WebConfig) -> String {
+/// A human-readable summary of `server`'s rotation triggers, for the
+/// `/settings/` "Server & bind" pane: `"Never"` when neither
+/// `log_max_size_mb` nor `log_rotate_daily` is set, otherwise whichever of
+/// "every N MB" and "daily" apply, joined with "and" when both do.
+fn log_rotation_display(server: &WebServerConfig) -> String {
+    let mut triggers = Vec::new();
+    if let Some(megabytes) = server.log_max_size_mb {
+        triggers.push(format!("every {megabytes} MB"));
+    }
+    if server.log_rotate_daily {
+        triggers.push("daily".to_owned());
+    }
+    if triggers.is_empty() {
+        "Never".to_owned()
+    } else {
+        triggers.join(" and ")
+    }
+}
+
+/// A human-readable summary of `server`'s retention bounds, for the
+/// `/settings/` "Server & bind" pane: `"Kept indefinitely"` when neither
+/// `log_retention_days` nor `log_retention_files` is set, otherwise
+/// whichever of "N days" and "N files" apply, joined with ", " when both
+/// do.
+fn log_retention_display(server: &WebServerConfig) -> String {
+    let mut bounds = Vec::new();
+    if let Some(days) = server.log_retention_days {
+        bounds.push(format!("{days} days"));
+    }
+    if let Some(files) = server.log_retention_files {
+        bounds.push(format!("{files} files"));
+    }
+    if bounds.is_empty() {
+        "Kept indefinitely".to_owned()
+    } else {
+        bounds.join(", ")
+    }
+}
+
+fn render(config: &WebConfig, statuses: &HashMap<String, bool>) -> String {
     let mcp_servers = config
         .mcp_servers
         .iter()
-        .map(|entry| match entry {
-            McpServerConfig::Stdio { name, command, args } => McpServerRow {
-                name: name.clone(),
-                transport: "stdio",
-                detail: format!("{command} {}", args.join(" ")),
-                command: Some(command.clone()),
-                args: Some(args.join(" ")),
-                endpoint: None,
-                token_env: None,
-            },
-            McpServerConfig::Http {
-                name,
-                endpoint,
-                token_env,
-            } => McpServerRow {
-                name: name.clone(),
-                transport: "http",
-                detail: token_env.as_ref().map_or_else(
-                    || endpoint.clone(),
-                    |variable| format!("{endpoint} (token via ${variable})"),
-                ),
-                command: None,
-                args: None,
-                endpoint: Some(endpoint.clone()),
-                token_env: token_env.clone(),
-            },
+        .map(|entry| {
+            let (status_icon, status_label) = mcp_server_status(entry.name(), statuses);
+            match entry {
+                McpServerConfig::Stdio { name, command, args } => McpServerRow {
+                    name: name.clone(),
+                    transport: "stdio",
+                    detail: format!("{command} {}", args.join(" ")),
+                    command: Some(command.clone()),
+                    args: Some(args.join(" ")),
+                    endpoint: None,
+                    token_env: None,
+                    status_icon,
+                    status_label,
+                },
+                McpServerConfig::Http {
+                    name,
+                    endpoint,
+                    token_env,
+                } => McpServerRow {
+                    name: name.clone(),
+                    transport: "http",
+                    detail: token_env.as_ref().map_or_else(
+                        || endpoint.clone(),
+                        |variable| format!("{endpoint} (token via ${variable})"),
+                    ),
+                    command: None,
+                    args: None,
+                    endpoint: Some(endpoint.clone()),
+                    token_env: token_env.clone(),
+                    status_icon,
+                    status_label,
+                },
+            }
         })
         .collect();
     let ui = config
@@ -212,6 +277,8 @@ fn render(config: &WebConfig) -> String {
         ),
         log_level: format!("{:?}", config.server.log_level).to_ascii_lowercase(),
         log_file: config.server.log_file.clone(),
+        log_rotation: log_rotation_display(&config.server),
+        log_retention: log_retention_display(&config.server),
         ui,
         mcp_servers,
     };
@@ -246,19 +313,23 @@ fn html_response(html: String) -> Response {
 pub async fn get(State(state): State<SettingsRoutesState>, headers: HeaderMap) -> Response {
     let is_hx_request = headers.contains_key("hx-request");
     if is_hx_request {
-        return match read_current_blocking(Arc::clone(&state.web_config_path)).await {
-            Ok(config) => html_response(render(&config)),
+        let (config, statuses) = tokio::join!(
+            read_current_blocking(Arc::clone(&state.web_config_path)),
+            state.clients.probe_status(),
+        );
+        return match config {
+            Ok(config) => html_response(render(&config, &statuses)),
             Err(response) => *response,
         };
     }
-    // `web.toml`'s own read (for the page itself), the nav shell, and the
-    // appearance read are three independent reads: none depends on
-    // another's result, so all three run concurrently rather than paying
-    // their costs (two of them blocking filesystem reads, moved onto
-    // `spawn_blocking` rather than the async executor thread) one after
-    // another.
+    // `web.toml`'s own read (for the page itself), the nav shell, the
+    // appearance read, and the live MCP server status probe are four
+    // independent operations: none depends on another's result, so all four
+    // run concurrently rather than paying their costs (two of them blocking
+    // filesystem reads, moved onto `spawn_blocking` rather than the async
+    // executor thread) one after another.
     let appearance_path = Arc::clone(&state.web_config_path);
-    let (config, mut nav, appearance) = tokio::join!(
+    let (config, mut nav, appearance, statuses) = tokio::join!(
         read_current_blocking(Arc::clone(&state.web_config_path)),
         Box::pin(settings_nav(&state)),
         async move {
@@ -266,10 +337,11 @@ pub async fn get(State(state): State<SettingsRoutesState>, headers: HeaderMap) -
                 .await
                 .unwrap_or_default()
         },
+        state.clients.probe_status(),
     );
     match config {
         Ok(config) => {
-            let fragment = render(&config);
+            let fragment = render(&config, &statuses);
             nav.appearance = appearance;
             html_response(page::render_page(&nav, "Settings", &fragment))
         }
@@ -490,8 +562,12 @@ pub async fn mutate(State(state): State<SettingsRoutesState>, method: Method, bo
         Err(_join_error) => return error(StatusCode::INTERNAL_SERVER_ERROR, "settings/blocking-task-failed"),
     }
 
-    match read_current_blocking(Arc::clone(&state.web_config_path)).await {
-        Ok(config) => html_response(render(&config)),
+    let (config, statuses) = tokio::join!(
+        read_current_blocking(Arc::clone(&state.web_config_path)),
+        state.clients.probe_status(),
+    );
+    match config {
+        Ok(config) => html_response(render(&config, &statuses)),
         Err(response) => *response,
     }
 }

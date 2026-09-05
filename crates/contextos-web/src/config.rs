@@ -43,6 +43,7 @@ impl WebConfig {
                 });
             }
         }
+        self.server.validate_logging()?;
         Ok(())
     }
 }
@@ -82,6 +83,31 @@ pub struct WebServerConfig {
     pub log_level: WebLogLevel,
     #[serde(default)]
     pub log_file: String,
+    /// Rotates `log_file` once it reaches this size, in megabytes. `None`
+    /// (the default) never rotates on size. Meaningless (and rejected by
+    /// [`WebServerConfig::validate_logging`]) while `log_file` is empty:
+    /// there is no file to rotate when logging goes to stderr.
+    #[serde(default)]
+    pub log_max_size_mb: Option<u64>,
+    /// Rotates `log_file` on every UTC calendar-day boundary. `false` (the
+    /// default) never rotates on time. Combinable with `log_max_size_mb`:
+    /// whichever condition is reached first triggers a rotation. Rejected
+    /// by [`WebServerConfig::validate_logging`] while `log_file` is empty.
+    #[serde(default)]
+    pub log_rotate_daily: bool,
+    /// Deletes a rotated log file once it is older than this many days.
+    /// Independent of `log_retention_files`: when both are set, a rotated
+    /// file is deleted once it violates either bound. `None` never prunes
+    /// by age. Rejected while `log_file` is empty or neither rotation
+    /// trigger is set (retention with nothing that ever rotates has no
+    /// effect, which is more likely a misconfiguration than a deliberate
+    /// no-op).
+    #[serde(default)]
+    pub log_retention_days: Option<u32>,
+    /// Keeps only the `N` most recently rotated log files, deleting older
+    /// ones. Same validation and combination rules as `log_retention_days`.
+    #[serde(default)]
+    pub log_retention_files: Option<u32>,
     /// Opaque: `web-architecture.md` §2 explicitly defers this table's
     /// schema to `web-rendering.md`, so this phase neither enumerates nor
     /// rejects its keys.
@@ -96,8 +122,54 @@ impl Default for WebServerConfig {
             static_dir: None,
             log_level: WebLogLevel::default(),
             log_file: String::new(),
+            log_max_size_mb: None,
+            log_rotate_daily: false,
+            log_retention_days: None,
+            log_retention_files: None,
             ui: toml::Table::default(),
         }
+    }
+}
+
+impl WebServerConfig {
+    /// Rejects a logging configuration that can never take effect: any
+    /// rotation or retention setting while `log_file` is empty (logging
+    /// goes to stderr, which cannot be rotated or pruned), a zero-megabyte
+    /// size threshold (never satisfiable, since a freshly rotated file
+    /// starts at zero bytes), a zero-day or zero-file retention bound (same
+    /// "never satisfiable" reasoning), or a retention setting with neither
+    /// rotation trigger enabled (nothing would ever produce a rotated file
+    /// for retention to prune, so the setting could only be a
+    /// misconfiguration, never a deliberate no-op).
+    fn validate_logging(&self) -> Result<(), WebConfigError> {
+        let rotates = self.log_max_size_mb.is_some() || self.log_rotate_daily;
+        let retains = self.log_retention_days.is_some() || self.log_retention_files.is_some();
+        if self.log_file.is_empty() && (rotates || retains) {
+            return Err(WebConfigError::LogRotationWithoutFile);
+        }
+        if self.log_max_size_mb == Some(0) {
+            return Err(WebConfigError::InvalidLogRotation {
+                detail: "log_max_size_mb must be at least 1".to_owned(),
+            });
+        }
+        if self.log_retention_days == Some(0) {
+            return Err(WebConfigError::InvalidLogRotation {
+                detail: "log_retention_days must be at least 1".to_owned(),
+            });
+        }
+        if self.log_retention_files == Some(0) {
+            return Err(WebConfigError::InvalidLogRotation {
+                detail: "log_retention_files must be at least 1".to_owned(),
+            });
+        }
+        if retains && !rotates {
+            return Err(WebConfigError::InvalidLogRotation {
+                detail: "log_retention_days/log_retention_files has no effect without \
+                         log_max_size_mb or log_rotate_daily"
+                    .to_owned(),
+            });
+        }
+        Ok(())
     }
 }
 
@@ -292,6 +364,10 @@ pub enum WebConfigError {
     InvalidBindAddress { bind: String },
     #[error("duplicate [[mcp_server]] name: {name}")]
     DuplicateMcpServerName { name: String },
+    #[error("log rotation and retention settings have no effect while log_file is empty (logging goes to stderr)")]
+    LogRotationWithoutFile,
+    #[error("invalid log rotation/retention configuration: {detail}")]
+    InvalidLogRotation { detail: String },
     #[error("vault path is invalid: {path}", path = path.display())]
     VaultPath {
         path: PathBuf,
