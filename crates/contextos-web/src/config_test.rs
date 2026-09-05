@@ -403,3 +403,37 @@ fn current_appearance_is_empty_when_no_server_ui_table_is_present() -> Result<()
     assert_eq!(appearance, Appearance::default());
     Ok(())
 }
+
+#[test]
+fn current_appearance_reads_system_name_from_server_ui() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(dir.path(), "web.toml", "[server.ui]\nsystem_name = \"Ops Desk\"\n")?;
+
+    let appearance = current_appearance(&path);
+
+    assert_eq!(appearance.system_name, "Ops Desk");
+    Ok(())
+}
+
+#[test]
+fn current_appearance_defaults_system_name_to_command_centre_when_unset() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(dir.path(), "web.toml", "")?;
+
+    let appearance = current_appearance(&path);
+
+    assert_eq!(appearance.system_name, "Command Centre");
+    Ok(())
+}
+
+#[test]
+fn current_appearance_ignores_a_non_string_system_name_and_falls_back_to_the_default()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let path = write(dir.path(), "web.toml", "[server.ui]\nsystem_name = 42\n")?;
+
+    let appearance = current_appearance(&path);
+
+    assert_eq!(appearance.system_name, "Command Centre");
+    Ok(())
+}

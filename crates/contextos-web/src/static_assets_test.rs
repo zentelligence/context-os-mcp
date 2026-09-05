@@ -62,6 +62,29 @@ async fn serves_a_bundled_asset_with_no_static_dir_configured() -> Result<(), Bo
     Ok(())
 }
 
+/// The shell header (`page_shell.html`) references `/static/logo.png` and
+/// `/static/favicon.ico` unconditionally, with no operator configuration
+/// required: both must ship in the bundled set so a fresh install renders a
+/// working header and browser-tab icon rather than a broken image and a
+/// `404`.
+#[tokio::test]
+async fn the_bundled_logo_and_favicon_the_header_references_are_servable() -> Result<(), Box<dyn std::error::Error>> {
+    let router = Router::new().nest_service("/static", service(None));
+
+    for path in ["/static/logo.png", "/static/favicon.ico"] {
+        let response = router
+            .clone()
+            .oneshot(Request::builder().uri(path).body(Body::empty())?)
+            .await?;
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "{path} should be servable from the bundled set"
+        );
+    }
+    Ok(())
+}
+
 /// A bundled asset carries a content-hash `ETag`, and a matching
 /// `If-None-Match` on a later request gets a bodyless `304`, not a full
 /// re-download: the same cache-revalidation contract a browser gets from

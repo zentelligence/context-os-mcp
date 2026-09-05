@@ -1,9 +1,10 @@
 //! The full-page shell every route wraps its rendered fragment into for a
 //! plain browser navigation (no `HX-Request` header,
-//! `standards/http-routing-response-contract-standard.md`): nav shell
-//! (vault switcher, primary nav, current-directory listing), breadcrumb,
-//! and content area, adapted from `outbox/2026-09-04-contextos-web-mock.html`
-//! (descriptive, not prescriptive, per `delivery-plan.md`'s Phase 14 note).
+//! `standards/http-routing-response-contract-standard.md`): a header (logo
+//! and the configured `system_name` title), nav shell (vault switcher,
+//! primary nav, current-directory listing), breadcrumb, and content area,
+//! adapted from `outbox/2026-09-04-contextos-web-mock.html` (descriptive,
+//! not prescriptive, per `delivery-plan.md`'s Phase 14 note).
 //!
 //! This module is a pure template renderer: it knows nothing about MCP. Its
 //! caller ([`crate::rendering::shell`]) fetches the live data ([`NavData`])
@@ -76,14 +77,17 @@ pub struct NavData {
     /// Vault-scoped `POST .../apps/rescan` target for the shell footer's
     /// "Rescan apps" link; `None` for a vault-independent page.
     pub rescan_href: Option<String>,
-    /// `web.toml`'s `[server.ui]` theme/font/size (the `/settings/`
-    /// Appearance pane): applied as `<html data-theme="..." data-font="..."
-    /// data-size="...">` so `contextos-web.css`'s corresponding attribute
-    /// selectors take effect on the very next page render after a save.
-    /// Each field absent (the key unset, non-string, or `web.toml`
-    /// unreadable) falls back to the built-in default (system colour
-    /// scheme, the default sans-serif stack, the default text size), never
-    /// a broken or half-applied appearance.
+    /// `web.toml`'s `[server.ui]` theme/font/size/`system_name` (the
+    /// `/settings/` Appearance pane): `theme`/`font`/`size` are applied as
+    /// `<html data-theme="..." data-font="..." data-size="...">` so
+    /// `contextos-web.css`'s corresponding attribute selectors take effect
+    /// on the very next page render after a save; `system_name` is the
+    /// header's own title, next to the logo. Each of `theme`/`font`/`size`
+    /// absent (the key unset, non-string, or `web.toml` unreadable) falls
+    /// back to the built-in default (system colour scheme, the default
+    /// sans-serif stack, the default text size); `system_name` falls back to
+    /// [`crate::config::DEFAULT_SYSTEM_NAME`]. Never a broken or
+    /// half-applied appearance.
     pub appearance: Appearance,
 }
 

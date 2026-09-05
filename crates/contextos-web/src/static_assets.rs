@@ -1,7 +1,8 @@
 //! `GET /static/{path}`: non-vault server assets.
 //!
 //! The crate's own bundled assets (`static/`: the UI shell's CSS, the
-//! app-manifest JS client library, HTMX) are embedded into the binary at
+//! app-manifest JS client library, HTMX, the default header logo, and the
+//! default favicon) are embedded into the binary at
 //! compile time ([`BundledAssets`]), so they are servable with no
 //! configuration at all, on every platform and every install layout: a
 //! `cargo install` into a `PATH` directory carries no sibling `static/`

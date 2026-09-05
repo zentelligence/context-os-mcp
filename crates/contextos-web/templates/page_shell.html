@@ -4,9 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ title }}</title>
+<link rel="icon" href="/static/favicon.ico">
 <link rel="stylesheet" href="/static/contextos-web.css">
 </head>
 <body>
+<header class="shell-header">
+  <img class="shell-logo" src="/static/logo.png" alt="{{ nav.appearance.system_name }} logo">
+  <span class="shell-title">{{ nav.appearance.system_name }}</span>
+</header>
 <div class="app">
   <nav class="shell-nav">
 {% if nav.vaults.len() > 1 %}

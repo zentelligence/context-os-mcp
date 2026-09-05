@@ -239,18 +239,40 @@ pub fn load_web_config(path: &Path) -> Result<WebConfig, WebConfigError> {
     Ok(config)
 }
 
-/// The three `[server.ui]` keys `/settings/`'s Appearance pane and
-/// `contextos-web.css` give real, operator-visible effect (colour theme,
-/// font, and base text size, the exact triple `requirements.md`'s original
-/// skeleton names for `/settings/`); every other `[server.ui]` key stays
-/// persisted but inert, matching `config.rs`'s own "a rendering/theme
-/// concern deferred ... not enumerated here" stance for the table as a
-/// whole.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+/// The default `system_name` (`page_shell.html`'s header title) when
+/// `[server.ui]` sets none: the shell must always show some title, so this
+/// is the resolved value, not merely a placeholder string shown in a form.
+pub const DEFAULT_SYSTEM_NAME: &str = "Command Centre";
+
+/// The four `[server.ui]` keys `/settings/`'s Appearance pane,
+/// `contextos-web.css`, and `page_shell.html`'s header give real,
+/// operator-visible effect (colour theme, font, base text size, and the
+/// header's own title); every other `[server.ui]` key stays persisted but
+/// inert, matching `config.rs`'s own "a rendering/theme concern deferred
+/// ... not enumerated here" stance for the table as a whole.
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Appearance {
     pub theme: Option<String>,
     pub font: Option<String>,
     pub size: Option<String>,
+    /// The header's own title, next to the logo (`page_shell.html`).
+    /// Unlike `theme`/`font`/`size` (each `None` when unset, so the
+    /// corresponding CSS attribute selector is simply absent), the header
+    /// always needs a title to show, so this is a resolved `String`, never
+    /// unset: [`current_appearance`] and [`Appearance::default`] both fall
+    /// back to [`DEFAULT_SYSTEM_NAME`].
+    pub system_name: String,
+}
+
+impl Default for Appearance {
+    fn default() -> Self {
+        Self {
+            theme: None,
+            font: None,
+            size: None,
+            system_name: DEFAULT_SYSTEM_NAME.to_owned(),
+        }
+    }
 }
 
 /// Reads [`Appearance`] from `[server.ui]` fresh on every call (no
@@ -274,6 +296,7 @@ pub fn current_appearance(path: &Path) -> Appearance {
         theme: string_value("theme"),
         font: string_value("font"),
         size: string_value("size"),
+        system_name: string_value("system_name").unwrap_or_else(|| DEFAULT_SYSTEM_NAME.to_owned()),
     }
 }
 

@@ -192,11 +192,39 @@ fn appearance_is_applied_as_html_data_attributes() {
             theme: Some("dark".to_owned()),
             font: Some("serif".to_owned()),
             size: Some("large".to_owned()),
+            system_name: "Command Centre".to_owned(),
         },
         ..empty_nav()
     };
     let html = render_page(&nav, "note.md", "<p>Body.</p>");
     assert!(html.contains("<html lang=\"en\" data-theme=\"dark\" data-font=\"serif\" data-size=\"large\">"));
+}
+
+#[test]
+fn the_header_renders_the_logo_and_the_configured_system_name() {
+    let nav = NavData {
+        appearance: Appearance {
+            system_name: "Ops Desk".to_owned(),
+            ..Appearance::default()
+        },
+        ..empty_nav()
+    };
+    let html = render_page(&nav, "note.md", "<p>Body.</p>");
+    assert!(html.contains("<header class=\"shell-header\">"));
+    assert!(html.contains("src=\"/static/logo.png\""));
+    assert!(html.contains("<span class=\"shell-title\">Ops Desk</span>"));
+}
+
+#[test]
+fn the_header_defaults_the_title_to_command_centre() {
+    let html = render_page(&empty_nav(), "note.md", "<p>Body.</p>");
+    assert!(html.contains("<span class=\"shell-title\">Command Centre</span>"));
+}
+
+#[test]
+fn the_page_head_links_the_favicon() {
+    let html = render_page(&empty_nav(), "note.md", "<p>Body.</p>");
+    assert!(html.contains("<link rel=\"icon\" href=\"/static/favicon.ico\">"));
 }
 
 #[test]
