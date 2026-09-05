@@ -19,8 +19,23 @@ bind = "127.0.0.1:7332"
 # static_dir = "/absolute/path/to/extra-static-assets"
 # Allowed values: "error", "warn", "info", "debug", "trace"
 log_level = "info"
-# Empty means log to stderr only.
+# Empty means log to stderr only. Rotation and retention below have no
+# effect (and are rejected at startup) unless this is set.
 log_file = ""
+# Optional. Rotates log_file once it reaches this size, in megabytes.
+# Combinable with log_rotate_daily below: whichever is reached first
+# triggers a rotation. Rotated files are named "{log_file}.{timestamp}".
+# log_max_size_mb = 10
+# Optional. Rotates log_file on every UTC calendar-day boundary.
+# log_rotate_daily = false
+# Optional. Deletes a rotated log file once it is older than this many
+# days. Independent of log_retention_files below; when both are set, a
+# rotated file is deleted once it violates either bound. Requires at least
+# one of log_max_size_mb/log_rotate_daily above to be set.
+# log_retention_days = 30
+# Optional. Keeps only the N most recently rotated log files, deleting
+# older ones. Same combination rules as log_retention_days.
+# log_retention_files = 10
 
 [server.ui]
 # UI appearance defaults. Schema deferred to a later phase (web-rendering.md);
