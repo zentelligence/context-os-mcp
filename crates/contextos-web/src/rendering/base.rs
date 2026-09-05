@@ -267,9 +267,18 @@ fn row_view(
         Some(p) => (true, format!("/{vault_name}/{p}")),
         None => (false, String::new()),
     };
+    // Obsidian's own `file.basename` (the file's own name without its
+    // extension) is the more appropriate title text than `file.name`
+    // (with it): a card header is a title, not a filename listing.
     let title = file_path.as_deref().map_or_else(
         || "(untitled)".to_owned(),
-        |p| p.rsplit('/').next().unwrap_or(p).to_owned(),
+        |p| {
+            std::path::Path::new(p)
+                .file_stem()
+                .and_then(std::ffi::OsStr::to_str)
+                .unwrap_or(p)
+                .to_owned()
+        },
     );
     let column_views = columns
         .iter()

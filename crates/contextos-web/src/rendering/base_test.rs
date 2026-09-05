@@ -20,7 +20,7 @@ fn a_row_with_a_file_path_column_links_to_its_own_vault_route() {
     assert!(view.has_link);
     assert_eq!(view.href, "/example-vault/tasks/one.md");
     assert_eq!(view.note_path.as_deref(), Some("tasks/one.md"));
-    assert_eq!(view.title, "one.md");
+    assert_eq!(view.title, "one");
     assert_eq!(view.columns.len(), 1);
     assert_eq!(view.columns[0].name, "status");
     assert_eq!(view.columns[0].value, "active");
@@ -56,7 +56,7 @@ fn a_row_with_no_file_path_column_still_links_via_any_link_columns_own_target() 
     assert!(view.has_link);
     assert_eq!(view.href, "/example-vault/tasks/a-002.md");
     assert_eq!(view.note_path.as_deref(), Some("tasks/a-002.md"));
-    assert_eq!(view.title, "a-002.md");
+    assert_eq!(view.title, "a-002");
 }
 
 #[test]
